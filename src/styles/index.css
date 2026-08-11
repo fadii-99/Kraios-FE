@@ -1,0 +1,448 @@
+@import 'tailwindcss';
+
+@import '@fontsource/anton';
+@import '@fontsource-variable/archivo';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+/* ---------------------------------------------------------------------------
+   Design tokens — premium dark-blue architectural theme.
+   Never hardcode a hex in a component.
+   --------------------------------------------------------------------------- */
+@theme {
+  /* dark blue family — never pure black */
+  --color-navy: #071426;
+  --color-navy-2: #0b1c32;
+  --color-elevated: #102944;
+
+  /* blues */
+  --color-brand: #1677ff;
+  --color-accent: #3b91ff;
+  --color-brand-deep: #0b5ed7; /* AA-safe brand tint for LIGHT sections */
+
+  /* neutrals */
+  --color-light: #f4f6f8;
+  --color-ink: #f7fafc;
+  --color-ink-dark: #0b1624;
+  --color-muted: #9fb2cb; /* on dark  — 8.53:1 */
+  --color-muted-dark: #4a5a6e; /* on light — 6.51:1 */
+
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  /* Anton: single-weight but extremely heavy, condensed and tall — the "thick
+     and elongated" display voice. Used for the big ALL-CAPS section titles. */
+  --font-display: 'Anton', 'Archivo Variable', ui-sans-serif, sans-serif;
+  /* Archivo 800 stays for sub-headings, where Anton's condensed caps would be
+     too shouty at small sizes and in sentence case. */
+  --font-display-alt: 'Archivo Variable', 'Inter Variable', ui-sans-serif, sans-serif;
+
+  --spacing-section: clamp(6rem, 13vw, 12rem);
+  --spacing-gutter: clamp(1.25rem, 4vw, 4.5rem);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* `touch:` — a device that is actually tapped, at any width. Text links sized
+   for a mouse (the footer rows, the wordmark) get grown to the 44px target on
+   touch without moving a single pixel of the mouse-driven desktop layout. A
+   width breakpoint cannot express this: a 1024px tablet is touch, a 1024px
+   laptop is not. */
+@custom-variant touch (@media (pointer: coarse));
+
+/* ---------------------------------------------------------------------------
+   Tone system — a section declares its tone, children read the vars.
+   This is what lets the same components live on dark and light bands.
+   --------------------------------------------------------------------------- */
+@layer components {
+  .tone-dark {
+    --tone-bg: var(--color-navy);
+    --tone-ink: var(--color-ink);
+    --tone-muted: var(--color-muted);
+    --tone-accent: var(--color-accent);
+    --tone-line: rgba(247, 250, 252, 0.13);
+    --tone-line-strong: rgba(247, 250, 252, 0.28);
+    /* accent fill + near-black ink = 5.79:1; hover stays blue at 7.17:1 */
+    --btn-bg: var(--color-accent);
+    --btn-ink: var(--color-ink-dark);
+    --btn-bg-hover: #5ca5ff;
+    --field-bg: rgba(255, 255, 255, 0.04);
+    /* Opaque twin of --field-bg. The autofill override paints with an inset
+       shadow, which cannot hide the browser's own fill through a translucent
+       colour — it has to be solid. */
+    --field-autofill: #0d1b2e;
+    background-color: var(--tone-bg);
+    color: var(--tone-ink);
+  }
+
+  .tone-deep {
+    --tone-bg: var(--color-navy-2);
+    --tone-ink: var(--color-ink);
+    --tone-muted: var(--color-muted);
+    --tone-accent: var(--color-accent);
+    --tone-line: rgba(247, 250, 252, 0.13);
+    --tone-line-strong: rgba(247, 250, 252, 0.28);
+    --btn-bg: var(--color-accent);
+    --btn-ink: var(--color-ink-dark);
+    --btn-bg-hover: #5ca5ff;
+    --field-bg: rgba(255, 255, 255, 0.04);
+    --field-autofill: #12233b;
+    background-color: var(--tone-bg);
+    color: var(--tone-ink);
+  }
+
+  .tone-light {
+    --tone-bg: var(--color-light);
+    --tone-ink: var(--color-ink-dark);
+    --tone-muted: var(--color-muted-dark);
+    --tone-accent: var(--color-brand-deep);
+    --tone-line: rgba(11, 22, 36, 0.14);
+    --tone-line-strong: rgba(11, 22, 36, 0.3);
+    /* The CTA stays inside the blue identity on both states. `--color-brand`
+       (#1677FF) is NOT usable as a button fill: white on it is 3.92:1 and dark
+       ink on it is 4.43:1 — both fail AA. brand-deep passes at 5.57:1 and the
+       hover deepens to 7.41:1, so the button never turns white. */
+    --btn-bg: var(--color-brand-deep);
+    --btn-ink: var(--color-ink);
+    --btn-bg-hover: #0e4fa8;
+    --field-bg: #ffffff;
+    --field-autofill: #ffffff;
+    background-color: var(--tone-bg);
+    color: var(--tone-ink);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Base
+   --------------------------------------------------------------------------- */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-navy);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    border-radius: 0;
+    font: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--tone-accent, var(--color-accent));
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background-color: var(--color-brand);
+    color: var(--color-ink);
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Utilities
+   --------------------------------------------------------------------------- */
+@layer utilities {
+  /* architectural drafting-annotation voice */
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  /* Oversized uppercase display type — the primary design feature.
+     Archivo at 900 across the board: a true black weight, so headings read
+     genuinely heavy and fill their measure. */
+
+  /* Anton is condensed, so it buys horizontal room — sizes go up accordingly
+     and the type reads taller and denser. Weight is 400 because that IS Anton's
+     only cut; asking for 900 would trigger nothing (synthesis is disabled). */
+
+  /* Hero only. Sized so each authored line fits on ONE visual line — if it
+     wraps, the line breaks land in the wrong places and the block reads broken. */
+  .display-xl {
+    font-family: var(--font-display);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.004em;
+    line-height: 0.94;
+    font-size: clamp(2.75rem, 6.6vw, 6.25rem);
+    text-wrap: nowrap;
+  }
+
+  /* Below 400px the 2.75rem floor stops shrinking while the column keeps
+     narrowing, so the nowrap headline runs past its measure and the hero's
+     `overflow-hidden` silently clips it ("FROM FLOOR PLANS" measured 317px in a
+     280px column at 320px wide). 11vw resolves to exactly 2.75rem at 400px, so
+     this is continuous with the clamp above and changes nothing at ≥400px. */
+  @media (max-width: 400px) {
+    .display-xl {
+      font-size: 11vw;
+    }
+  }
+
+  /* EVERY section heading uses this — About, Process, Why Us, Team, FAQ and
+     Contact are deliberately identical so the page reads as one system.
+     Below lg the line is allowed to wrap; there simply isn't the width. */
+  .display-lg {
+    font-family: var(--font-display);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.006em;
+    line-height: 0.9;
+    font-size: clamp(2.75rem, 9vw, 4.5rem);
+  }
+
+  /* Desktop/laptop: every section heading holds ONE line.
+     The ceiling is set by the longest heading ("WE TURN FLOOR PLANS INTO
+     VISUAL EXPERIENCES"), measured at ~18.1px of width per 1px of font. The
+     widest container is 1264px, so 4.25rem/68px is the largest safe cap. */
+  @media (min-width: 1024px) {
+    /* One size for EVERY section heading, FAQ included. The headings are all
+       short now, so this clears the single-line rule at every breakpoint —
+       verified by measuring real text width against the available column. */
+    .display-lg {
+      white-space: nowrap;
+      font-size: clamp(3rem, 6.2vw, 6rem);
+    }
+
+    /* FAQ keeps only its three-line stacking, not a different size. */
+    .display-lg--stack {
+      white-space: normal;
+      line-height: 0.88;
+    }
+  }
+
+  /* The sub-display tier: one step under `.display-lg`, same Anton voice.
+     Used by the Process step titles, the mobile menu items and the auth page
+     titles — all of which are "a heading below the section heading".
+
+     IMPORTANT: these `.display-*` classes own `font-size`. Do NOT try to shrink
+     one with a Tailwind `text-[...]` utility — both land in the utilities layer
+     at equal specificity and the hand-written rule here is emitted last, so it
+     wins and the override is silently ignored. That is exactly how the Process
+     step titles ended up rendering at 89px instead of 46px and being clipped
+     mid-word. Pick the right tier instead of overriding one. */
+  .display-sm {
+    font-family: var(--font-display);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.006em;
+    line-height: 0.96;
+    font-size: clamp(1.75rem, 3.4vw, 3rem);
+  }
+
+  /* Sub-headings (step titles, FAQ questions, form heading) */
+  .display-md {
+    font-family: var(--font-display-alt);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.04;
+    font-size: clamp(1.375rem, 2.6vw, 2.125rem);
+  }
+
+  /* Wrapper for line-by-line masked reveals */
+  .line-mask {
+    display: block;
+    overflow: hidden;
+    padding-bottom: 0.08em;
+  }
+
+  .measure {
+    max-width: 64ch;
+  }
+
+  /* Hero scrim — deliberately light so the footage stays the subject.
+     Vertical band only handles the navbar top and the fade into About. */
+  .scrim-hero {
+    background: linear-gradient(
+      to bottom,
+      rgba(7, 20, 38, 0.5) 0%,
+      rgba(7, 20, 38, 0.16) 24%,
+      rgba(7, 20, 38, 0.14) 58%,
+      rgba(7, 20, 38, 0.6) 86%,
+      rgba(7, 20, 38, 0.92) 100%
+    );
+  }
+
+  /* Left-side shade: this is what makes left-aligned copy legible over video
+     without darkening the whole frame. Holds ~0.9 across the copy column, then
+     releases quickly so the right half of the footage stays bright. */
+  .scrim-left {
+    background: linear-gradient(
+      to right,
+      rgba(7, 20, 38, 0.92) 0%,
+      rgba(7, 20, 38, 0.86) 26%,
+      rgba(7, 20, 38, 0.6) 46%,
+      rgba(7, 20, 38, 0.16) 68%,
+      rgba(7, 20, 38, 0) 84%
+    );
+  }
+
+  /* Slight blue grade so the footage reads as one piece with the brand */
+  .grade-brand {
+    background: linear-gradient(to bottom, rgba(22, 119, 255, 0.16), rgba(7, 20, 38, 0.1));
+    mix-blend-mode: overlay;
+  }
+
+  .scrim-media {
+    background: linear-gradient(to top, rgba(7, 20, 38, 0.88) 0%, rgba(7, 20, 38, 0) 62%);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Autofill
+
+   Browsers repaint an autofilled field with their own background and text
+   colour, which overrode `--field-bg` and left saved emails sitting in a grey
+   slab with washed-out text.
+
+   There is no property that simply sets an autofilled background: the UA style
+   wins. The fix is to cover the field with an inset box-shadow — that IS the
+   standard workaround — pin the glyph colour with `-webkit-text-fill-color`
+   (plain `color` is also overridden), and park Chrome's internal background
+   transition on ours with an absurd delay so it never animates back.
+
+   `:-webkit-autofill` and `:autofill` are kept in SEPARATE blocks on purpose. A
+   selector list is dropped whole if any selector in it fails to parse, so
+   combining them would lose the rule in whichever engine does not know the other.
+   --------------------------------------------------------------------------- */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--tone-ink);
+  caret-color: var(--tone-ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--field-autofill, var(--field-bg)) inset;
+  box-shadow: 0 0 0 1000px var(--field-autofill, var(--field-bg)) inset;
+  transition: background-color 100000s ease-in-out 0s;
+}
+
+input:autofill,
+textarea:autofill,
+select:autofill {
+  caret-color: var(--tone-ink);
+  box-shadow: 0 0 0 1000px var(--field-autofill, var(--field-bg)) inset;
+  transition: background-color 100000s ease-in-out 0s;
+}
+
+/* Focused AND autofilled: keep FormInput's brand-blue lift, which the plain
+   autofill rule above would otherwise replace. */
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--tone-ink);
+  -webkit-box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--tone-accent) 16%, transparent),
+    0 0 0 1000px var(--field-autofill, var(--field-bg)) inset;
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--tone-accent) 16%, transparent),
+    0 0 0 1000px var(--field-autofill, var(--field-bg)) inset;
+}
+
+input:autofill:focus,
+textarea:autofill:focus {
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--tone-accent) 16%, transparent),
+    0 0 0 1000px var(--field-autofill, var(--field-bg)) inset;
+}
+
+/* PageLoader overlay — light architectural surface, never dark or black. */
+.page-loader {
+  background-color: var(--color-light);
+}
+
+/* Blueprint grid: two hairline scales, kept very faint so it reads as paper
+   texture rather than pattern. */
+.page-loader__grid {
+  background-image:
+    linear-gradient(to right, rgba(11, 22, 36, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(11, 22, 36, 0.045) 1px, transparent 1px),
+    linear-gradient(to right, rgba(22, 119, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(22, 119, 255, 0.05) 1px, transparent 1px);
+  background-size:
+    32px 32px,
+    32px 32px,
+    160px 160px,
+    160px 160px;
+  /* fade the grid out toward the edges so it never competes with the icon */
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 35%, transparent 100%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 35%, transparent 100%);
+}
+
+/* PageLoader: blueprint lines drawing themselves, then repeating */
+@keyframes plan-draw {
+  0% {
+    stroke-dashoffset: var(--dash, 256);
+    opacity: 0.25;
+  }
+  45% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  75% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: var(--dash, 256);
+    opacity: 0.25;
+  }
+}
+
+.plan-draw {
+  animation: plan-draw 2.1s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.plan-draw--delay {
+  --dash: 120;
+  animation-delay: 0.22s;
+}
+
+.plan-draw--delay2 {
+  --dash: 64;
+  animation-delay: 0.42s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-draw {
+    animation: none;
+    stroke-dashoffset: 0 !important;
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion — content lands in its final state, never invisible.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

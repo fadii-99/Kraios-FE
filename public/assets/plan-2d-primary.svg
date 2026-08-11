@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 920" width="1280" height="920" role="img" aria-label="Two-dimensional measured floor plan">
+  <defs>
+    <pattern id="grid2d" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#F5F7FA" stroke-opacity="0.04" stroke-width="1"/>
+    </pattern>
+    <g id="swing-r">
+      <path d="M0 0h84" stroke="#8C97A8" stroke-width="2"/>
+      <path d="M0 0a84 84 0 0 1 84 84" fill="none" stroke="#8C97A8" stroke-width="1.5" stroke-dasharray="4 4"/>
+    </g>
+  </defs>
+
+  <rect width="1280" height="920" fill="#0A0F16"/>
+  <rect width="1280" height="920" fill="url(#grid2d)"/>
+
+  <!-- ===== WALLS ===== -->
+  <g stroke="#E8EEF7" stroke-linecap="square" fill="none">
+    <!-- exterior shell, drawn as segments to leave window + door openings -->
+    <g stroke-width="11">
+      <path d="M110 140h180"/><path d="M410 140h250"/><path d="M780 140h390"/>
+      <path d="M1170 140v170"/><path d="M1170 430v180"/><path d="M1170 730v50"/>
+      <path d="M1170 780H930"/><path d="M810 780H520"/><path d="M400 780H110"/>
+      <path d="M110 780V620"/><path d="M110 500V300"/><path d="M110 180v-40"/>
+    </g>
+    <!-- interior partitions -->
+    <g stroke-width="7">
+      <path d="M660 140v150"/><path d="M660 390v130"/><path d="M660 620v160"/>
+      <path d="M110 470h180"/><path d="M380 470h280"/>
+      <path d="M660 420h170"/><path d="M930 420h240"/>
+      <path d="M930 620v160"/><path d="M930 620h240"/>
+    </g>
+  </g>
+
+  <!-- ===== WINDOWS ===== -->
+  <g stroke="#2F8FFF" stroke-width="3" fill="none">
+    <path d="M290 140h120"/><path d="M660 140h120"/>
+    <path d="M1170 310v120"/><path d="M1170 610v120"/>
+    <path d="M400 780h120"/><path d="M810 780h120"/>
+    <path d="M110 500v120"/>
+  </g>
+  <g stroke="#0A0F16" stroke-width="1" fill="none">
+    <path d="M290 140h120"/><path d="M660 140h120"/>
+    <path d="M1170 310v120"/><path d="M1170 610v120"/>
+    <path d="M400 780h120"/><path d="M810 780h120"/>
+    <path d="M110 500v120"/>
+  </g>
+
+  <!-- ===== DOOR SWINGS ===== -->
+  <use href="#swing-r" x="290" y="470"/>
+  <use href="#swing-r" x="830" y="420" transform="rotate(180 872 420)"/>
+  <g transform="translate(660 290)"><path d="M0 0v100" stroke="#8C97A8" stroke-width="2"/><path d="M0 0a100 100 0 0 0 100 100" fill="none" stroke="#8C97A8" stroke-width="1.5" stroke-dasharray="4 4"/></g>
+  <g transform="translate(660 520)"><path d="M0 0v100" stroke="#8C97A8" stroke-width="2"/><path d="M0 0a100 100 0 0 0 100 100" fill="none" stroke="#8C97A8" stroke-width="1.5" stroke-dasharray="4 4"/></g>
+
+  <!-- ===== FURNITURE ===== -->
+  <g stroke="#6E7A8C" stroke-width="2" fill="none">
+    <!-- kitchen run + island -->
+    <path d="M130 160h300v70H130z"/><path d="M130 230v180h70V230"/>
+    <rect x="250" y="300" width="190" height="80"/>
+    <circle cx="200" cy="195" r="20"/><circle cx="280" cy="195" r="20"/>
+    <!-- dining table -->
+    <circle cx="540" cy="300" r="72"/><circle cx="540" cy="300" r="6" fill="#6E7A8C"/>
+    <!-- living: sofa + rug + media wall -->
+    <path d="M170 690h300v70H170z"/><path d="M170 690v-30h300v30"/>
+    <rect x="230" y="540" width="180" height="18"/>
+    <rect x="200" y="560" width="270" height="120" stroke-dasharray="6 5"/>
+    <!-- principal bed -->
+    <rect x="760" y="180" width="200" height="220"/><path d="M760 240h200"/>
+    <rect x="720" y="180" width="34" height="46"/><rect x="966" y="180" width="34" height="46"/>
+    <!-- second bed -->
+    <rect x="700" y="640" width="170" height="120"/><path d="M756 640v120"/>
+    <!-- bath -->
+    <rect x="960" y="650" width="80" height="120" rx="8"/>
+    <circle cx="1110" cy="690" r="26"/><rect x="1070" y="730" width="80" height="34"/>
+  </g>
+
+  <!-- ===== ROOM LABELS ===== -->
+  <g font-family="ui-monospace, monospace" font-size="17" letter-spacing="3.4" fill="#F5F7FA">
+    <text x="340" y="430">KITCHEN / DINING</text>
+    <text x="240" y="620">LIVING ROOM</text>
+    <text x="770" y="470">PRINCIPAL BEDROOM</text>
+    <text x="700" y="600">BEDROOM 02</text>
+    <text x="985" y="600">BATH</text>
+  </g>
+  <g font-family="ui-monospace, monospace" font-size="13" letter-spacing="2.2" fill="#8C97A8">
+    <text x="340" y="454">28.4 M²</text>
+    <text x="240" y="644">31.2 M²</text>
+    <text x="770" y="494">24.0 M²</text>
+    <text x="700" y="624">16.8 M²</text>
+    <text x="985" y="624">6.2 M²</text>
+  </g>
+
+  <!-- ===== DIMENSION STRINGS ===== -->
+  <g stroke="#2F8FFF" stroke-width="1.25" fill="none" stroke-opacity="0.85">
+    <path d="M110 850h1060"/>
+    <path d="M110 838v24M660 838v24M1170 838v24"/>
+    <path d="M60 140v640"/>
+    <path d="M48 140h24M48 470h24M48 780h24"/>
+  </g>
+  <g font-family="ui-monospace, monospace" font-size="13" letter-spacing="2" fill="#2F8FFF">
+    <text x="352" y="878" text-anchor="middle">10 400</text>
+    <text x="900" y="878" text-anchor="middle">10 200</text>
+    <text x="34" y="312" text-anchor="middle" transform="rotate(-90 34 312)">6 600</text>
+    <text x="34" y="632" text-anchor="middle" transform="rotate(-90 34 632)">6 200</text>
+  </g>
+
+  <!-- ===== TITLE BLOCK ===== -->
+  <g font-family="ui-monospace, monospace" letter-spacing="3" fill="#8C97A8" font-size="13">
+    <path d="M110 60h1060" stroke="#F5F7FA" stroke-opacity="0.12" stroke-width="1"/>
+    <text x="110" y="46" fill="#F5F7FA" font-size="15">LEVEL 02 — RESIDENTIAL UNIT B</text>
+    <text x="1170" y="46" text-anchor="end">SCALE 1:100</text>
+    <text x="110" y="900">DRAWING 2D-104</text>
+    <text x="1170" y="900" text-anchor="end">FLOOR STUDIO</text>
+  </g>
+
+  <!-- north arrow -->
+  <g transform="translate(1120 100)" stroke="#F5F7FA" stroke-opacity="0.5" fill="none" stroke-width="1.5">
+    <circle r="18"/><path d="M0 -13v26" /><path d="M0 -13l6 9h-12z" fill="#2F8FFF" stroke="none"/>
+    <text x="0" y="-26" font-family="ui-monospace, monospace" font-size="11" fill="#8C97A8" text-anchor="middle" stroke="none">N</text>
+  </g>
+</svg>
