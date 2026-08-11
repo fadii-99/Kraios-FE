@@ -66,7 +66,7 @@ export const authLinks = {
 }
 
 export const hero = {
-  eyebrow: '2D & 3D Floor Plan Visualization',
+  eyebrow: '2D & 3D Floor Plan Visualizations',
   headlineLines: ['From Blueprints', 'To Real Spaces'],
   body:
     'We turn architectural drawings into measured 2D plans and photoreal 3D visualization — so a space can be understood, and sold, long before it is built.',
