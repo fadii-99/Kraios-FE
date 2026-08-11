@@ -43,7 +43,7 @@ export const PROCESS_SIZES = '(min-width: 1024px) 46vw, 92vw'
 export const site = {
   name: 'FLOOR',
   logo: '/assets/website_logo-128.png',
-  tagline: '2D & 3D Floor Plan Visualization',
+  tagline: '2D & 3D Floor Plan Visualizations',
   email: 'hello@example.com',
   phone: '+1 (000) 000 0000',
 }
