@@ -41,7 +41,7 @@ export default function Footer() {
 
           {/* Sections that genuinely exist on the landing page */}
           <nav aria-label="Sections" className="lg:col-span-2">
-            <h2 className="label-mono text-[var(--tone-muted)]">Sections</h2>
+            <h2 className="label-ui text-[var(--tone-muted)]">Sections</h2>
             <ul className="mt-6 space-y-3.5">
               {footer.sections.map((link) => (
                 <li key={link.id}>
@@ -59,7 +59,7 @@ export default function Footer() {
 
           {/* Real routes, not decoration */}
           <nav aria-label="Account" className="lg:col-span-2">
-            <h2 className="label-mono text-[var(--tone-muted)]">Account</h2>
+            <h2 className="label-ui text-[var(--tone-muted)]">Account</h2>
             <ul className="mt-6 space-y-3.5">
               {footer.account.map((link) => (
                 <li key={link.to}>
@@ -75,7 +75,7 @@ export default function Footer() {
           </nav>
 
           <div className="lg:col-span-3">
-            <h2 className="label-mono text-[var(--tone-muted)]">Contact</h2>
+            <h2 className="label-ui text-[var(--tone-muted)]">Contact</h2>
             <ul className="mt-6 space-y-3.5">
               <li>
                 <a
@@ -98,10 +98,10 @@ export default function Footer() {
         </div>
 
         <div className="mt-16 flex flex-col gap-3 border-t border-[var(--tone-line)] pt-7 sm:flex-row sm:items-center sm:justify-between">
-          <p className="label-mono text-[var(--tone-muted)]">
-            © {year} {site.name} — {site.tagline}
+          <p className="label-ui text-[var(--tone-muted)]">
+            © {year} {site.name} | {site.tagline}
           </p>
-          <p className="label-mono text-[var(--tone-muted)]">{footer.legalNote}</p>
+          <p className="label-ui text-[var(--tone-muted)]">{footer.legalNote}</p>
         </div>
       </Container>
     </footer>

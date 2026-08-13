@@ -1,4 +1,4 @@
-# Floor — Progress
+# Kraios — Progress
 
 Landing page plus the auth routes (Login, Forgot Password, Signup/Booking).
 
@@ -18,11 +18,87 @@ Tone rhythm alternates dark-blue and light:
 | — | Hero (left-aligned, video background) | dark navy | `home` |
 | 01 | About Us | light | `about` |
 | 02 | How It Works (2D → 3D → customize → download) | dark navy | `process` |
-| 03 | Why Choose Us | light | `why` |
-| 04 | Meet the Team | deep navy | `team` |
+| 03 | Why Kraios | light | `why` |
+| 04 | The Team | deep navy | `team` |
 | 05 | Frequently Asked | light | `faq` |
-| 06 | Contact | light + navy form panel | `contact` |
+| 06 | Contact — final CTA (no form) | light | `contact` |
 | — | Footer | dark navy | — |
+
+---
+
+## C. Client content v2 — Kraios (applied)
+
+Content and branding pass over the approved build. **No layout, animation,
+routing, breakpoint or component redesign** — everything below is copy, data and
+the two routing changes the new CTAs require.
+
+### Branding
+
+- [x] Brand is **KRAIOS** everywhere in the DOM — navbar mark `aria-label`,
+      oversized footer wordmark, footer legal line, loader/auth labels
+- [x] `site.name` / `site.tagline` are the single source; footer strap now reads
+      **KRAIOS | FROM BRIEF TO ESTIMATE**
+- [x] "Floor"/"FLOOR STUDIO" gone from all `src/` and `index.html` copy
+- [x] Product terminology **kept**: floor plan, 2D floor plan, 3D floor plan
+- [ ] **"FLOOR STUDIO" still baked into the plan SVG title blocks** — see below
+
+### Positioning
+
+- [x] Agency language removed — no "send us", "share your files", "tell us what
+      you need", "we'll build it for you"
+- [x] "photoreal / photorealistic" removed from meta description and all copy
+- [x] Copy reframed as self-serve SaaS: the user uploads, iterates and exports
+      inside the platform, with their own login
+
+### SEO / meta (`index.html`, existing Vite setup — no SEO library added)
+
+- [x] Title → `Kraios — From Brief to Estimate | AI Design Partner for Architecture Firms`
+- [x] Description → the client's BoQ one-liner
+- [x] `theme-color` `#071426` (already correct, left alone)
+
+### Sections
+
+- [x] **Navigation** — Home · About · How It Works · **Why Kraios** · Team · FAQ ·
+      Contact. Ids unchanged, so scroll-spy, smooth scroll and cross-route
+      scrolling all still work. Log In / Sign Up unchanged
+- [x] **Hero** — new eyebrow, two-line `FROM BRIEF / TO ESTIMATE.`, new
+      paragraph. Primary CTA **Sign Up** now *routes* to `/signup` (was a scroll);
+      secondary **See How It Works** still scrolls to `#process`
+- [x] **About** — new paragraph; stats now Established 2026 · Headquarters Dubai,
+      UAE · Plans Delivered 20+ · Markets Served 5+. Same editorial `<dl>`, no
+      stat cards introduced
+- [x] **How It Works** — all four steps rewritten to the platform workflow
+      (upload → 3D model → materials/quantities/pricing → export BoQ), chips
+      updated. Sticky/crossfade behaviour untouched and verified in sync
+- [x] **Why Choose Us → Why Kraios** — heading, eyebrow, nav label and all four
+      benefits replaced. Kept the editorial split + framed visual; icons remapped
+      to match the new benefits (Phosphor, same size/weight/container). Not
+      converted into SaaS cards
+- [x] **Team** — Michel Abourizk, Jad Soubra, Hammad Rizwan + collective
+      "The Build Team / Engineering & AI" fourth slot. The bio row is now
+      conditional so the collective entry renders no empty gap
+- [x] **FAQ** — 12 client items, three-line desktop heading kept, accordion
+      behaviour untouched
+- [x] **Contact → final CTA** — `SEE IT ON YOUR / NEXT PROJECT.` + paragraph +
+      **Sign Up** (primary) and **Schedule a Session** (secondary), both real
+      `<Link>`s. The generic project-enquiry form was **removed** and
+      `ContactForm.jsx` deleted
+- [x] **Footer** — brand strap updated; the placeholder note replaced with the
+      client's own product line
+
+### Auth pages (copy only — architecture untouched)
+
+- [x] `/signup` fields are now **Name · Firm · Email · Country** plus the
+      existing date + time pickers; submit is "Schedule Session"; confirmation
+      modal reads **"Booked. A calendar invitation is on its way."**
+- [x] `/login` description and the "no account yet" line de-agencied
+- [x] `you@studio.com` → `you@firm.com`; the fake-person placeholder replaced
+
+### Open item — both final CTAs share one route
+
+`Sign Up` and `Schedule a Session` both point at `/signup`, because `/signup` is
+the only account/session route that exists and no account backend was invented
+for this pass. They should diverge once a real account-creation flow lands.
 
 ---
 
@@ -525,6 +601,141 @@ is untouched.
 | Booking submit → modal labelled, body locked, focus inside; Escape restores | pass |
 | Mobile menu at 320/390: fits viewport, no clipping, no overflow | pass |
 
+### Display typography change — Anton removed (applied)
+
+Client rejected the condensed/poster heading face. **Typography only** — no layout,
+colour, spacing, media, animation or component change.
+
+- [x] `--font-display` is now `'Inter Variable', 'Archivo Variable', ui-sans-serif, sans-serif`
+- [x] Anton removed from the stack **and** its `@fontsource/anton` import dropped, so it
+      no longer ships (~74kB of woff/woff2 gone from `dist`). The npm package is still in
+      `package.json` and can be uninstalled
+- [x] Display weight **400 → 700** across `.display-xl` / `.display-lg` / `.display-sm`
+- [x] Tracking flipped positive → negative (`-0.03em` xl/lg, `-0.02em` sm); line-heights
+      opened very slightly (0.94→0.95, 0.9→0.95, 0.96→1)
+- [x] Sizes re-capped because Inter sets ~⅓ wider than Anton:
+      `.display-lg` desktop `clamp(3rem, 6.2vw, 6rem)` → `clamp(2.75rem, 5vw, 4.5rem)`;
+      base floor `2.75rem` → `2.5rem`; `.display-sm` `clamp(1.75rem, 3.4vw, 3rem)` →
+      `clamp(1.5rem, 3.1vw, 2.75rem)`. **`.display-xl` kept its original size**
+- [x] `.display-md` deliberately untouched — still Archivo 800, the sentence-case tier
+- [x] All copy unchanged; hero still two lines, FAQ still three, Contact still two
+- [x] 176/176 heading-fit checks across 11 widths, every heading ≥24px clear of its box
+
+### Production build + deploy readiness
+
+Clean build from an empty `dist`: **1.4 MB total, 4608 modules, ~1.6s.**
+`npm run lint` clean. Route chunks split as intended (Home 84.8kB / Signup 15.7kB /
+ForgotPassword 4.2kB / Login 2.5kB; vendor 380kB → **126kB gzipped**).
+
+**Blocker found and fixed — SPA deep links returned 404.** The app uses
+`createBrowserRouter`, so `/login`, `/signup` and `/forgot-password` have no file on
+disk. `vite preview` adds an SPA fallback automatically, which hid this for every test
+run so far; served from a plain static server all three returned a hard 404. Added:
+
+- `public/_redirects` — Netlify / Cloudflare Pages / Render (`/* /index.html 200`)
+- `vercel.json` — Vercel, with `/assets/` excluded so a missing asset still 404s
+  instead of silently returning HTML
+
+Re-verified against a server that applies the rewrite: all routes 200, a genuinely
+missing asset still 404s. For nginx use `try_files $uri $uri/ /index.html;`; for Apache
+an equivalent `mod_rewrite` fallback.
+
+**Full suite re-run against the production `dist` (not `vite preview`): 220/220** —
+92/92 responsive, 98/98 client content/typography, 30/30 scroll-spy/navbar. No console
+errors or warnings.
+
+**Security:** `npm audit --omit=dev` → **0 vulnerabilities**. One high-severity `nanoid`
+advisory exists in *dev* dependencies only (Vite tooling); it does not ship. `npm audit
+fix` clears it when convenient.
+
+#### Still open before a real launch
+
+| Item | Impact |
+|---|---|
+| `public/assets/website_logo.png` (344kB) is the 1192×1192 **source** original, referenced only in comments, but `public/` ships it — **~25% of the bundle** | move it out of `public/` |
+| 4 unused drawings ship: `hero-poster.svg`, `plan-2d-detail.svg`, `plan-2d-primary.svg`, `plan-3d-primary.svg` (~28kB) | minor |
+| `@fontsource-variable/archivo`, `@fontsource-variable/jetbrains-mono`, `@fontsource/anton` still in `package.json`, imported by nothing | slows `npm ci`, not the bundle |
+| `site.email` / `site.phone` are still the deliberate dummies and are **visible** in the footer and mobile menu | launch blocker |
+| Hero video + 3 images are hotlinked from Pexels/Unsplash | third-party CDN dependency in production |
+| No OG / Twitter card meta | link previews are bare |
+
+### Two-font cleanup + Kraios favicon (applied)
+
+- [x] **Site is now a single typeface, Inter Variable**, in two roles: display (700,
+      uppercase, negative tracking) and body (400/500/600). Approved heading look
+      unchanged — same family, weight and sizes as the previous pass
+- [x] **JetBrains Mono removed.** `.label-mono` → **`.label-ui`** in Inter (52 usages
+      renamed across 18 files, 0 left). Weight 500→600 and tracking 0.2em→0.16em to
+      compensate for Inter's wider caps
+- [x] **Archivo removed.** It was reachable only from `.display-md`, which had zero
+      usages; both are gone
+- [x] Four `font-mono` utility usages (About stats, Process step numbers ×2, backdrop
+      coordinates) now use **`tabular-nums`** — same figure alignment, no second family
+- [x] `--font-mono: initial` deletes Tailwind's `font-mono` utility as a guardrail
+- [x] Bundle: **15 font files → 7**, Inter only
+- [x] **Favicon = the Navbar's own Kraios mark** (`/assets/website_logo-128.png`), plus
+      `apple-touch-icon`. Old Floor `favicon.svg` deleted. Verified legible at 16/24/32px
+      on light and dark tab strips
+- [x] Navbar clearance at 1024px **improved 5px → 15px** as a side effect of the tracking
+
+### Client V2 content audit — verified against the live production build
+
+**98/98 checks passed.** Every string compared to the client's approved copy
+character-for-character (curly vs straight apostrophes normalised).
+
+| Area | Result |
+|---|---|
+| Title / meta description / theme-color | exact match |
+| Favicon = navbar logo asset, loads 200 | pass |
+| Nav labels + LOG IN / SIGN UP | exact |
+| Hero eyebrow, 2 headline lines, paragraph, both CTAs | exact |
+| About label, heading, paragraph, 4 stats | exact |
+| How It Works heading, intro, 4 × (title, chips, body) | exact |
+| Why Kraios heading, intro, 4 × (title, body) | exact |
+| Team heading, intro, 3 members + Build Team slot | exact |
+| FAQ 3-line heading, intro, **all 12 Q&A pairs** | exact |
+| Final CTA 2 headline lines, paragraph, both CTAs, no form | exact |
+| Footer strap renders `KRAIOS \| FROM BRIEF TO ESTIMATE` | pass |
+| No "Floor"/"Floor Studio" brand in rendered DOM (all routes) | pass |
+| "floor plan" product term preserved | pass |
+| No photoreal / "send us" / "share your files" / agency wording | pass |
+| Every text element computes to Inter Variable | pass |
+| Media unchanged (video, poster, 2 plan SVGs, 3 Unsplash, 4 team plates) | pass |
+
+Regression suites re-run green after the change: **92/92** responsive, **30/30**
+scroll-spy/navbar, **176/176** heading-fit across 11 widths. No console errors or
+warnings.
+
+### Content v2 verification (production build, headless Chrome over CDP)
+
+`npm run lint` clean · `npm run build` succeeds · **92/92 automated checks pass.**
+
+| Check | Result |
+|---|---|
+| Horizontal overflow at 1440/1280/1024/768/430/390/375/320 | none |
+| Clipped `display-*` headings, every width | none |
+| Reveals stranded below full opacity after settling | none |
+| Console errors, every width and route | none |
+| Failed / 4xx requests | none; all 16 images load |
+| Hero headline holds two lines at every width | pass |
+| Contact headline holds two lines at every width | pass |
+| 12 FAQ items render; one panel open at a time; aria wired | pass |
+| Navbar labels + one h1 / one navbar / one footer per route | pass |
+| `SEE HOW IT WORKS` → `#process` at the navbar offset | pass (top 76px) |
+| `WHY KRAIOS` nav → `#why` | pass (top 76px) |
+| Hero `SIGN UP` → `/signup` · navbar `LOG IN`/`SIGN UP` | pass |
+| Contact CTAs are two real links, section carries no form | pass |
+| Footer "Why Kraios" from `/login` routes home then scrolls | pass |
+| `/signup` fields = Name, Firm, Email, Country | pass |
+| `/signup` submit → "Booked. A calendar invitation is on its way." | pass |
+| How It Works sticky visual in sync with the active step (all 4) | pass |
+| Reduced motion — content lands final | pass |
+
+Measured, not estimated: at **1024px the primary nav clears the auth buttons by
+5px**. "Why Kraios" is a wider label than "Why Us", so this is the tightest the
+bar has been. No overlap and no overflow, but it is the first thing to re-measure
+if another nav item is ever added.
+
 ### Remaining performance concerns
 
 - **The hero video is still a 1080p MP4 on every device.** It is by far the largest
@@ -542,15 +753,35 @@ is untouched.
 
 - **Placeholder media is hotlinked** (Unsplash images, Pexels video). Verified live, but
   it means no offline dev and no control over the CDN. Replace before launch.
-- **Contact form is frontend-only.** Submit simulates a 900ms request.
+- **Forms are frontend-only.** Signup/booking and password reset each simulate a
+  900ms request; there is no backend.
+- **Team portraits do not depict the named people**, and the fourth portrait is a
+  single person standing in for the collective "The Build Team" entry.
 - **Headless Chrome cannot composite `<video>` into screenshots**, so the hero video is
   absent from the captures. It was verified playing by inspecting the element directly.
 
 ## Next up
 
-- [ ] Replace all placeholder media with real studio work
-- [ ] Wire the contact form to a backend or form service
-- [ ] Decide whether Why Choose Us / FAQ belong in the navbar
-- [ ] OG/SEO meta tags
+### Awaiting client assets — nothing below was changed in the content v2 pass
+
+- [ ] Hero video + hero poster (poster must be regenerated from the new film)
+- [ ] How It Works ×4 — real 2D plan, 3D model view, materials/quantities view,
+      exported BoQ
+- [ ] Why Kraios visual (currently an Unsplash interior standing in for a product view)
+- [ ] Team ×4 portraits
+- [ ] Final Kraios logo — `website_logo.png` and its 128px derivative
+- [ ] **"FLOOR STUDIO" in the plan SVG title blocks** — `plan-2d-light.svg:126`,
+      `plan-3d-light.svg:95`, plus the three unused `plan-*-primary/detail.svg`.
+      Left alone deliberately: editing baked-in brand art was out of scope for
+      the content pass. One `<text>` node per file
+- [ ] Real `site.email` / `site.phone` — still the obvious dummies
+
+### Product / engineering
+
+- [ ] Give `Sign Up` and `Schedule a Session` separate destinations once an
+      account-creation flow exists
+- [ ] Wire signup/booking + password reset to a backend
+- [ ] OG / Twitter card meta (title + description are done)
 - [ ] Safari + real-device pass
+- [ ] Lighthouse / performance budget
 - [ ] Projects/Portfolio route (explicitly out of scope for now)

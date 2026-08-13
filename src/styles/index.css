@@ -1,9 +1,7 @@
 @import 'tailwindcss';
 
-@import '@fontsource/anton';
-@import '@fontsource-variable/archivo';
+/* ONE typeface ships. See the token block below for why. */
 @import '@fontsource-variable/inter';
-@import '@fontsource-variable/jetbrains-mono';
 
 /* ---------------------------------------------------------------------------
    Design tokens — premium dark-blue architectural theme.
@@ -27,14 +25,29 @@
   --color-muted: #9fb2cb; /* on dark  — 8.53:1 */
   --color-muted-dark: #4a5a6e; /* on light — 6.51:1 */
 
+  /* ---------------------------------------------------------------------
+     TYPOGRAPHY — two roles, ONE typeface. Do not add a third.
+
+     `--font-display` and `--font-body` are deliberately the same family:
+     Inter Variable. The roles are separated by weight, size, case and
+     tracking, not by a second typeface —
+
+       display : 700, uppercase, negative tracking  (`.display-*`)
+       body    : 400/500/600, sentence case, normal tracking
+
+     Anton (condensed display) and JetBrains Mono (technical labels) were both
+     removed at the client's request; Archivo was already dead. Nothing but
+     Inter ships now. The `ui-sans-serif`/`system-ui`/`sans-serif` tails are
+     generic fallbacks, not third fonts.
+     --------------------------------------------------------------------- */
+  --font-body: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  /* Tailwind generates `font-sans` from this key; it is the same stack as
+     --font-body so the utility and the token can never disagree. */
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
-  /* Anton: single-weight but extremely heavy, condensed and tall — the "thick
-     and elongated" display voice. Used for the big ALL-CAPS section titles. */
-  --font-display: 'Anton', 'Archivo Variable', ui-sans-serif, sans-serif;
-  /* Archivo 800 stays for sub-headings, where Anton's condensed caps would be
-     too shouty at small sizes and in sentence case. */
-  --font-display-alt: 'Archivo Variable', 'Inter Variable', ui-sans-serif, sans-serif;
+  --font-display: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  /* Kills Tailwind's default `font-mono` utility so a monospace face cannot be
+     reintroduced by reflex. */
+  --font-mono: initial;
 
   --spacing-section: clamp(6rem, 13vw, 12rem);
   --spacing-gutter: clamp(1.25rem, 4vw, 4.5rem);
@@ -117,7 +130,11 @@
 @layer base {
   html {
     scroll-behavior: smooth;
-    scroll-padding-top: 5rem;
+    /* Tracks the 4.25rem navbar. Native anchor jumps (the skip link, any
+       #hash URL) land the target this far down, and the scroll-spy reading
+       line sits below it, so a hash jump lights the section it landed on
+       rather than the one above it. */
+    scroll-padding-top: 4.5rem;
     -webkit-text-size-adjust: 100%;
   }
 
@@ -158,31 +175,48 @@
    Utilities
    --------------------------------------------------------------------------- */
 @layer utilities {
-  /* architectural drafting-annotation voice */
-  .label-mono {
-    font-family: var(--font-mono);
+  /* The architectural drafting-annotation voice: eyebrows, indices, metadata,
+     nav links, button labels, form labels.
+
+     This was `.label-mono`, set in JetBrains Mono. It is Inter now, and the
+     class was renamed with it so no name implies a monospace family survives.
+
+     Two compensations for the switch, both measured:
+       - weight 500 -> 600. Inter at 11px uppercase reads lighter than a mono
+         face at the same size; 600 restores the presence.
+       - tracking 0.2em -> 0.16em. Inter's caps are wider than JetBrains Mono's
+         fixed 0.6em advance, and the seven primary nav labels only clear the
+         auth buttons by a few px at 1024. The reduced tracking pays for the
+         wider glyphs; it still reads as deliberate letterspacing. */
+  .label-ui {
+    font-family: var(--font-body);
     font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.2em;
+    font-weight: 600;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
   }
 
   /* Oversized uppercase display type — the primary design feature.
-     Archivo at 900 across the board: a true black weight, so headings read
-     genuinely heavy and fill their measure. */
+     Inter Variable at 700 across the tiers: normal width, formal, professional.
 
-  /* Anton is condensed, so it buys horizontal room — sizes go up accordingly
-     and the type reads taller and denser. Weight is 400 because that IS Anton's
-     only cut; asking for 900 would trigger nothing (synthesis is disabled). */
+     Inter is NOT condensed, so a given string sets about a third wider than the
+     old Anton did. Two consequences, both deliberate:
+       1. Every `.display-*` size below is capped by the narrowest container the
+          tier has to survive in, not by taste. Raising one re-opens the
+          clipping bug the notes further down describe.
+       2. Tracking is negative. At display size Inter's default side bearings
+          leave the caps looking loose and wide; -0.03em pulls the word back
+          into a solid block and buys back some measure. */
 
   /* Hero only. Sized so each authored line fits on ONE visual line — if it
-     wraps, the line breaks land in the wrong places and the block reads broken. */
+     wraps, the line breaks land in the wrong places and the block reads broken.
+     The hero column (52rem) is generous, so this tier kept its original size. */
   .display-xl {
     font-family: var(--font-display);
-    font-weight: 400;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.004em;
-    line-height: 0.94;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
     font-size: clamp(2.75rem, 6.6vw, 6.25rem);
     text-wrap: nowrap;
   }
@@ -201,36 +235,44 @@
   /* EVERY section heading uses this — About, Process, Why Us, Team, FAQ and
      Contact are deliberately identical so the page reads as one system.
      Below lg the line is allowed to wrap; there simply isn't the width. */
+  /* The 2.5rem floor is set by "FREQUENTLY" — the longest unbreakable word on
+     the page — inside the 280px content column at 320px wide. */
   .display-lg {
     font-family: var(--font-display);
-    font-weight: 400;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.006em;
-    line-height: 0.9;
-    font-size: clamp(2.75rem, 9vw, 4.5rem);
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    font-size: clamp(2.5rem, 9vw, 4.5rem);
   }
 
-  /* Desktop/laptop: every section heading holds ONE line.
-     The ceiling is set by the longest heading ("WE TURN FLOOR PLANS INTO
-     VISUAL EXPERIENCES"), measured at ~18.1px of width per 1px of font. The
-     widest container is 1264px, so 4.25rem/68px is the largest safe cap. */
   @media (min-width: 1024px) {
-    /* One size for EVERY section heading, FAQ included. The headings are all
-       short now, so this clears the single-line rule at every breakpoint —
-       verified by measuring real text width against the available column. */
+    /* One size for EVERY section heading, FAQ included, so the page reads as
+       one system.
+
+       The ceiling is NOT set by the widest heading but by the narrowest column:
+       FAQ's heading sits in a 5-of-12 rail (~366px at 1024, ~525px at 1440) and
+       "FREQUENTLY" cannot break. That word measures ~6.5x the font size in Inter
+       700, which is what fixes 5.2vw / 4.75rem here. Contact's "SEE IT ON YOUR"
+       in its 48rem box is the second constraint and clears comfortably.
+
+       Raising either number re-introduces the exact failure documented in
+       CLAUDE.md: `Section` is `overflow-x-clip`, so an over-wide heading is
+       clipped mid-word without ever triggering page overflow. Re-measure before
+       touching this. */
     .display-lg {
       white-space: nowrap;
-      font-size: clamp(3rem, 6.2vw, 6rem);
+      font-size: clamp(2.75rem, 5vw, 4.5rem);
     }
 
     /* FAQ keeps only its three-line stacking, not a different size. */
     .display-lg--stack {
       white-space: normal;
-      line-height: 0.88;
+      line-height: 0.95;
     }
   }
 
-  /* The sub-display tier: one step under `.display-lg`, same Anton voice.
+  /* The sub-display tier: one step under `.display-lg`, same Inter voice.
      Used by the Process step titles, the mobile menu items and the auth page
      titles — all of which are "a heading below the section heading".
 
@@ -242,21 +284,21 @@
      mid-word. Pick the right tier instead of overriding one. */
   .display-sm {
     font-family: var(--font-display);
-    font-weight: 400;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.006em;
-    line-height: 0.96;
-    font-size: clamp(1.75rem, 3.4vw, 3rem);
+    /* Less negative than the larger tiers: tracking that reads tight at 76px
+       reads cramped at 28px. */
+    letter-spacing: -0.02em;
+    line-height: 1;
+    /* The 1.5rem floor is set by the Process step titles: "Export Your BoQ" and
+       "Materials, Quantities &" are the longest unbreakable runs, and below
+       ~430px they sit in a 244px rail behind a 36px indent. */
+    font-size: clamp(1.5rem, 3.1vw, 2.75rem);
   }
 
-  /* Sub-headings (step titles, FAQ questions, form heading) */
-  .display-md {
-    font-family: var(--font-display-alt);
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    line-height: 1.04;
-    font-size: clamp(1.375rem, 2.6vw, 2.125rem);
-  }
+  /* `.display-md` used to sit here in Archivo 800. It had no usages left in the
+     app, and it was the only thing keeping a third typeface in the build, so it
+     went with the font. Sentence-case sub-headings are plain Inter utilities. */
 
   /* Wrapper for line-by-line masked reveals */
   .line-mask {
@@ -304,6 +346,22 @@
 
   .scrim-media {
     background: linear-gradient(to top, rgba(7, 20, 38, 0.88) 0%, rgba(7, 20, 38, 0) 62%);
+  }
+
+  /* Navigation runs one step lighter than the label and display systems it
+     borrows from, so the bar reads cleaner without touching family, size,
+     tracking, colour or spacing. Applied to the primary nav links, LOG IN /
+     SIGN UP, and their mobile-menu counterparts — nowhere else, because
+     `.label-ui` and `.display-sm` are shared with ~40 other places that keep
+     their own weight.
+
+     It has to live at the END of this layer. `.label-ui` (600) and
+     `.display-sm` (700) are hand-written here too, so at equal specificity the
+     later rule wins — a Tailwind `font-medium` utility would be emitted BEFORE
+     them and silently lose, which is the same trap the `.display-*` note
+     further up describes. */
+  .nav-weight {
+    font-weight: 500;
   }
 }
 

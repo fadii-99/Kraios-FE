@@ -68,7 +68,7 @@ export default function CalendarPicker({ value, onSelect, minDate, id = 'calenda
           <CaretLeft size={16} weight="bold" aria-hidden="true" />
         </button>
 
-        <p className="label-mono text-[var(--tone-ink)]" aria-live="polite" id={`${id}-month`}>
+        <p className="label-ui text-[var(--tone-ink)]" aria-live="polite" id={`${id}-month`}>
           {MONTHS[view.month]} {view.year}
         </p>
 
@@ -84,7 +84,7 @@ export default function CalendarPicker({ value, onSelect, minDate, id = 'calenda
 
       <div className="mt-5 grid grid-cols-7 gap-1" aria-hidden="true">
         {WEEKDAYS.map((d) => (
-          <span key={d} className="label-mono py-2 text-center text-[var(--tone-muted)]">
+          <span key={d} className="label-ui py-2 text-center text-[var(--tone-muted)]">
             {d}
           </span>
         ))}

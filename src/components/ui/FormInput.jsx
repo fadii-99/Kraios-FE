@@ -1,8 +1,8 @@
 import { cn } from '@/lib/cn'
 
 /**
- * The one input used by every form on the site (Contact, Login, Forgot
- * Password, Signup). Boxed, sharp corners, tone-aware surface.
+ * The one input used by every form on the site (Login, Forgot Password,
+ * Signup). Boxed, sharp corners, tone-aware surface.
  *
  * The label is always a real `<label for>` — a placeholder is a hint, never a
  * label. Errors are wired through `aria-describedby` + `role="alert"` and are
@@ -34,7 +34,7 @@ export default function FormInput({
     <div className={cn('group', className)}>
       <label
         htmlFor={id}
-        className="label-mono block text-[var(--tone-muted)] transition-colors duration-300 group-focus-within:text-[var(--tone-accent)]"
+        className="label-ui block text-[var(--tone-muted)] transition-colors duration-300 group-focus-within:text-[var(--tone-accent)]"
       >
         {label}
         {required && (
@@ -79,7 +79,7 @@ export default function FormInput({
       />
 
       {error && (
-        <p id={errorId} role="alert" className="label-mono mt-2.5 text-[#E5484D]">
+        <p id={errorId} role="alert" className="label-ui mt-2.5 text-[#E5484D]">
           Error — {error}
         </p>
       )}

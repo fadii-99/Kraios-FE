@@ -97,8 +97,8 @@ export default function Team() {
           className="flex items-baseline gap-5 border-t border-[var(--tone-line)] pt-5"
           data-reveal
         >
-          <span className="label-mono text-[var(--tone-accent)]">{team.index}</span>
-          <span className="label-mono text-[var(--tone-muted)]">{team.eyebrow}</span>
+          <span className="label-ui text-[var(--tone-accent)]">{team.index}</span>
+          <span className="label-ui text-[var(--tone-muted)]">{team.eyebrow}</span>
         </div>
 
         <AnimatedHeading lines={team.headingLines} className="mt-10" />
@@ -150,12 +150,16 @@ export default function Team() {
                 <h3 className="text-[1.125rem] font-semibold tracking-tight text-[var(--tone-ink)] transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:translate-x-1.5">
                   {member.name}
                 </h3>
-                <p className="label-mono mt-2.5 text-[var(--tone-accent)] transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:translate-x-1.5">
+                <p className="label-ui mt-2.5 text-[var(--tone-accent)] transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:translate-x-1.5">
                   {member.role}
                 </p>
-                <p className="mt-2.5 text-[0.875rem] leading-relaxed text-[var(--tone-muted)]">
-                  {member.meta}
-                </p>
+                {/* The collective fourth slot carries no bio, so the row is
+                    omitted rather than rendered as an empty gap. */}
+                {member.meta && (
+                  <p className="mt-2.5 text-[0.875rem] leading-relaxed text-[var(--tone-muted)]">
+                    {member.meta}
+                  </p>
+                )}
               </div>
             </li>
           ))}

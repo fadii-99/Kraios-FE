@@ -13,7 +13,8 @@ import { cn } from '@/lib/cn'
 gsap.registerPlugin(ScrollTrigger)
 
 /**
- * The whole 2D → 3D → customize → download story as one section.
+ * The whole in-platform workflow as one section: upload → 3D model →
+ * materials/quantities/pricing → exported BoQ.
  *
  * Desktop: the visual column is CSS-sticky (not GSAP-pinned — sticky survives
  * refreshes and never fights native scroll) while the step column scrolls past.
@@ -159,8 +160,8 @@ export default function Process() {
             className="flex items-baseline gap-5 border-t border-[var(--tone-line)] pt-5"
             data-reveal
           >
-            <span className="label-mono text-[var(--tone-accent)]">{process.index}</span>
-            <span className="label-mono text-[var(--tone-muted)]">{process.eyebrow}</span>
+            <span className="label-ui text-[var(--tone-accent)]">{process.index}</span>
+            <span className="label-ui text-[var(--tone-muted)]">{process.eyebrow}</span>
           </div>
 
           <AnimatedHeading lines={process.headingLines} className="mt-10" />
@@ -216,11 +217,11 @@ export default function Process() {
                   >
                     <span
                       ref={numberRef}
-                      className="font-mono text-[clamp(3.5rem,7vw,6rem)] font-bold leading-none tracking-tighter text-white drop-shadow-[0_2px_24px_rgba(7,20,38,0.85)]"
+                      className="text-[clamp(3.5rem,7vw,6rem)] font-bold leading-none tabular-nums tracking-tighter text-white drop-shadow-[0_2px_24px_rgba(7,20,38,0.85)]"
                     >
                       {process.steps[active].number}
                     </span>
-                    <span className="label-mono rounded-none bg-navy/70 px-3 py-2 text-white/85 backdrop-blur-sm">
+                    <span className="label-ui rounded-none bg-navy/70 px-3 py-2 text-white/85 backdrop-blur-sm">
                       {process.steps[active].meta}
                     </span>
                   </div>
@@ -275,7 +276,7 @@ export default function Process() {
                     <div className="flex items-baseline gap-5">
                       <span
                         className={cn(
-                          'font-mono text-[2.5rem] leading-none tracking-tighter transition-all duration-700 lg:text-[3.5rem]',
+                          'text-[2.5rem] font-bold leading-none tabular-nums tracking-tighter transition-all duration-700 lg:text-[3.5rem]',
                           i === active
                             ? 'text-[var(--tone-accent)] opacity-100'
                             : 'text-[var(--tone-muted)] opacity-40',
@@ -284,7 +285,11 @@ export default function Process() {
                         {step.number}
                       </span>
                       <span className="h-px flex-1 bg-[var(--tone-line)]" aria-hidden="true" />
-                      <span className="label-mono text-[var(--tone-muted)]">{step.meta}</span>
+                      {/* text-right so the longer chip strings stay a flush
+                          right-hand annotation when they wrap on mobile. */}
+                      <span className="label-ui text-right text-[var(--tone-muted)]">
+                        {step.meta}
+                      </span>
                     </div>
 
                     {/* One step below the section heading. `display-sm`, not

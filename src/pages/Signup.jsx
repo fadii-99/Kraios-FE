@@ -20,11 +20,12 @@ const formatDate = (d) =>
   })
 
 /**
- * Booking rather than a password signup: the client wants contact details plus
- * a preferred date and time. No password fields by design.
+ * Account signup + session booking in one step: firm details plus a preferred
+ * date and time for the platform walkthrough. No password fields by design —
+ * credentials are issued once the session is confirmed.
  */
 export default function Signup() {
-  const [values, setValues] = useState({ name: '', email: '' })
+  const [values, setValues] = useState({ name: '', firm: '', email: '', country: '' })
   const [date, setDate] = useState(null)
   const [time, setTime] = useState(null)
   const [errors, setErrors] = useState({})
@@ -36,8 +37,10 @@ export default function Signup() {
   const validate = (v = values, d = date, t = time) => {
     const next = {}
     if (!v.name.trim()) next.name = 'Enter your full name.'
-    if (!v.email.trim()) next.email = 'Enter an email address so we can confirm.'
+    if (!v.firm.trim()) next.firm = 'Enter the name of your firm.'
+    if (!v.email.trim()) next.email = 'Enter an email address so we can send the invitation.'
     else if (!isEmail(v.email)) next.email = 'That address looks incomplete — check for a missing @ or domain.'
+    if (!v.country.trim()) next.country = 'Enter the country your firm operates from.'
     if (!d) next.date = 'Choose a preferred date.'
     if (!t) next.time = 'Choose a preferred time.'
     return next
@@ -60,10 +63,10 @@ export default function Signup() {
     e.preventDefault()
     const next = validate()
     setErrors(next)
-    setTouched({ name: true, email: true, date: true, time: true })
+    setTouched({ name: true, firm: true, email: true, country: true, date: true, time: true })
 
     // text fields first, then the pickers
-    const firstField = ['name', 'email'].find((k) => next[k])
+    const firstField = ['name', 'firm', 'email', 'country'].find((k) => next[k])
     if (firstField) {
       formRef.current?.querySelector(`#${firstField}`)?.focus()
       return
@@ -82,7 +85,7 @@ export default function Signup() {
 
   const reset = () => {
     setOpen(false)
-    setValues({ name: '', email: '' })
+    setValues({ name: '', firm: '', email: '', country: '' })
     setDate(null)
     setTime(null)
     setTouched({})
@@ -92,18 +95,18 @@ export default function Signup() {
   return (
     <>
       <AuthShell
-        eyebrow="Book a Session"
+        eyebrow="Get Started"
         title="Sign Up"
-        description="Share your details and pick a time that suits you. We will confirm by email and send a short brief to complete beforehand."
+        description="Create your account and pick a time that suits you. We will confirm by email with a calendar invitation for your platform walkthrough."
         width="max-w-3xl"
       >
         <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-10">
           <div className="grid gap-8 sm:grid-cols-2">
             <FormInput
               id="name"
-              label="Full Name"
+              label="Name"
               autoComplete="name"
-              placeholder="Elena Marchetti"
+              placeholder="Your full name"
               required
               value={values.name}
               onChange={setField('name')}
@@ -112,24 +115,48 @@ export default function Signup() {
             />
 
             <FormInput
+              id="firm"
+              label="Firm"
+              autoComplete="organization"
+              placeholder="Your firm"
+              required
+              value={values.firm}
+              onChange={setField('firm')}
+              onBlur={onBlur('firm')}
+              error={touched.firm ? errors.firm : undefined}
+            />
+
+            <FormInput
               id="email"
               label="Email"
               type="email"
               inputMode="email"
               autoComplete="email"
-              placeholder="you@studio.com"
+              placeholder="you@firm.com"
               required
               value={values.email}
               onChange={setField('email')}
               onBlur={onBlur('email')}
               error={touched.email ? errors.email : undefined}
             />
+
+            <FormInput
+              id="country"
+              label="Country"
+              autoComplete="country-name"
+              placeholder="United Arab Emirates"
+              required
+              value={values.country}
+              onChange={setField('country')}
+              onBlur={onBlur('country')}
+              error={touched.country ? errors.country : undefined}
+            />
           </div>
 
           <div data-scheduling className="grid gap-10 lg:grid-cols-2 lg:gap-8">
             {/* ---- date ---- */}
             <div>
-              <p className="label-mono text-[var(--tone-muted)]" id="date-label">
+              <p className="label-ui text-[var(--tone-muted)]" id="date-label">
                 Select Date
                 <span className="ml-1 text-[var(--tone-accent)]" aria-hidden="true">
                   *
@@ -147,7 +174,7 @@ export default function Signup() {
               </div>
 
               {touched.date && errors.date && (
-                <p role="alert" className="label-mono mt-3 text-[#E5484D]">
+                <p role="alert" className="label-ui mt-3 text-[#E5484D]">
                   Error — {errors.date}
                 </p>
               )}
@@ -155,7 +182,7 @@ export default function Signup() {
 
             {/* ---- time ---- */}
             <div>
-              <p className="label-mono text-[var(--tone-muted)]" id="time-label">
+              <p className="label-ui text-[var(--tone-muted)]" id="time-label">
                 Select Time
                 <span className="ml-1 text-[var(--tone-accent)]" aria-hidden="true">
                   *
@@ -197,7 +224,7 @@ export default function Signup() {
               </div>
 
               {touched.time && errors.time && (
-                <p role="alert" className="label-mono mt-3 text-[#E5484D]">
+                <p role="alert" className="label-ui mt-3 text-[#E5484D]">
                   Error — {errors.time}
                 </p>
               )}
@@ -210,21 +237,26 @@ export default function Signup() {
               >
                 {date || time ? (
                   <>
-                    <span className="label-mono block text-[var(--tone-muted)]">Selected</span>
+                    <span className="label-ui block text-[var(--tone-muted)]">Selected</span>
                     <span className="mt-2 block font-semibold text-[var(--tone-ink)]">
                       {date ? formatDate(date) : 'No date yet'}
                       {time ? ` · ${time}` : ''}
                     </span>
                   </>
                 ) : (
-                  <span className="label-mono">Nothing selected yet</span>
+                  <span className="label-ui">Nothing selected yet</span>
                 )}
               </div>
             </div>
           </div>
 
-          <PrimaryButton type="submit" loading={status === 'submitting'} className="w-full">
-            Send Request
+          <PrimaryButton
+            type="submit"
+            loading={status === 'submitting'}
+            loadingLabel="Booking"
+            className="w-full"
+          >
+            Schedule Session
           </PrimaryButton>
         </form>
 
@@ -239,7 +271,7 @@ export default function Signup() {
         </p>
       </AuthShell>
 
-      <Modal open={open} onClose={reset} title="Request Received">
+      <Modal open={open} onClose={reset} title="Session Booked">
         <div className="mt-7 flex items-start gap-5">
           <span
             aria-hidden="true"
@@ -250,12 +282,12 @@ export default function Signup() {
 
           <div>
             <p className="text-[1rem] leading-relaxed text-[var(--tone-muted)]">
-              Thank you. Our team will review your request and contact you shortly.
+              Booked. A calendar invitation is on its way.
             </p>
 
             {date && time && (
               <p className="mt-4 border-t border-[var(--tone-line)] pt-4">
-                <span className="label-mono block text-[var(--tone-muted)]">Requested slot</span>
+                <span className="label-ui block text-[var(--tone-muted)]">Booked slot</span>
                 <span className="mt-2 block font-semibold text-[var(--tone-ink)]">
                   {formatDate(date)} · {time}
                 </span>
@@ -267,7 +299,7 @@ export default function Signup() {
         <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Link
             to="/"
-            className="label-mono inline-flex min-h-13 cursor-pointer items-center justify-center border border-[var(--tone-line-strong)] px-7 py-4 text-[var(--tone-ink)] transition-colors duration-300 hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
+            className="label-ui inline-flex min-h-13 cursor-pointer items-center justify-center border border-[var(--tone-line-strong)] px-7 py-4 text-[var(--tone-ink)] transition-colors duration-300 hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
           >
             Back Home
           </Link>

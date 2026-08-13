@@ -1,0 +1,11 @@
+# SPA fallback — Netlify, Cloudflare Pages, Render.
+#
+# The app uses `createBrowserRouter`, so /login, /signup and /forgot-password
+# are client-side routes with no matching file on disk. Without this rule a
+# direct hit or a refresh on any of them returns a hard 404 (verified against a
+# plain static server). `vite preview` has this fallback built in, which is why
+# local testing never surfaces it.
+#
+# 200, not 301: rewrite in place so the URL the visitor typed is preserved and
+# React Router can read it.
+/*    /index.html   200

@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { DownloadSimple, Eye, SlidersHorizontal, StackSimple } from '@phosphor-icons/react'
+import { ArrowsClockwise, CursorClick, Lightning, StackSimple } from '@phosphor-icons/react'
 
 import Container from '@/components/ui/Container'
 import AnimatedHeading from '@/components/ui/AnimatedHeading'
@@ -14,11 +14,12 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
 gsap.registerPlugin(ScrollTrigger)
 
+// Keyed from `whyUs.reasons[].icon` so the icon follows the benefit it labels.
 const ICONS = {
-  eye: Eye,
-  sliders: SlidersHorizontal,
+  cursor: CursorClick,
+  iterate: ArrowsClockwise,
   layers: StackSimple,
-  download: DownloadSimple,
+  speed: Lightning,
 }
 
 /**
@@ -131,13 +132,13 @@ export default function WhyUs() {
         {/* Two columns from the very top: the benefits run alongside the
             heading rather than starting below the intro.
             The left rail is 6 columns wide, not 5 — at the shared heading size
-            "WHY CHOOSE US" needs ~532px and would be clipped in a 5-col rail. */}
+            a section title of this length would be clipped in a 5-col rail. */}
         <div className="grid gap-x-12 gap-y-16 lg:grid-cols-12">
           {/* ---------------- left: header + 3D visualization ---------------- */}
           <div className="lg:col-span-6">
             <div className="flex items-baseline gap-5" data-reveal>
-              <span className="label-mono text-[var(--tone-accent)]">{whyUs.index}</span>
-              <span className="label-mono text-[var(--tone-muted)]">{whyUs.eyebrow}</span>
+              <span className="label-ui text-[var(--tone-accent)]">{whyUs.index}</span>
+              <span className="label-ui text-[var(--tone-muted)]">{whyUs.eyebrow}</span>
             </div>
 
             <AnimatedHeading lines={whyUs.headingLines} className="mt-8" />
@@ -182,7 +183,7 @@ export default function WhyUs() {
               </div>
             </div>
 
-            <p className="label-mono mt-8 hidden text-[var(--tone-muted)] lg:block" data-reveal>
+            <p className="label-ui mt-8 hidden text-[var(--tone-muted)] lg:block" data-reveal>
               {whyUs.imageCaption}
             </p>
           </div>

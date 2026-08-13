@@ -30,7 +30,7 @@ export default function PrimaryButton({
       disabled={Tag === 'button' ? disabled || loading : undefined}
       aria-busy={loading || undefined}
       className={cn(
-        'group label-mono inline-flex min-h-13 cursor-pointer items-center gap-4',
+        'group label-ui inline-flex min-h-13 cursor-pointer items-center gap-4',
         'bg-[var(--btn-bg)] px-8 py-4 text-[var(--btn-ink)]',
         'transition-[background-color,transform] duration-300 ease-[var(--ease-out-expo)]',
         'hover:bg-[var(--btn-bg-hover)] active:translate-y-px',

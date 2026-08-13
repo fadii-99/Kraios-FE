@@ -62,7 +62,7 @@ export default function Login() {
     <AuthShell
       eyebrow="Welcome Back"
       title="Login"
-      description="Sign in to review your projects, track a visualization in progress and download finished files."
+      description="Sign in to your Kraios account to pick up a project, refine your 3D model and export your BoQ."
     >
       <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-8">
         <FormInput
@@ -71,7 +71,7 @@ export default function Login() {
           type="email"
           inputMode="email"
           autoComplete="email"
-          placeholder="you@studio.com"
+          placeholder="you@firm.com"
           required
           value={values.email}
           onChange={setField('email')}
@@ -96,7 +96,7 @@ export default function Login() {
           <div className="mt-3.5 flex justify-end">
             <Link
               to="/forgot-password"
-              className="label-mono text-[var(--tone-accent)] underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tone-accent)]"
+              className="label-ui text-[var(--tone-accent)] underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tone-accent)]"
             >
               Forgot Password
             </Link>
@@ -109,7 +109,7 @@ export default function Login() {
       </form>
 
       <p className="mt-8 border-t border-[var(--tone-line)] pt-6 text-[0.9375rem] text-[var(--tone-muted)]">
-        Not working with us yet?{' '}
+        Don’t have an account yet?{' '}
         <Link
           to="/signup"
           className="text-[var(--tone-ink)] underline underline-offset-4 transition-colors hover:text-[var(--tone-accent)]"

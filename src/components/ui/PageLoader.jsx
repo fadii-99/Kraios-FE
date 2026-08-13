@@ -65,7 +65,7 @@ export default function PageLoader({ label = 'Loading', hidden = false }) {
         />
       </svg>
 
-      <p className="label-mono relative text-ink-dark">{label}</p>
+      <p className="label-ui relative text-ink-dark">{label}</p>
     </div>
   )
 }

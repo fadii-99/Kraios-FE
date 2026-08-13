@@ -152,7 +152,7 @@ export default function Faq() {
       <Container className="relative">
         <div className="grid gap-x-16 gap-y-12 lg:grid-cols-12">
           <div className="lg:col-span-5">
-            <p data-faq-label className="label-mono text-[var(--tone-accent)]">
+            <p data-faq-label className="label-ui text-[var(--tone-accent)]">
               {faq.eyebrow}
             </p>
 

@@ -50,7 +50,8 @@ export default function AuthShell({ eyebrow, title, description, children, width
       id="main"
       // min-h uses svh minus the navbar so the card still fills the screen on
       // short pages, without pushing the footer a full viewport further down.
-      className="tone-light relative flex min-h-[calc(100svh-4.75rem)] items-center overflow-x-clip px-[var(--spacing-gutter)] pb-20 pt-28 lg:pb-24 lg:pt-32"
+      // 4.25rem tracks the Navbar's height — keep the two in step.
+      className="tone-light relative flex min-h-[calc(100svh-4.25rem)] items-center overflow-x-clip px-[var(--spacing-gutter)] pb-20 pt-28 lg:pb-24 lg:pt-32"
     >
       <BlueprintBackdrop className="text-[var(--tone-ink)]" />
 
@@ -63,7 +64,7 @@ export default function AuthShell({ eyebrow, title, description, children, width
         )}
       >
         <div data-auth-head>
-          <p className="label-mono text-[var(--tone-accent)]">{eyebrow}</p>
+          <p className="label-ui text-[var(--tone-accent)]">{eyebrow}</p>
 
           {/* `display-sm` is the sub-display tier. It was `display-lg` plus a
               text-[] size override, which never took effect — the title

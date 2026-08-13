@@ -1,7 +1,55 @@
-# Floor — Project Rules
+# Kraios — Project Rules
 
-2D/3D Floor Plan & Architectural Visualization studio. Premium **dark-blue**
-architectural landing page. These rules are permanent and apply to every change.
+Marketing site for **Kraios** — an AI design partner for architecture and
+fit-out firms that takes a 2D floor plan through a 3D model, identified
+materials, estimated quantities and a priced Bill of Quantities. Premium
+**dark-blue** architectural landing page. These rules are permanent and apply to
+every change.
+
+## Brand and positioning — read before writing any copy
+
+**The brand is KRAIOS.** The site previously shipped as "Floor" / "FLOOR STUDIO";
+that name is dead. Never reintroduce it. `site.name` in `content.js` is the only
+place the wordmark is defined.
+
+**The browser tab uses the Kraios mark.** `index.html` points `rel="icon"` at
+`/assets/website_logo-128.png` — the same asset `ui/Logo.jsx` renders in the Navbar and
+Footer, so the tab icon cannot drift from the brand. The old `/favicon.svg` (the retired
+Floor plan-icon) was deleted. If the logo is replaced, that one path updates both.
+
+The word "floor" is *not* banned — **floor plan, 2D floor plan, 3D floor plan**
+are product terminology and must stay. Only the standalone brand use is retired.
+
+**Kraios is a self-serve SaaS platform on a subscription.** Users hold their own
+credentials and do the work themselves, inside the product. This governs every
+line of copy:
+
+| Never write | Because |
+|---|---|
+| "send us your plans", "share your files with us" | the user uploads into the platform |
+| "our team creates your model", "we'll build it for you" | the user builds it, iterating with the software |
+| "contact us to process your project" | there is nothing to hand off |
+| **"photoreal" / "photorealistic" / "photorealism"** | output is technical / SketchUp-style 3D, not a render |
+
+The closing section is a **final CTA, not an enquiry form**: Sign Up first, with
+"Schedule a Session" as the secondary path. The landing page carries no contact
+form — the only form a visitor should meet is the one inside the flow they
+picked, on `/signup`. Both CTAs point at `/signup` today because that is the
+only account/session route that exists; they diverge as soon as a separate
+account-creation flow does.
+
+**Client copy is final copy.** Where a brief supplies wording, ship it verbatim —
+do not shorten it, re-tone it, or "improve" it, and never invent statistics,
+customers, pricing or testimonials to fill a slot.
+
+### Navigation naming (final)
+
+`Home · About · How It Works · Why Kraios · Team · FAQ · Contact`, plus
+`Log In` / `Sign Up`. Labels are stored in title case in `navLinks` and
+uppercased by `label-ui` / `display-sm`; the footer renders them as authored.
+**The section ids never change** — `home about process why team faq contact` are
+what scroll-spy, smooth scroll and cross-route navigation all key off. Renaming
+"Why Choose Us" to "Why Kraios" was a label change only; the id stayed `why`.
 
 ## Stack
 
@@ -12,7 +60,7 @@ architectural landing page. These rules are permanent and apply to every change.
 | Styling | Tailwind CSS v4 | Config lives in CSS via `@theme`. **No `tailwind.config.js`** |
 | Animation | GSAP + ScrollTrigger + `@gsap/react` | Always `useGSAP` — never bare `gsap` in `useEffect` |
 | Icons | `@phosphor-icons/react` | Never emoji as icons |
-| Fonts | `@fontsource-variable/*` (self-hosted) | Inter + JetBrains Mono. No CDN |
+| Fonts | `@fontsource-variable/inter` (self-hosted) | **Inter only.** No CDN, no second family |
 
 ## Design direction (from ui-ux-pro-max)
 
@@ -33,10 +81,10 @@ Deliberate deviations from the generated design system, and why:
 
 - **Never pure black.** The darkest surface is `#071426`. Black reads cheap and flat.
 - **Light/dark rhythm.** Bands alternate: Hero dark → About light → Process dark →
-  Team deep → Contact light (with a navy form panel) → Footer dark.
+  Why light → Team deep → FAQ light → Contact light → Footer dark.
 - **No cards.** No `rounded-xl bg-white/5 border shadow` boxes. Structure comes from the
-  grid, hairline rules, whitespace and type scale. The Contact form panel is a
-  full tone block, not a card.
+  grid, hairline rules, whitespace and type scale. The auth card in `AuthShell` is
+  the single deliberate exception.
 - **No glow, no glassmorphism, no decorative gradients.** The only permitted gradients are
   neutral navy scrims over media for legibility.
 - **Blue is strategic.** Accent appears on: primary CTA, active nav, focus rings, step
@@ -90,19 +138,57 @@ Brand blue is a **graphic** colour, not a text colour on light. For text on ligh
 
 ### Typography
 
-- **Archivo Variable** for all headings, **Inter Variable** for body/UI, **JetBrains Mono**
-  for technical labels. All three self-hosted.
-- **All headings are Archivo weight 900** (`--font-display`). Inter topped out looking too
-  light at display sizes; Archivo's true black is heavier and slightly wider, so headings
-  fill their measure.
+### ONE typeface ships. Two roles. Never add a third.
+
+**The whole site is Inter Variable.** The roles are separated by weight, size, case and
+tracking — not by a second family:
+
+| Role | Token | How it is set |
+|---|---|---|
+| Display / headings | `--font-display` | Inter **700**, uppercase, negative tracking (`.display-*`) |
+| Everything else | `--font-body` | Inter 400/500/600, sentence case, normal tracking |
+
+Both tokens resolve to the same stack on purpose. `--font-sans` mirrors them so the
+Tailwind `font-sans` utility can never disagree with the token.
+
+**Every non-heading string uses the body font** — paragraphs, nav links, LOG IN / SIGN UP,
+buttons and CTA labels, eyebrows, section numbers, chips, form labels, inputs and
+placeholders, FAQ questions and answers, team roles and bios, footer, modal, calendar,
+mobile menu, PageLoader.
+
+**Removed and not to return:** Anton (condensed display), JetBrains Mono (technical
+labels), Archivo (was already dead). `--font-mono` is pinned to `initial`, which deletes
+Tailwind's `font-mono` utility so a monospace face cannot be reintroduced by reflex. For
+figure alignment use **`tabular-nums`**, never a monospace family — that is what the About
+stats, the Process step numbers and the booking time slots do.
+
+`ui-sans-serif` / `system-ui` / `sans-serif` tails are generic fallbacks, not third fonts.
+- **All display headings are Inter Variable weight 700, uppercase, with negative tracking**
+  (`--font-display`). The brief is normal-width, formal, professional, premium, modern
+  SaaS — not poster typography.
+- **Anton is banned.** The display stack used to be Anton 400: condensed, narrow, tall,
+  poster-like. It was removed at the client's request and must not come back. Do not
+  reach for any condensed or display face for headings.
+- **Inter is not condensed, so headings set ~⅓ wider than they used to.** Every
+  `.display-*` size is therefore capped by the narrowest box its tier must survive in,
+  and the sizes came down accordingly. They are measured values, not taste — see the
+  comments in `index.css` before changing one.
+- Tracking is **negative** at display size (`-0.03em` on xl/lg, `-0.02em` on sm). Inter's
+  default side bearings leave big caps looking loose; this pulls the word into a block.
 - `.display-xl` — hero only, the single largest thing on the page.
-- `.display-lg` — **every** section heading (About, Process, Team, Contact) is
+- `.display-lg` — **every** section heading (About, Process, Why, Team, FAQ, Contact) is
   deliberately identical so the page reads as one system. Do not vary per section.
 - `.display-sm` — the sub-display tier: Process step titles, mobile-menu items and
   auth page titles. Anything that is "a heading below the section heading."
-- `.display-md` — sub-headings (form heading) in Archivo, for sentence case.
-- `.label-mono` — uppercase mono, `+0.2em` tracking. The architectural drafting-annotation
-  voice: eyebrows, indices, metadata. **Never body copy.**
+- `.display-md` was deleted. It had no usages and was the last thing holding Archivo in
+  the build. Sentence-case sub-headings are plain Inter utilities.
+- **`.label-ui`** — uppercase Inter 600 at 11px, `+0.16em` tracking. The architectural
+  drafting-annotation voice: eyebrows, indices, metadata, nav links, button labels, form
+  labels. **Never body copy.** It was `.label-mono` in JetBrains Mono; the class was
+  renamed with the font so no name implies a monospace family survives. The 0.16em
+  tracking (down from 0.2em) is load-bearing: Inter's caps are wider than JetBrains
+  Mono's fixed advance, and the seven nav labels have to clear the auth buttons at
+  1024px. Measured clearance there is 15px.
 
 ### The display classes own their font-size — never override one with `text-[…]`
 
@@ -117,6 +203,22 @@ step titles then overflowed their 614px rail and, because `Section` uses
 `overflow-x-clip`, were **clipped mid-word without ever triggering page overflow**.
 
 Pick the tier that is already the right size. If no tier fits, add one to the scale.
+
+### What actually caps each display size
+
+Measured against real rendered text, not estimated. Every heading currently clears its
+box by at least 24px at 320 / 375 / 390 / 430 / 768 / 900 / 1024 / 1280 / 1440 / 1600 /
+1920. The binding constraints:
+
+| Tier | Capped by | Why |
+|---|---|---|
+| `.display-lg` ≥1024 | **"FREQUENTLY"** in FAQ's 5-of-12 rail (~355px @1024) | Longest unbreakable word on the site, in the narrowest heading column |
+| `.display-lg` <1024 | "FREQUENTLY" in the 280px column at 320px wide | Sets the `2.5rem` floor |
+| `.display-sm` | "Export Your BoQ" / "Materials, Quantities &" in the 244px step rail at 320px | Sets the `1.5rem` floor |
+| `.display-xl` | "TO ESTIMATE." in the 52rem hero column | Comfortable — this tier kept its original size |
+
+Contact's "SEE IT ON YOUR" in its 48rem box is the runner-up constraint on `.display-lg`
+and clears easily. Re-run the measurement if any heading copy gets longer.
 
 ## Animation rules
 
@@ -193,7 +295,7 @@ src/pages/*.jsx           Home, Login, ForgotPassword, Signup — all CHILD rout
 | `/` (index) | `Home` — the landing page, a child route like any other |
 | `/login` | `Login` |
 | `/forgot-password` | `ForgotPassword` |
-| `/signup` | `Signup` (booking, not a password form) |
+| `/signup` | `Signup` — account request + session booking. No password fields |
 
 Hard rules:
 
@@ -294,7 +396,22 @@ ink on it is 4.43:1, so both directions fail AA.
   would resolve to different candidates and split one request into two. That is what
   `PROCESS_SIZES` exists for.
 
-## Placeholder media — all temporary
+## Placeholder media — all temporary, and currently FROZEN
+
+**Every image, the hero video, the logo and the plan SVGs are placeholders, and
+the client is preparing the real assets.** Do not swap, re-crop or "improve" any
+of them, and never fetch replacements from the internet, unless the task
+explicitly delivers client media. Copy changes must fit the media that is there.
+
+Two consequences of that freeze worth knowing:
+
+- **"FLOOR STUDIO" is still baked into the title block of the hand-authored plan
+  SVGs** — `plan-2d-light.svg`, `plan-3d-light.svg` (both live, in How It Works
+  steps 01–02) and the three unused `plan-*-primary/detail.svg`. It is a plain
+  `<text>` node, so it is a one-line fix per file whenever editing the drawings
+  is authorised.
+- Team portraits do not depict the named people, and the fourth slot is a single
+  portrait standing in for the collective "The Build Team" entry.
 
 Images are hotlinked from **Unsplash**, the hero video from **Pexels**. Every URL was
 verified to return 200 before shipping. Local SVG drawings in `public/assets/` are
@@ -319,10 +436,14 @@ number that *look* real are worse than obvious dummies, because they ship unnoti
 | Process 02 | Local `plan-3d-light.svg` — furnished 3D of the **same** unit |
 | Process 03 | Unsplash furnished interior (customization) |
 | Process 04 | Unsplash printed plan sheets (the delivered set) |
-| Why Choose Us | Unsplash 3D visualization (lg and up only) |
+| Why Kraios | Unsplash 3D visualization (lg and up only) |
 | Team | 4 Unsplash portraits |
 
-About and Contact carry no imagery — both are type-only bands over `BlueprintBackdrop`.
+About, FAQ and Contact carry no imagery — all three are type-only bands over
+`BlueprintBackdrop`.
+
+The four How It Works visuals are awaiting, in order: a real 2D plan output, a
+real 3D model view, a real materials/quantities view, and a real exported BoQ.
 
 **The hero poster is cut from the hero video.** Poster and first frame are the same
 image, so the hand-off is invisible rather than a jump cut between two unrelated
@@ -336,8 +457,9 @@ finished interior — a near-duplicate of step 03's photo — under the heading
 
 Steps 01 and 02 are **the same apartment**, drawn twice: `plan-2d-light.svg` is the
 measured plan, `plan-3d-light.svg` is that plan extruded and furnished. The copy
-promises the 3D is "derived from your original plan so the two never disagree", so
-if either drawing is replaced, the other has to be replaced with it.
+promises step 02 "transform[s] your 2D plan into a 3D floor plan", so the two
+drawings have to stay the same unit — if either is replaced, the other has to be
+replaced with it.
 
 `plan-3d-light.svg` is generated, not hand-typed — it projects the 2D drawing's own
 room and wall coordinates through a dimetric transform. Walls are kept low (76 plan

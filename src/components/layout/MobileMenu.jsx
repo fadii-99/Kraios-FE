@@ -66,7 +66,7 @@ export default function MobileMenu({ open, onClose, onNavigate, onRoute, activeI
     >
       <div data-menu-panel className="tone-dark flex h-full w-full flex-col">
         <div className="flex items-center justify-between border-b border-[var(--tone-line)] px-[var(--spacing-gutter)] py-5">
-          <span className="label-mono text-[var(--tone-muted)]">Menu</span>
+          <span className="label-ui text-[var(--tone-muted)]">Menu</span>
           <button
             ref={closeRef}
             type="button"
@@ -87,14 +87,14 @@ export default function MobileMenu({ open, onClose, onNavigate, onRoute, activeI
               onClick={() => onNavigate(link.id)}
               className="group flex items-baseline gap-5 border-b border-[var(--tone-line)] py-5 text-left"
             >
-              <span className="label-mono w-8 shrink-0 text-[var(--tone-accent)]">
+              <span className="label-ui w-8 shrink-0 text-[var(--tone-accent)]">
                 {String(i + 1).padStart(2, '0')}
               </span>
               {/* `display-sm`, not `display-lg` + a text-[] override: the
                   override never applied, so seven items rendered at 44px and
                   crowded the panel on a short phone. */}
               <span
-                className={`display-sm transition-colors duration-300 ${
+                className={`display-sm nav-weight transition-colors duration-300 ${
                   activeId === link.id
                     ? 'text-[var(--tone-accent)]'
                     : 'text-[var(--tone-ink)] group-hover:text-[var(--tone-accent)]'
@@ -114,14 +114,14 @@ export default function MobileMenu({ open, onClose, onNavigate, onRoute, activeI
             <button
               type="button"
               onClick={() => onRoute(authLinks.login.to)}
-              className="label-mono min-h-12 flex-1 cursor-pointer border border-[var(--tone-line-strong)] px-5 py-3 text-[var(--tone-ink)] transition-colors hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
+              className="label-ui nav-weight min-h-12 flex-1 cursor-pointer border border-[var(--tone-line-strong)] px-5 py-3 text-[var(--tone-ink)] transition-colors hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
             >
               {authLinks.login.label}
             </button>
             <button
               type="button"
               onClick={() => onRoute(authLinks.signup.to)}
-              className="label-mono min-h-12 flex-1 cursor-pointer bg-[var(--tone-accent)] px-5 py-3 text-[var(--color-ink-dark)] transition-colors hover:bg-[#5ca5ff]"
+              className="label-ui nav-weight min-h-12 flex-1 cursor-pointer bg-[var(--tone-accent)] px-5 py-3 text-[var(--color-ink-dark)] transition-colors hover:bg-[#5ca5ff]"
             >
               {authLinks.signup.label}
             </button>
@@ -134,7 +134,7 @@ export default function MobileMenu({ open, onClose, onNavigate, onRoute, activeI
             >
               {site.email}
             </a>
-            <span className="label-mono text-[var(--tone-muted)]">{site.phone}</span>
+            <span className="label-ui text-[var(--tone-muted)]">{site.phone}</span>
           </div>
         </div>
       </div>

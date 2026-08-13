@@ -102,8 +102,17 @@ export default function Navbar() {
           />
         )}
 
-        <Container className="relative flex h-[4.75rem] items-center justify-between gap-8">
-          <div data-nav-item>
+        {/* 4.25rem / 68px. Trimmed from 4.75rem: still 12px of air above and
+            below the 44px auth buttons and hamburger, so every touch target
+            and the vertical centring are untouched — the bar just reads
+            slimmer. `scrollToSection` and the scroll-spy both measure this
+            element at runtime, so nothing needs the number hard-coded. */}
+        <Container className="relative flex h-[4.25rem] items-center justify-between gap-8">
+          {/* `flex`, not a plain block: `Logo` is an inline-flex element, so in
+              a block wrapper it sits on the text baseline and the descender
+              space under it pushed the mark ~3px above the bar's centre line.
+              As a flex item there is no baseline to sit on. */}
+          <div data-nav-item className="flex">
             <Logo onClick={() => go('home')} />
           </div>
 
@@ -129,13 +138,16 @@ export default function Navbar() {
                   aria-current={active ? 'true' : undefined}
                   className="group relative cursor-pointer py-2"
                 >
-                  {/* tone-aware: dark grey on the light auth bar, muted blue-grey
-                      on the dark landing bar */}
+                  {/* Three states, tone-aware: idle muted → hover ink → active
+                      accent + full underline. Accent on the active item is one
+                      of the sanctioned uses of blue, and it matches what the
+                      mobile menu already does, so the two agree. Ratios: 5.87:1
+                      on navy, 5.39:1 (brand-deep) on the light bar. */}
                   <span
                     className={cn(
-                      'label-mono transition-colors duration-300',
+                      'label-ui nav-weight transition-colors duration-300',
                       active
-                        ? 'text-[var(--tone-ink)]'
+                        ? 'text-[var(--tone-accent)]'
                         : 'text-[var(--tone-muted)] group-hover:text-[var(--tone-ink)]',
                     )}
                   >
@@ -157,7 +169,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => goTo(authLinks.login.to)}
-              className="label-mono min-h-11 cursor-pointer px-4 py-3 text-[var(--tone-ink)] transition-colors duration-300 hover:text-[var(--tone-accent)]"
+              className="label-ui nav-weight min-h-11 cursor-pointer px-4 py-3 text-[var(--tone-ink)] transition-colors duration-300 hover:text-[var(--tone-accent)]"
             >
               {authLinks.login.label}
             </button>
@@ -167,7 +179,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => goTo(authLinks.signup.to)}
-              className="label-mono min-h-11 cursor-pointer bg-[var(--btn-bg)] px-6 py-3 text-[var(--btn-ink)] transition-colors duration-300 hover:bg-[var(--btn-bg-hover)]"
+              className="label-ui nav-weight min-h-11 cursor-pointer bg-[var(--btn-bg)] px-6 py-3 text-[var(--btn-ink)] transition-colors duration-300 hover:bg-[var(--btn-bg-hover)]"
             >
               {authLinks.signup.label}
             </button>

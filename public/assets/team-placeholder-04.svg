@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" width="600" height="800" role="img" aria-label="Placeholder portrait plate, slot 04 — awaiting client photography">
+  <defs>
+    <pattern id="grid-04" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0v40" fill="none" stroke="#FFFFFF" stroke-opacity="0.075" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Deliberately transparent: the portrait box already paints the elevated
+       navy, so letting it show through keeps the plate the same colour as the
+       rest of the page. Painting a navy field here instead would be pushed
+       through Team's grayscale filter and come back as murky dark grey.
+       NOTE: never write a double hyphen inside an SVG comment. It is illegal
+       in XML and Chrome rejects the whole file as a broken image. -->
+  <rect width="600" height="800" fill="url(#grid-04)"/>
+
+  <!-- major grid, brand blue at drafting weight -->
+  <g stroke="#3B91FF" stroke-opacity="0.20" stroke-width="1">
+    <path d="M200 0v800M400 0v800M0 200h600M0 400h600M0 600h600"/>
+  </g>
+
+  <!-- registration ticks -->
+  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.34" stroke-width="2">
+    <path d="M28 62V28h34M538 28h34v34M572 738v34h-34M62 772H28v-34"/>
+  </g>
+
+  <!-- construction lines -->
+  <g stroke="#3B91FF" stroke-opacity="0.45" stroke-width="1.5" stroke-dasharray="7 7">
+    <path d="M300 96v470M112 300h376"/>
+  </g>
+
+  <!-- the subject, drawn rather than photographed -->
+  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.46" stroke-width="2">
+    <circle cx="300" cy="300" r="70"/>
+    <path d="M158 548v-24c0-64 64-108 142-108s142 44 142 108v24"/>
+  </g>
+
+  <text x="300" y="648" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,'Cascadia Mono','Segoe UI Mono',Consolas,monospace" font-size="54" font-weight="500" letter-spacing="10" fill="#FFFFFF" fill-opacity="0.62">BT</text>
+
+  <!-- title block -->
+  <path d="M40 692h520" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="1"/>
+  <text x="40" y="722" font-family="ui-monospace,SFMono-Regular,'Cascadia Mono','Segoe UI Mono',Consolas,monospace" font-size="15" letter-spacing="3" fill="#FFFFFF" fill-opacity="0.5">PLACEHOLDER</text>
+  <text x="560" y="722" text-anchor="end" font-family="ui-monospace,SFMono-Regular,'Cascadia Mono','Segoe UI Mono',Consolas,monospace" font-size="15" letter-spacing="3" fill="#FFFFFF" fill-opacity="0.5">TEAM / 04</text>
+</svg>

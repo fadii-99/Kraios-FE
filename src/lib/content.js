@@ -1,10 +1,17 @@
 /**
  * Single source of truth for all landing-page copy and media.
  *
+ * BRAND: Kraios. PRODUCT: a self-serve, subscription SaaS platform — the user
+ * uploads, iterates and exports inside the software. Copy here must never read
+ * as an agency ("send us your plans", "our team builds it for you"), and must
+ * never use "photoreal"/"photorealistic" — the 3D output is technical, not a
+ * photographic render.
+ *
  * PLACEHOLDER MEDIA: images are hotlinked from Unsplash and the hero video from
  * Pexels — every URL below was verified to return 200 before shipping. They are
- * temporary. To swap in client assets, drop files into `public/assets/` and
- * change the strings here; no component edits are required.
+ * temporary and are DELIBERATELY UNCHANGED while the client prepares the final
+ * imagery. To swap in client assets, drop files into `public/assets/` and change
+ * the strings here; no component edits are required.
  */
 
 const U = (id, w = 1600, extra = '') =>
@@ -21,39 +28,46 @@ const U = (id, w = 1600, extra = '') =>
 const USet = (id, widths) => widths.map((w) => `${U(id, w)} ${w}w`).join(', ')
 
 /**
- * `sizes` for the Process visuals. The desktop sticky column and the inline
- * tablet/mobile image share one string deliberately: different `sizes` would
- * resolve to different candidates and the two <img> tags — which carry the same
- * src — would stop sharing a request.
+ * `sizes` for the How It Works visuals. The desktop sticky column and the
+ * inline tablet/mobile image share one string deliberately: different `sizes`
+ * would resolve to different candidates and the two <img> tags — which carry
+ * the same src — would stop sharing a request.
  */
 export const PROCESS_SIZES = '(min-width: 1024px) 46vw, 92vw'
 
 /**
  * Brand + contact details.
  *
- * These are deliberately GENERIC PLACEHOLDERS, not invented-but-plausible
- * details — an address and phone number that look real are worse than obvious
- * dummies, because they ship unnoticed. Replace every value here before launch.
+ * `email` and `phone` are deliberately GENERIC PLACEHOLDERS, not
+ * invented-but-plausible details — an address and phone number that look real
+ * are worse than obvious dummies, because they ship unnoticed. Replace both
+ * before launch.
  *
  * `logo` is a 128px downscale of the supplied `public/assets/website_logo.png`
- * (1192×1192, 342kB — far too heavy for a 28px mark). To swap the logo: drop the
- * new file in as `website_logo.png` and regenerate the 128px copy, or point this
- * at whatever file you want and keep it small.
+ * (1192×1192, 342kB — far too heavy for a 40px mark) and is itself still a
+ * placeholder awaiting the final Kraios mark. To swap it: drop the new file in
+ * as `website_logo.png` and regenerate the 128px copy, or point this at
+ * whatever file you want and keep it small.
  */
 export const site = {
-  name: 'FLOOR',
+  name: 'KRAIOS',
   logo: '/assets/website_logo-128.png',
-  tagline: '2D & 3D Floor Plan Visualizations',
+  tagline: 'From Brief to Estimate',
   email: 'hello@example.com',
   phone: '+1 (000) 000 0000',
 }
 
-// Labels are kept short so seven items plus the auth buttons still fit at 1280px.
+/**
+ * Labels are stored in title case; `label-ui` and `display-sm` uppercase them
+ * where the design calls for caps, while the footer keeps them as authored.
+ * The ids are the section anchors and must not change — scroll-spy, smooth
+ * scroll and cross-route navigation all key off them.
+ */
 export const navLinks = [
   { id: 'home', label: 'Home' },
   { id: 'about', label: 'About' },
   { id: 'process', label: 'How It Works' },
-  { id: 'why', label: 'Why Us' },
+  { id: 'why', label: 'Why Kraios' },
   { id: 'team', label: 'Team' },
   { id: 'faq', label: 'FAQ' },
   { id: 'contact', label: 'Contact' },
@@ -66,14 +80,17 @@ export const authLinks = {
 }
 
 export const hero = {
-  eyebrow: '2D & 3D Floor Plan Visualizations',
-  headlineLines: ['From Blueprints', 'To Real Spaces'],
+  eyebrow: 'The AI Design Partner for Architecture Firms',
+  // Two lines by design — the composition depends on the break landing here.
+  headlineLines: ['From Brief', 'To Estimate.'],
   body:
-    'We turn architectural drawings into measured 2D plans and photoreal 3D visualization — so a space can be understood, and sold, long before it is built.',
-  primaryCta: { label: 'Start a Project', target: 'contact' },
-  secondaryCta: { label: 'See the Process', target: 'process' },
+    'In hours, not weeks. Upload your floor plan and work with Kraios to a 3D model, identified materials, estimated quantities, and a full priced BoQ — so your team takes on more projects without adding headcount.',
+  // Routes to the account/session flow; the button renders its own arrow.
+  primaryCta: { label: 'Sign Up', to: authLinks.signup.to },
+  secondaryCta: { label: 'See How It Works', target: 'process' },
   // Verified playing on the real page (readyState 4, currentTime advancing).
-  // Fallback plays if the primary fails to load.
+  // Fallback plays if the primary fails to load. PLACEHOLDER — the client will
+  // supply the final hero film.
   video: 'https://videos.pexels.com/video-files/3773486/3773486-hd_1920_1080_30fps.mp4',
   videoFallback: 'https://videos.pexels.com/video-files/7578541/7578541-hd_1920_1080_30fps.mp4',
   /**
@@ -85,11 +102,6 @@ export const hero = {
    */
   poster: '/assets/hero-poster-1600.jpg',
   posterSrcSet: '/assets/hero-poster-768.jpg 768w, /assets/hero-poster-1600.jpg 1600w',
-  meta: [
-    { label: 'Projects Delivered', value: '480+' },
-    { label: 'Average Turnaround', value: '72 HRS' },
-    { label: 'Markets Served', value: '19' },
-  ],
 }
 
 export const about = {
@@ -98,23 +110,24 @@ export const about = {
   // One authored line = one visual line on desktop (see .display-lg).
   headingLines: ['About Us'],
   paragraph:
-    'Floor works at the intersection of architectural documentation and visual communication. Every deliverable begins with the rigour a construction set demands — accurate scale, correct wall assemblies, honest sightlines. We do not decorate plans. We resolve them.',
+    'Kraios was built on a job site, not in a lab. Inside a working fit-out business, every project meant weeks of grind — 2D plans, 3D models, material lists, quantities, then a price. Kraios brings that production work into one platform, while your team keeps the judgment. We don’t decorate workflows. We resolve them.',
   // Mono credential rows that sit opposite the intro paragraph.
   meta: [
-    { label: 'Established', value: '2016' },
-    { label: 'Studio', value: 'San Francisco' },
-    { label: 'Plans Delivered', value: '480+' },
-    { label: 'Markets Served', value: '19' },
+    { label: 'Established', value: '2026' },
+    { label: 'Headquarters', value: 'Dubai, UAE' },
+    { label: 'Plans Delivered', value: '20+' },
+    { label: 'Markets Served', value: '5+' },
   ],
 }
 
 export const whyUs = {
   index: '03',
-  eyebrow: 'Why Choose Us',
-  headingLines: ['Why Choose Us'],
+  eyebrow: 'Why Kraios',
+  headingLines: ['Why Kraios'],
   intro:
-    'Visualization is easy to buy and hard to trust. These are the four things we hold ourselves to on every drawing that leaves the studio.',
-  // 3D architectural visualization — the output side of the studio's work.
+    'Professional-grade project intelligence without the traditional complexity. Bring drawings, project information, quantities, and costs together in one place, moving from concept to an actionable estimate faster and with fewer handoffs.',
+  // PLACEHOLDER — 3D architectural visualization standing in for a product
+  // screen. Unchanged pending client assets.
   image: {
     src: U('1503174971373-b1f69850bded', 1400),
     srcSet: USet('1503174971373-b1f69850bded', [640, 900, 1400]),
@@ -127,31 +140,31 @@ export const whyUs = {
   reasons: [
     {
       number: '01',
-      icon: 'eye',
-      title: "See It Before It's Built",
+      icon: 'cursor',
+      title: 'No Specialist Software Required',
       body:
-        'Transform a 2D floor plan into a detailed 3D visualization, so the layout and spatial relationships are easier to understand.',
+        'Work directly through an intuitive interface without needing to learn complex design, estimating, or modeling tools.',
     },
     {
       number: '02',
-      icon: 'sliders',
-      title: 'Fully Customizable',
+      icon: 'iterate',
+      title: 'Iterate in Real Time',
       body:
-        'Refine the visualization according to project requirements and adjust elements until the space feels right.',
+        'Make changes, test assumptions, and refine your project as you go, without sending revisions back and forth or waiting for someone else to update the model.',
     },
     {
       number: '03',
       icon: 'layers',
-      title: 'From Plan to Visual, Simplified',
+      title: 'One Source of Truth',
       body:
-        'Move from an existing 2D plan to a polished visualization through a clear and simple process.',
+        'Keep the 3D model, project documents, material requirements, quantities, and costs connected, reducing the disconnect between drawings and estimates.',
     },
     {
       number: '04',
-      icon: 'download',
-      title: 'Ready to Share & Download',
+      icon: 'speed',
+      title: 'Move Faster with Confidence',
       body:
-        'Receive clean, presentation-ready floor-plan visuals that can easily be downloaded and shared.',
+        'Get to a usable project estimate earlier, so you can evaluate costs, identify issues, and make informed decisions before committing time and money.',
     },
   ],
 }
@@ -162,59 +175,81 @@ export const faq = {
   // Deliberate exception: this heading stays a three-line stack.
   headingLines: ['Frequently', 'Asked', 'Questions'],
   intro:
-    'The things clients ask most, before a project starts. Anything else — send it over and we answer within one business day.',
+    'The things firms ask most, before their first project. Everything below happens inside the platform, with your own login.',
   items: [
     {
-      q: 'How do I upload my 2D floor plan?',
-      a: 'Send it however you have it — DWG, DXF, RVT, IFC, SKP, PDF or a plain image. Even a photograph of a hand sketch works. We audit the drawing, flag anything ambiguous and confirm scale with you before a single line is redrawn.',
+      q: 'What do I need to get started?',
+      a: 'Upload your existing 2D floor plan and add supporting project information as needed.',
     },
     {
-      q: 'When do I receive the 3D version?',
-      a: 'A first 3D pass on a single residential floor is typically ready in 3–4 working days from approved scope. You get a proof to review before anything is finalised, so nothing is delivered as a surprise.',
+      q: 'Can I upload supporting documents such as MEP drawings?',
+      a: 'Yes. MEP drawings, specifications, schedules, and other supporting documents can be used to better inform your project and BoQ.',
     },
     {
-      q: 'Can I customize the 3D floor?',
-      a: 'Yes. Finishes and materials, furniture placement, fixtures, daylight and camera framing can all be adjusted. Objects can be moved or removed entirely until the space reads the way you intend to present it.',
+      q: 'Do I need 3D modeling or estimating experience?',
+      a: 'No. The platform is designed to guide you through the process without requiring specialized modeling or estimating software expertise.',
     },
     {
-      q: 'How many revisions are included?',
-      a: 'Two full revision rounds come as standard on every project. You annotate directly on the proof and we resolve every note before moving to final output. Any further rounds are quoted transparently up front.',
+      q: 'Can I refine the 3D floor plan after it is generated?',
+      a: 'Yes. You can work iteratively with the platform to review and refine the 3D model.',
     },
     {
-      q: 'What formats can I download?',
-      a: 'Final files ship as layered source, print-resolution raster and web-optimized exports together. Full commercial usage rights are included — no per-use licensing and no expiry.',
+      q: 'How are required materials identified?',
+      a: 'Materials are identified using information from your 3D floor plan, supporting documents, and any additional project inputs you provide.',
     },
     {
-      q: 'How long does a full project take?',
-      a: 'A single-unit 2D set is usually 48–72 hours. A complete 2D plus 3D package runs 4–6 working days. Multi-unit developments are scheduled per phase, with dates confirmed in writing before we begin.',
+      q: 'How are quantities estimated?',
+      a: 'The model uses industry standards to estimate quantities, while allowing you to provide project-specific inputs and assumptions that are taken into account.',
+    },
+    {
+      q: 'Can I use my own estimating assumptions or standards?',
+      a: 'Yes. Project- and company-specific inputs can be incorporated to tailor estimates to the way you work.',
+    },
+    {
+      q: 'How is pricing determined?',
+      a: "Pricing can reflect dynamic market rates based on project location, your company's own vendor pricing, or a combination of both.",
+    },
+    {
+      q: 'Can I use my preferred vendors and negotiated rates?',
+      a: 'Yes. Your existing vendor and pricing information can be incorporated into your project estimates.',
+    },
+    {
+      q: 'What happens if my project changes?',
+      a: 'Update your project information and refine the model, quantities, and costs as the project evolves.',
+    },
+    {
+      q: 'What does the final BoQ include?',
+      a: 'Your BoQ brings together the identified materials, estimated quantities, and associated pricing in a structured, ready-to-use output.',
+    },
+    {
+      q: 'Can I export my work?',
+      a: 'Yes. Your project outputs can be exported for use across your broader project workflow.',
     },
   ],
 }
 
 /**
- * The single process section — the 2D → 3D → customize → download story.
+ * The product workflow, start to finish: upload → 3D model → materials,
+ * quantities and pricing → exported BoQ. Every step happens inside the
+ * platform, performed by the user.
  *
- * Each step's visual is matched to what the step actually describes:
- *   01 the uploaded 2D plan   → a real measured plan drawing
- *   02 the generated 3D floor → an axonometric cutaway of the same plan
- *   03 customization          → a furnished space (objects to edit / remove)
- *   04 the delivered output   → the finished photoreal visualization
+ * The four visuals are PLACEHOLDERS and deliberately unchanged. The client will
+ * supply: (01) a real 2D plan, (02) a real 3D model view, (03) a real
+ * materials/quantities view, (04) a real exported BoQ.
  */
 export const process = {
   index: '02',
   eyebrow: 'How It Works',
   headingLines: ['How It Works'],
   intro:
-    'One continuous pipeline, from the drawing you already have to the files you ship. You always know which stage a project sits in, and what comes next.',
+    'One continuous workflow inside the platform, from the plan you already have to the BoQ you use. You always know which stage a project sits in, and what comes next.',
   steps: [
     {
       number: '01',
-      title: 'Upload 2D Floor Plan',
+      title: 'Upload Your 2D Plan',
       body:
-        'Send us the plan you already have — CAD, PDF, a Revit export, or a photograph of a hand sketch. We audit the drawing, flag anything ambiguous, and confirm scale before a single line is redrawn.',
-      meta: 'DWG · PDF · RVT · JPG',
-      // Light drafting sheet — this is the drawing the client arrives with, so
-      // it reads as paper, not as a rendered output.
+        'Upload your existing 2D floor plan directly into the chatbot. This becomes the starting point for building and refining your project within the software.',
+      meta: '2D Plan · Upload',
       image: {
         src: '/assets/plan-2d-light.svg',
         alt: 'Measured two-dimensional floor plan on a white drafting sheet, with dimension strings, door swings and room labels',
@@ -222,12 +257,12 @@ export const process = {
     },
     {
       number: '02',
-      title: 'Get Your 3D Floor',
+      title: 'Build Your 3D Model',
       body:
-        'We rebuild the geometry to true dimension and extrude it into a full three-dimensional floor — walls, openings, levels and circulation, all derived from your original plan so the two never disagree.',
-      meta: 'Axonometric · Cutaway · Walkthrough',
+        'Work iteratively with the software to transform your 2D plan into a 3D floor plan. Refine the layout and key details until the model accurately reflects your project.',
+      meta: '3D Model · Iterate · Refine',
       // Deliberately the SAME unit as step 01, extruded and furnished: the copy
-      // promises the 3D is derived from the original plan, so the two drawings
+      // promises the 3D is built from the original plan, so the two drawings
       // have to be the same apartment.
       image: {
         src: '/assets/plan-3d-light.svg',
@@ -236,91 +271,105 @@ export const process = {
     },
     {
       number: '03',
-      title: 'Customize Your Space',
+      title: 'Materials, Quantities & Pricing',
       body:
-        'Refine the visualization with us. Edit finishes and materials, move or remove furniture and fixtures, adjust daylight — until the space reads exactly the way you intend to present it.',
-      meta: 'Materials · Furniture · Daylight',
+        'Using your 3D floor plan and supporting documents, identify the materials required, estimate quantities, and determine associated pricing, creating the foundation for your Bill of Quantities.',
+      meta: 'Materials · Quantities · Pricing',
       image: {
         src: U('1600210492486-724fe5c67fb0', 1400),
         srcSet: USet('1600210492486-724fe5c67fb0', [420, 640, 900, 1400]),
-        alt: 'Furnished interior with movable furniture and fixtures being refined',
+        alt: 'Interior with materials and fixtures being reviewed against the project',
       },
     },
     {
       number: '04',
-      title: 'Download Floor Plans',
+      title: 'Export Your BoQ',
       body:
-        'Take the finished set away in every format you need — layered source, print-resolution raster and web-optimized exports — with full commercial usage rights included.',
-      meta: 'Layered · Print · Web',
-      // The delivered set itself. This step previously showed a finished
-      // interior — a near-duplicate of step 03's photo, and nothing to do with
-      // downloading plans.
+        'Turn your finalized project into a ready-to-use Bill of Quantities. Your material selections, quantities, and pricing are organized into a clear BoQ you can use for procurement and project planning.',
+      meta: 'BoQ · Export · Use',
       image: {
         src: U('1762146828422-50a8bd416d3c', 1400),
         srcSet: USet('1762146828422-50a8bd416d3c', [420, 640, 900, 1400]),
-        alt: 'Printed architectural floor plan sheets spread out as the delivered set',
+        alt: 'Printed project documents spread out as a delivered, ready-to-use set',
       },
     },
   ],
 }
 
+/**
+ * PLACEHOLDER PORTRAITS.
+ *
+ * Each member points at a local drafted plate in `public/assets/` rather than a
+ * stock portrait of an unrelated person — the slot reads as deliberately empty
+ * instead of quietly wrong, and there is no third-party CDN in the way.
+ *
+ * The plates are authored at the same 3:4 the Team grid renders, so they drop
+ * straight into the existing layout, crop and reveal animation.
+ *
+ * TO REPLACE: swap `image` for the real photograph (3:4, ~900px wide is plenty
+ * at the largest breakpoint) and add a `srcSet` if you ship multiple widths —
+ * `Team.jsx` already passes both through. Nothing else needs touching.
+ */
+const teamPlaceholder = (slot) => `/assets/team-placeholder-${slot}.svg`
+
 export const team = {
   index: '04',
   eyebrow: 'The Team',
-  headingLines: ['Meet The Team'],
+  headingLines: ['The Team'],
   intro:
-    'Every member of the studio has worked in practice. That background is why our drawings survive contact with a real construction set.',
-  // Portraits render at ~404px wide on desktop and ~340px on a phone, so the
-  // 900w file was roughly double what any viewport needed.
+    'Strategy consulting, construction delivery, and applied AI on one team. We lived this problem before we built the product.',
   members: [
-    { name: 'Elena Marchetti', role: 'Founder & Design Director', image: U('1580489944761-15a19d654956', 900), srcSet: USet('1580489944761-15a19d654956', [360, 540, 900]), meta: 'M.Arch — Politecnico di Milano' },
-    { name: 'Julian Vance', role: 'Head of 3D Visualization', image: U('1500648767791-00dcc994a43e', 900), srcSet: USet('1500648767791-00dcc994a43e', [360, 540, 900]), meta: 'Formerly Foster + Partners' },
-    { name: 'Clara Béranger', role: 'Lead Technical Drafter', image: U('1438761681033-6461ffad8d80', 900), srcSet: USet('1438761681033-6461ffad8d80', [360, 540, 900]), meta: 'RIBA Part II' },
-    { name: 'Tomas Lindqvist', role: 'Client & Project Lead', image: U('1472099645785-5658abf4ff4e', 900), srcSet: USet('1472099645785-5658abf4ff4e', [360, 540, 900]), meta: '12 years in practice' },
+    {
+      name: 'Michel Abourizk',
+      role: 'Co-founder & CEO',
+      image: teamPlaceholder('01'),
+      meta: "Ex-strategy consultant at Strategy& Middle East and Business Development Director at Dynamic Motion, one of the GCC's leading fast-track construction and fit-out firms. Economics at AUB; Master in Management, IE Business School, Madrid.",
+    },
+    {
+      name: 'Jad Soubra',
+      role: 'Co-founder & CSO',
+      image: teamPlaceholder('02'),
+      meta: 'Strategy consultant at Strategy& Middle East, with investment banking experience at Morgan Stanley. Business at the American University of Beirut; MBA, INSEAD.',
+    },
+    {
+      name: 'Hammad Rizwan',
+      role: 'Head of AI Development',
+      image: teamPlaceholder('03'),
+      meta: 'Leads the build team — four civil engineers and four developers combining construction domain knowledge with applied AI, building the product every day.',
+    },
+    // Collective fourth slot, not an invented individual.
+    {
+      name: 'The Build Team',
+      role: 'Engineering & AI',
+      image: teamPlaceholder('04'),
+    },
   ],
   // 4-up at lg, 2-up at sm, 1-up below.
   imageSizes: '(min-width: 1024px) 23vw, (min-width: 640px) 46vw, 92vw',
 }
 
+/**
+ * Final CTA, not a project enquiry. Kraios is self-serve: the section drives
+ * account creation first, with a scheduled walkthrough as the secondary path.
+ *
+ * Both actions land on `/signup`, which is the only account/session route that
+ * exists today. They diverge as soon as a separate account-creation flow does.
+ */
 export const contact = {
   index: '06',
-  eyebrow: 'Start a Project',
-  headingLines: ['Contact Us'],
+  eyebrow: 'Get Started',
+  // Two lines by design.
+  headingLines: ['See It On Your', 'Next Project.'],
   body:
-    'Share your floor plan or project requirements and we come back within one business day with scope, timeline and a fixed quote — no discovery call needed to get a number.',
-  availability: 'Taking on projects for Q3',
-  responseNote: 'Average first reply — under 6 working hours.',
-  formTitle: 'Project Enquiry',
-  // `icon` is a key, mapped to a Phosphor component in the section.
-  details: [
-    { label: 'Phone', icon: 'phone', value: '+1 (415) 555 0148', href: 'tel:+14155550148' },
-    {
-      label: 'Email',
-      icon: 'mail',
-      value: 'studio@floor-visual.com',
-      href: 'mailto:studio@floor-visual.com',
-    },
-    {
-      label: 'Office',
-      icon: 'pin',
-      value: 'Suite 1200, 88 Meridian Avenue,\nSan Francisco, CA',
-      link: { label: 'See on Google Map', href: 'https://maps.google.com/?q=San+Francisco' },
-    },
-  ],
-  fields: {
-    name: { label: 'Name', placeholder: 'Elena Marchetti', autoComplete: 'name' },
-    email: { label: 'Email', placeholder: 'you@studio.com', autoComplete: 'email' },
-    details: {
-      label: 'Project Details',
-      placeholder: 'Unit count, the drawing formats you have, deliverables and target date.',
-    },
-  },
-  submitLabel: 'Send Project',
+    'Create your account and start your first project today — or schedule a session with our team for a walkthrough of the platform, pricing, and how Kraios fits your workflow.',
+  primaryCta: { label: 'Sign Up', to: authLinks.signup.to },
+  secondaryCta: { label: 'Schedule a Session', to: authLinks.signup.to },
 }
 
 /**
- * Booking availability for /signup. Placeholder slots — replace `timeSlots`
- * with whatever the scheduling API returns; `disabled` is already honoured.
+ * The scheduled-session request on /signup. Placeholder slots — replace
+ * `timeSlots` with whatever the scheduling API returns; `disabled` is already
+ * honoured.
  */
 export const booking = {
   timeSlots: [
@@ -342,7 +391,7 @@ export const booking = {
  * is built later, add the column back with real targets.
  */
 export const footer = {
-  note: 'Placeholder description — replace with a short line about the studio.',
+  note: 'Kraios turns your 2D floor plan into a 3D model, identified materials, estimated quantities, and a priced, ready-to-use BoQ — in one platform.',
   // landing-page sections, resolved from the same list the navbar uses
   sections: navLinks.map((l) => ({ label: l.label, id: l.id })),
   // real routes

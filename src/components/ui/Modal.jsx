@@ -118,8 +118,7 @@ export default function Modal({ open, onClose, title, children, labelledBy = 'mo
         </button>
 
         {/* `display-sm` — the same tier the auth page titles use, so the dialog
-            heading reads in the same Anton voice as the "LOGIN" behind it. It
-            was `display-md`, which is Archivo: a different typeface entirely.
+            heading reads in the same display voice as the "LOGIN" behind it.
             Both dialogs render through this one heading, so they cannot drift. */}
         {title && (
           <h2 id={labelledBy} className="display-sm pr-12 text-[var(--tone-ink)]">

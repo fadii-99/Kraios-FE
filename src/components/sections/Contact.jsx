@@ -1,11 +1,12 @@
 import { useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 import Container from '@/components/ui/Container'
-import ContactForm from '@/components/sections/ContactForm'
 import AnimatedHeading from '@/components/ui/AnimatedHeading'
+import PrimaryButton from '@/components/ui/PrimaryButton'
 import Section from '@/components/ui/Section'
 import BlueprintBackdrop from '@/components/ui/BlueprintBackdrop'
 import { contact } from '@/lib/content'
@@ -15,9 +16,12 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 gsap.registerPlugin(ScrollTrigger)
 
 /**
- * The simplest section on the page: a centred heading and the form beneath it,
- * nothing else. Phone, email and address still live in the footer, so removing
- * the detail rows here loses nothing.
+ * The closing call to action, not a project enquiry.
+ *
+ * Kraios is self-serve, so this section drives account creation first and a
+ * scheduled walkthrough second. It deliberately carries no form: the only form
+ * the visitor should meet is the one inside the flow they chose, on /signup.
+ * Both actions are real links, so they deep-link and open in a new tab.
  */
 export default function Contact() {
   const scope = useRef(null)
@@ -40,20 +44,6 @@ export default function Contact() {
           { opacity: 1, y: 0, duration: 0.8, stagger: 0.08, ease: 'power3.out' },
           '-=0.75',
         )
-
-      // fields arrive one after another
-      gsap.fromTo(
-        '[data-form] form > *',
-        { opacity: 0, y: 24 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.7,
-          stagger: 0.09,
-          ease: 'expo.out',
-          scrollTrigger: { trigger: '[data-form]', start: 'top 85%', once: true },
-        },
-      )
     },
     { scope, dependencies: [reduced] },
   )
@@ -65,11 +55,10 @@ export default function Contact() {
       <BlueprintBackdrop className="text-[var(--tone-ink)]" />
 
       <Container className="relative">
-        {/* ---- centred header ---- */}
         <div className="mx-auto max-w-3xl text-center">
           <div className="flex items-baseline justify-center gap-5" data-reveal>
-            <span className="label-mono text-[var(--tone-accent)]">{contact.index}</span>
-            <span className="label-mono text-[var(--tone-muted)]">{contact.eyebrow}</span>
+            <span className="label-ui text-[var(--tone-accent)]">{contact.index}</span>
+            <span className="label-ui text-[var(--tone-muted)]">{contact.eyebrow}</span>
           </div>
 
           <AnimatedHeading lines={contact.headingLines} className="mt-8" />
@@ -80,15 +69,24 @@ export default function Contact() {
           >
             {contact.body}
           </p>
-        </div>
 
-        {/* ---- form ---- */}
-        <div data-form className="mx-auto mt-16 max-w-2xl lg:mt-20">
-          <ContactForm />
+          {/* Primary fills, secondary is a hairline box — the same two-tier
+              pairing the hero uses, inverted for a light band. */}
+          <div
+            data-reveal
+            className="mt-12 flex flex-col items-stretch justify-center gap-4 sm:flex-row sm:items-center"
+          >
+            <PrimaryButton as={Link} to={contact.primaryCta.to} align="center">
+              {contact.primaryCta.label}
+            </PrimaryButton>
 
-          <p className="label-mono mt-7 text-center text-[var(--tone-muted)]">
-            {contact.responseNote}
-          </p>
+            <Link
+              to={contact.secondaryCta.to}
+              className="label-ui inline-flex min-h-13 cursor-pointer items-center justify-center border border-[var(--tone-line-strong)] px-8 py-4 text-[var(--tone-ink)] transition-colors duration-300 hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
+            >
+              {contact.secondaryCta.label}
+            </Link>
+          </div>
         </div>
       </Container>
     </Section>

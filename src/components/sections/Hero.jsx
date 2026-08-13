@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -19,6 +20,7 @@ gsap.registerPlugin(ScrollTrigger)
 export default function Hero() {
   const scope = useRef(null)
   const reduced = usePrefersReducedMotion()
+  const navigate = useNavigate()
   const [srcIndex, setSrcIndex] = useState(0)
   const [videoReady, setVideoReady] = useState(false)
 
@@ -126,7 +128,7 @@ export default function Hero() {
         <div className="max-w-[52rem]">
           <p
             data-hero-eyebrow
-            className="label-mono mb-8 flex items-center gap-3.5 text-accent"
+            className="label-ui mb-8 flex items-center gap-3.5 text-accent"
           >
             <span className="h-px w-10 bg-accent" aria-hidden="true" />
             {hero.eyebrow}
@@ -153,12 +155,14 @@ export default function Hero() {
 
           <div className="mt-11 flex flex-col items-stretch gap-4 sm:flex-row sm:items-center">
             {/* White fill over video reads cleaner than a colour block — the
-                blue stays as the accent on the eyebrow and details. */}
+                blue stays as the accent on the eyebrow and details.
+                Self-serve product: the primary action is account creation, so
+                this routes rather than scrolls. */}
             <button
               data-hero-cta
               type="button"
-              onClick={() => scrollToSection(hero.primaryCta.target)}
-              className="label-mono group inline-flex min-h-13 cursor-pointer items-center justify-center gap-3 bg-white px-8 py-4 text-ink-dark transition-colors duration-300 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+              onClick={() => navigate(hero.primaryCta.to)}
+              className="label-ui group inline-flex min-h-13 cursor-pointer items-center justify-center gap-3 bg-white px-8 py-4 text-ink-dark transition-colors duration-300 hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
             >
               {hero.primaryCta.label}
               <ArrowRight
@@ -178,7 +182,7 @@ export default function Hero() {
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/45 transition-colors duration-300 group-hover:border-accent">
                 <Play size={13} weight="fill" aria-hidden="true" />
               </span>
-              <span className="label-mono">{hero.secondaryCta.label}</span>
+              <span className="label-ui">{hero.secondaryCta.label}</span>
             </button>
           </div>
         </div>

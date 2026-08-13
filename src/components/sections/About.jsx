@@ -58,8 +58,8 @@ export default function About() {
       <Container className="relative">
         {/* index + label, matching every other section's header */}
         <div data-about-label className="flex items-baseline gap-5">
-          <span className="label-mono text-[var(--tone-accent)]">{about.index}</span>
-          <span className="label-mono text-[var(--tone-muted)]">{about.eyebrow}</span>
+          <span className="label-ui text-[var(--tone-accent)]">{about.index}</span>
+          <span className="label-ui text-[var(--tone-muted)]">{about.eyebrow}</span>
         </div>
 
         <AnimatedHeading lines={about.headingLines} className="mt-8" />
@@ -83,8 +83,11 @@ export default function About() {
                 key={item.label}
                 className={`border-b border-[var(--tone-line)] pb-5 ${i < 2 ? 'pt-0' : 'pt-6'}`}
               >
-                <dt className="label-mono text-[var(--tone-muted)]">{item.label}</dt>
-                <dd className="mt-2.5 font-mono text-[1.625rem] font-bold tracking-tight text-[var(--tone-ink)]">
+                <dt className="label-ui text-[var(--tone-muted)]">{item.label}</dt>
+                {/* `tabular-nums`, not a monospace face: keeps the figures on a
+                    common advance so the column stays aligned, without a second
+                    typeface. */}
+                <dd className="mt-2.5 text-[1.625rem] font-bold tabular-nums tracking-tight text-[var(--tone-ink)]">
                   {item.value}
                 </dd>
               </div>

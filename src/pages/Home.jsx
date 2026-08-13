@@ -53,7 +53,7 @@ export default function Home() {
     <>
       <a
         href="#main"
-        className="label-mono sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:bg-accent focus:px-5 focus:py-3 focus:text-ink-dark"
+        className="label-ui sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:bg-accent focus:px-5 focus:py-3 focus:text-ink-dark"
       >
         Skip to content
       </a>

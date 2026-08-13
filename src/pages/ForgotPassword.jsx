@@ -54,7 +54,7 @@ export default function ForgotPassword() {
             type="email"
             inputMode="email"
             autoComplete="email"
-            placeholder="you@studio.com"
+            placeholder="you@firm.com"
             required
             value={email}
             onChange={(e) => {

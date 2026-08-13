@@ -117,7 +117,7 @@ export default function BlueprintBackdrop({ variant = 'grid', className }) {
 
       {/* oversized coordinate label, clipped at the edge */}
       <span
-        className="absolute -left-4 bottom-6 select-none font-mono text-[0.6875rem] tracking-[0.3em] opacity-25 sm:left-6"
+        className="absolute -left-4 bottom-6 select-none text-[0.6875rem] font-medium tabular-nums tracking-[0.3em] opacity-25 sm:left-6"
         style={{ writingMode: 'vertical-rl' }}
       >
         N 37°46′ · W 122°25′
