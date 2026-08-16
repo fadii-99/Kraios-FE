@@ -115,7 +115,7 @@ export const about = {
   meta: [
     { label: 'Established', value: '2026' },
     { label: 'Headquarters', value: 'Dubai, UAE' },
-    { label: 'Projects Delivered', value: '20+' },
+    { label: 'Labor Recovered — Per Project', value: '$5,000+' },
     { label: 'Markets Served', value: '5+' },
   ],
 }

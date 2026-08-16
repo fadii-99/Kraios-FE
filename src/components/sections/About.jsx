@@ -76,14 +76,14 @@ export default function About() {
               with the paragraph's rather than its top edge. */}
           <dl
             data-about-copy
-            className="grid grid-cols-2 gap-x-10 self-start lg:col-span-5 lg:col-start-8 lg:-mt-20"
+            className="grid grid-cols-[1.12fr_1fr] gap-x-6 self-start sm:gap-x-8 lg:col-span-6 lg:col-start-7 lg:gap-x-10 lg:-mt-20"
           >
             {about.meta.map((item, i) => (
               <div
                 key={item.label}
                 className={`border-b border-[var(--tone-line)] pb-5 ${i < 2 ? 'pt-0' : 'pt-6'}`}
               >
-                <dt className="label-ui text-[var(--tone-muted)]">{item.label}</dt>
+                <dt className="label-ui text-[var(--tone-muted)] sm:whitespace-nowrap">{item.label}</dt>
                 {/* `tabular-nums`, not a monospace face: keeps the figures on a
                     common advance so the column stays aligned, without a second
                     typeface. */}
