@@ -111,7 +111,7 @@ export default function Team() {
           {team.intro}
         </p>
 
-        <ul className="mt-20 grid grid-cols-1 gap-x-8 gap-y-16 sm:grid-cols-2 lg:mt-28 lg:grid-cols-4">
+        <ul className="mx-auto mt-20 grid max-w-sm grid-cols-1 gap-x-8 gap-y-16 sm:max-w-2xl sm:grid-cols-2 lg:mt-28 lg:max-w-5xl lg:grid-cols-3">
           {team.members.map((member, i) => (
             <li
               key={member.name}

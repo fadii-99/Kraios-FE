@@ -115,7 +115,7 @@ export const about = {
   meta: [
     { label: 'Established', value: '2026' },
     { label: 'Headquarters', value: 'Dubai, UAE' },
-    { label: 'Plans Delivered', value: '20+' },
+    { label: 'Projects Delivered', value: '20+' },
     { label: 'Markets Served', value: '5+' },
   ],
 }
@@ -326,26 +326,20 @@ export const team = {
       meta: "Ex-strategy consultant at Strategy& Middle East and Business Development Director at Dynamic Motion, one of the GCC's leading fast-track construction and fit-out firms. Economics at AUB; Master in Management, IE Business School, Madrid.",
     },
     {
-      name: 'Jad Soubra',
-      role: 'Co-founder & CSO',
-      image: teamPlaceholder('02'),
-      meta: 'Strategy consultant at Strategy& Middle East, with investment banking experience at Morgan Stanley. Business at the American University of Beirut; MBA, INSEAD.',
-    },
-    {
       name: 'Hammad Rizwan',
       role: 'Head of AI Development',
       image: teamPlaceholder('03'),
       meta: 'Leads the build team — four civil engineers and four developers combining construction domain knowledge with applied AI, building the product every day.',
     },
-    // Collective fourth slot, not an invented individual.
+    // Collective third slot, not an invented individual.
     {
       name: 'The Build Team',
       role: 'Engineering & AI',
       image: teamPlaceholder('04'),
     },
   ],
-  // 4-up at lg, 2-up at sm, 1-up below.
-  imageSizes: '(min-width: 1024px) 23vw, (min-width: 640px) 46vw, 92vw',
+  // 3-up at lg, 2-up at sm, 1-up below.
+  imageSizes: '(min-width: 1024px) 31vw, (min-width: 640px) 46vw, 92vw',
 }
 
 /**
