@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import AuthShell from '@/components/ui/AuthShell'
 import FormInput from '@/components/ui/FormInput'
@@ -20,6 +20,7 @@ function validate(values) {
 }
 
 export default function Login() {
+  const navigate = useNavigate()
   const [values, setValues] = useState(EMPTY)
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
@@ -53,9 +54,10 @@ export default function Login() {
     }
 
     setStatus('submitting')
-    // Frontend only — no auth backend yet. See PROGRESS.md.
+    // Frontend only — simulated login. Navigates to dashboard workspace.
     await new Promise((r) => setTimeout(r, 900))
     setStatus('idle')
+    navigate('/dashboard')
   }
 
   return (

@@ -1,4 +1,4 @@
-import { ArrowRight, CircleNotch } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, CircleNotch } from '@phosphor-icons/react'
 
 import { cn } from '@/lib/cn'
 
@@ -13,27 +13,59 @@ import { cn } from '@/lib/cn'
  *
  * `--color-brand` (#1677FF) is deliberately NOT used as a fill — white on it is
  * 3.92:1 and dark ink on it is 4.43:1, so both directions fail AA.
+ *
+ * `variant="outline"` is the quieter sibling: a hairline box that borrows the
+ * tone's own line and ink and only picks up accent on hover. It exists so a
+ * secondary action next to a filled CTA can share this component's geometry
+ * instead of re-typing a bespoke button. Both variants sit on the same box, so
+ * `size` swaps padding/height for both at once — `cn` is a plain joiner, not
+ * tailwind-merge, so a padding override in `className` would lose to the base
+ * class on source order rather than replacing it.
  */
+const VARIANTS = {
+  solid: cn(
+    'bg-[var(--btn-bg)] text-[var(--btn-ink)]',
+    'hover:bg-[var(--btn-bg-hover)]',
+  ),
+  outline: cn(
+    'border border-[var(--tone-line-strong)] bg-transparent text-[var(--tone-ink)]',
+    'hover:border-[var(--tone-accent)] hover:bg-[color-mix(in_oklab,var(--tone-accent)_5%,transparent)]',
+    'hover:text-[var(--tone-accent)]',
+  ),
+}
+
+const SIZES = {
+  default: 'min-h-13 gap-4 px-8 py-4',
+  compact: 'min-h-11 gap-3 px-6 py-3',
+}
+
 export default function PrimaryButton({
   as: Tag = 'button',
   children,
   loading = false,
   loadingLabel = 'Sending',
   withArrow = true,
+  arrowDirection = 'right',
   align = 'between',
+  variant = 'solid',
+  size = 'default',
   className,
   disabled,
   ...rest
 }) {
+  const isLeftArrow = withArrow && arrowDirection === 'left'
+  const isRightArrow = withArrow && arrowDirection === 'right'
+
   return (
     <Tag
       disabled={Tag === 'button' ? disabled || loading : undefined}
       aria-busy={loading || undefined}
       className={cn(
-        'group label-ui inline-flex min-h-13 cursor-pointer items-center gap-4',
-        'bg-[var(--btn-bg)] px-8 py-4 text-[var(--btn-ink)]',
-        'transition-[background-color,transform] duration-300 ease-[var(--ease-out-expo)]',
-        'hover:bg-[var(--btn-bg-hover)] active:translate-y-px',
+        'group label-ui inline-flex cursor-pointer items-center',
+        SIZES[size] || SIZES.default,
+        VARIANTS[variant] || VARIANTS.solid,
+        'transition-[background-color,border-color,color,transform] duration-300 ease-[var(--ease-out-expo)]',
+        'active:translate-y-px',
         'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--tone-accent)]',
         'disabled:cursor-not-allowed disabled:opacity-55',
         align === 'between' ? 'justify-between' : 'justify-center',
@@ -41,12 +73,21 @@ export default function PrimaryButton({
       )}
       {...rest}
     >
+      {isLeftArrow && !loading && (
+        <ArrowLeft
+          size={17}
+          weight="bold"
+          aria-hidden="true"
+          className="transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:-translate-x-1.5"
+        />
+      )}
+
       <span>{loading ? loadingLabel : children}</span>
 
       {loading ? (
         <CircleNotch size={17} weight="bold" aria-hidden="true" className="animate-spin" />
       ) : (
-        withArrow && (
+        isRightArrow && (
           <ArrowRight
             size={17}
             weight="bold"

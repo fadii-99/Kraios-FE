@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { X } from '@phosphor-icons/react'
@@ -9,11 +10,11 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 /**
- * Accessible dialog used by every success state.
+ * Accessible dialog used by every modal state.
  *
- * Handles the four things a hand-rolled modal usually gets wrong: Escape to
- * close, focus moved in on open and restored to the trigger on close, Tab
- * cycled inside the panel, and the background locked from scrolling.
+ * Rendered via createPortal into document.body so the scrim covers the entire
+ * viewport (including the sidebar and header) without being trapped in child
+ * stacking contexts.
  */
 export default function Modal({ open, onClose, title, children, labelledBy = 'modal-title' }) {
   const scope = useRef(null)
@@ -22,30 +23,34 @@ export default function Modal({ open, onClose, title, children, labelledBy = 'mo
   const returnFocusRef = useRef(null)
   const reduced = usePrefersReducedMotion()
 
+  // `onClose` is usually an inline arrow in the parent, so a new identity every
+  // parent render. Kept in a ref so the effect below depends on `open` alone.
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     if (!open) return
 
     // remember what to hand focus back to
     returnFocusRef.current = document.activeElement
 
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
     const onKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current?.()
         return
       }
 
       if (e.key !== 'Tab') return
 
-      // keep Tab inside the panel
-      const items = panelRef.current?.querySelectorAll(FOCUSABLE)
-      if (!items?.length) return
+      const focusable = panelRef.current?.querySelectorAll(FOCUSABLE)
+      if (!focusable || focusable.length === 0) return
 
-      const first = items[0]
-      const last = items[items.length - 1]
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
 
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault()
@@ -56,9 +61,16 @@ export default function Modal({ open, onClose, title, children, labelledBy = 'mo
       }
     }
 
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', onKeyDown)
-    // focus the close button rather than the panel, so Escape/Tab work at once
-    const raf = requestAnimationFrame(() => closeRef.current?.focus())
+
+    // Focus the first actionable control once mounted
+    const raf = requestAnimationFrame(() => {
+      const focusable = panelRef.current?.querySelectorAll(FOCUSABLE)
+      const target = focusable?.[0] || panelRef.current
+      target?.focus?.()
+    })
 
     return () => {
       document.body.style.overflow = prevOverflow
@@ -66,7 +78,7 @@ export default function Modal({ open, onClose, title, children, labelledBy = 'mo
       cancelAnimationFrame(raf)
       returnFocusRef.current?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   useGSAP(
     () => {
@@ -87,16 +99,16 @@ export default function Modal({ open, onClose, title, children, labelledBy = 'mo
 
   if (!open) return null
 
-  return (
-    <div ref={scope} className="fixed inset-0 z-[60] flex items-center justify-center p-5">
-      {/* scrim: strong enough to isolate the panel, and click-to-close */}
+  return createPortal(
+    <div ref={scope} className="fixed inset-0 z-[999] flex items-center justify-center p-5">
+      {/* scrim: strong enough to isolate the panel, covers whole viewport including sidebar */}
       <button
         data-modal-scrim
         type="button"
         aria-label="Close dialog"
         tabIndex={-1}
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-navy/70 backdrop-blur-[2px]"
+        className="absolute inset-0 cursor-default bg-[#071426]/70 backdrop-blur-[3px]"
       />
 
       <div
@@ -105,7 +117,7 @@ export default function Modal({ open, onClose, title, children, labelledBy = 'mo
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
-        className="tone-light relative w-full max-w-lg border border-[var(--tone-line-strong)] p-8 shadow-[0_30px_80px_-40px_rgba(7,20,38,0.5)] sm:p-10"
+        className="tone-light relative max-h-full w-full max-w-lg overflow-y-auto border border-[var(--tone-line-strong)] bg-white p-8 shadow-[0_30px_80px_-40px_rgba(7,20,38,0.5)] sm:p-10"
       >
         <button
           ref={closeRef}
@@ -117,17 +129,19 @@ export default function Modal({ open, onClose, title, children, labelledBy = 'mo
           <X size={20} weight="light" aria-hidden="true" />
         </button>
 
-        {/* `display-sm` — the same tier the auth page titles use, so the dialog
-            heading reads in the same display voice as the "LOGIN" behind it.
-            Both dialogs render through this one heading, so they cannot drift. */}
         {title && (
-          <h2 id={labelledBy} className="display-sm pr-12 text-[var(--tone-ink)]">
+          <h2
+            id={labelledBy}
+            className="pr-12 text-[1.625rem] font-extrabold uppercase leading-tight tracking-[-0.03em] text-[var(--tone-ink)] sm:text-[1.875rem]"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
             {title}
           </h2>
         )}
 
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -1,30 +1,39 @@
 import { cn } from '@/lib/cn'
 
 /**
- * Full-screen loading overlay for lazily-loaded routes.
+ * The ONE loading state in the product — landing, auth routes and the whole
+ * dashboard all render this component.
  *
- * Fixed and opaque rather than in-flow: the Navbar and Footer live in
- * `AppLayout` *outside* the Suspense boundary, so an in-flow loader left the
- * footer visible underneath while a chunk downloaded.
- *
- * It stays mounted and is toggled with `hidden` instead of being swapped out by
- * Suspense — a fallback is unmounted synchronously, which gives no chance to
- * animate an exit. Keeping it mounted buys a real fade-out.
+ * Placements:
+ * - `overlay` (default) — fixed and opaque, for `AppLayout`.
+ * - `inline` — in normal flow, for modal, section and dashboard boundaries.
  */
-export default function PageLoader({ label = 'Loading', hidden = false }) {
+export default function PageLoader({
+  label = 'Loading',
+  hidden = false,
+  variant = 'overlay',
+  className,
+}) {
+  const inline = variant === 'inline'
+
   return (
     <div
       role={hidden ? undefined : 'status'}
       aria-live={hidden ? undefined : 'polite'}
       aria-hidden={hidden || undefined}
       className={cn(
-        'page-loader tone-light fixed inset-0 z-[70] flex flex-col items-center justify-center gap-7',
-        'transition-opacity duration-500 ease-[var(--ease-out-expo)]',
-        hidden ? 'pointer-events-none opacity-0' : 'opacity-100',
+        'tone-light flex flex-col items-center justify-center gap-7',
+        inline
+          ? 'relative min-h-[50vh] w-full overflow-hidden my-auto bg-transparent'
+          : 'page-loader fixed inset-0 z-[70] transition-opacity duration-500 ease-[var(--ease-out-expo)]',
+        !inline && (hidden ? 'pointer-events-none opacity-0' : 'opacity-100'),
+        className,
       )}
     >
-      {/* subtle blueprint grid — kept minimal so the icon stays the focus */}
-      <span aria-hidden="true" className="page-loader__grid absolute inset-0" />
+      {/* subtle blueprint grid only for full-screen overlay */}
+      {!inline && (
+        <span aria-hidden="true" className="page-loader__grid absolute inset-0" />
+      )}
 
       <svg
         width="80"

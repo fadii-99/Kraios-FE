@@ -7,6 +7,12 @@ import { cn } from '@/lib/cn'
  * The label is always a real `<label for>` — a placeholder is a hint, never a
  * label. Errors are wired through `aria-describedby` + `role="alert"` and are
  * prefixed "Error —" so the state never depends on colour alone.
+ *
+ * `size="compact"` is the in-application density (dashboard forms): the same
+ * border, focus, radius and transition, but a 44px field and a quieter label —
+ * `label-ui`'s 0.16em drafting-annotation tracking is right for a five-field
+ * marketing form and too loud for a settings screen. Auth pages keep the
+ * default and render exactly as before.
  */
 export default function FormInput({
   id,
@@ -24,17 +30,27 @@ export default function FormInput({
   as = 'input',
   rows,
   inputMode,
+  size = 'default',
   className,
   ...rest
 }) {
   const Tag = as
   const errorId = `${id}-error`
+  const compact = size === 'compact'
 
   return (
     <div className={cn('group', className)}>
       <label
         htmlFor={id}
-        className="label-ui block text-[var(--tone-muted)] transition-colors duration-300 group-focus-within:text-[var(--tone-accent)]"
+        className={cn(
+          'block text-[var(--tone-muted)] transition-colors duration-300 group-focus-within:text-[var(--tone-accent)]',
+          // `.label-ui` is hand-written in @layer utilities and outranks Tailwind
+          // font utilities, so the compact label opts out of the class entirely
+          // rather than trying to override it.
+          compact
+            ? 'text-[0.6875rem] font-semibold uppercase tracking-[0.06em]'
+            : 'label-ui',
+        )}
       >
         {label}
         {required && (
@@ -60,9 +76,12 @@ export default function FormInput({
         aria-invalid={error ? 'true' : undefined}
         aria-describedby={error ? errorId : undefined}
         className={cn(
-          // min-h-12 keeps the touch target at 48px
-          'mt-3 block min-h-12 w-full border bg-[var(--field-bg)] px-4 py-3.5',
-          'text-[1rem] text-[var(--tone-ink)] placeholder:text-[var(--tone-muted)]/55',
+          // min-h-12 keeps the touch target at 48px; compact holds 44px, the floor
+          'block w-full border bg-[var(--field-bg)]',
+          compact
+            ? 'mt-2 min-h-11 px-3.5 py-2.5 text-[0.9375rem]'
+            : 'mt-3 min-h-12 px-4 py-3.5 text-[1rem]',
+          'text-[var(--tone-ink)] placeholder:text-[var(--tone-muted)]/55',
           'outline-none transition-[border-color,box-shadow] duration-300 focus-visible:outline-none',
           'disabled:cursor-not-allowed disabled:opacity-60',
           error

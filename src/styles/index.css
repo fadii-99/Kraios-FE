@@ -26,6 +26,24 @@
   --color-muted-dark: #4a5a6e; /* on light — 6.51:1 */
 
   /* ---------------------------------------------------------------------
+     STATUS — the only two non-brand hues in the system, and they are
+     functional, never decorative. Added for the project library, where a
+     stage that has not been generated has to read as an open item at a
+     glance rather than as quiet grey text.
+
+     Both are deep, desaturated and used as INK on white (never as a fill),
+     which is what keeps them premium instead of alert-box loud:
+
+       success on white — 5.61:1  PASS
+       danger  on white — 6.24:1  PASS
+
+     Colour is never the only signal: every use pairs the token with an icon
+     AND the words "Generated" / "Not generated".
+     --------------------------------------------------------------------- */
+  --color-success: #0a6c48;
+  --color-danger: #b42318;
+
+  /* ---------------------------------------------------------------------
      TYPOGRAPHY — two roles, ONE typeface. Do not add a third.
 
      `--font-display` and `--font-body` are deliberately the same family:
@@ -49,6 +67,7 @@
      reintroduced by reflex. */
   --font-mono: initial;
 
+  
   --spacing-section: clamp(6rem, 13vw, 12rem);
   --spacing-gutter: clamp(1.25rem, 4vw, 4.5rem);
 
@@ -60,12 +79,16 @@
    touch without moving a single pixel of the mouse-driven desktop layout. A
    width breakpoint cannot express this: a 1024px tablet is touch, a 1024px
    laptop is not. */
+
+
 @custom-variant touch (@media (pointer: coarse));
 
 /* ---------------------------------------------------------------------------
    Tone system — a section declares its tone, children read the vars.
    This is what lets the same components live on dark and light bands.
    --------------------------------------------------------------------------- */
+
+
 @layer components {
   .tone-dark {
     --tone-bg: var(--color-navy);
@@ -83,9 +106,14 @@
        shadow, which cannot hide the browser's own fill through a translucent
        colour — it has to be solid. */
     --field-autofill: #0d1b2e;
+    /* Scrollbar reads as a hairline on this band — same family as
+       --tone-line / --tone-line-strong so it never out-weighs a real rule. */
+    --scrollbar-thumb: rgba(247, 250, 252, 0.18);
+    --scrollbar-thumb-hover: rgba(247, 250, 252, 0.34);
     background-color: var(--tone-bg);
     color: var(--tone-ink);
   }
+
 
   .tone-deep {
     --tone-bg: var(--color-navy-2);
@@ -99,9 +127,14 @@
     --btn-bg-hover: #5ca5ff;
     --field-bg: rgba(255, 255, 255, 0.04);
     --field-autofill: #12233b;
+    /* Scrollbar reads as a hairline on this band — same family as
+       --tone-line / --tone-line-strong so it never out-weighs a real rule. */
+    --scrollbar-thumb: rgba(247, 250, 252, 0.18);
+    --scrollbar-thumb-hover: rgba(247, 250, 252, 0.34);
     background-color: var(--tone-bg);
     color: var(--tone-ink);
   }
+
 
   .tone-light {
     --tone-bg: var(--color-light);
@@ -119,6 +152,8 @@
     --btn-bg-hover: #0e4fa8;
     --field-bg: #ffffff;
     --field-autofill: #ffffff;
+    --scrollbar-thumb: rgba(11, 22, 36, 0.18);
+    --scrollbar-thumb-hover: rgba(11, 22, 36, 0.34);
     background-color: var(--tone-bg);
     color: var(--tone-ink);
   }
@@ -164,6 +199,75 @@
   ::selection {
     background-color: var(--color-brand);
     color: var(--color-ink);
+  }
+
+  /* -------------------------------------------------------------------------
+     SCROLLBARS — one thin, light bar for the whole product.
+
+     The window scrollbar on the landing page and every internal scroll
+     container (dashboard page surface, sidebar, mobile menu, Modal) used to
+     render the OS default: a fat grey Windows bar on the navy hero and a
+     second, differently-sized one inside the dashboard. It read as chrome
+     bolted onto the design rather than part of it.
+
+     Rules, in keeping with the rest of the system:
+       - thin. 8px of hit area, 4px of visible bar (the thumb carries a
+         transparent border and clips its background to the content box), so
+         it stays grabbable with a mouse without drawing a stripe.
+       - hairline weight, not a colour. The thumb is the same rgba family as
+         --tone-line / --tone-line-strong, so it never out-weighs a real rule.
+       - tone-aware, therefore consistent by construction. `.tone-dark` /
+         `.tone-deep` publish a light thumb, `.tone-light` a dark one; the
+         dashboard is one big `.tone-light`, so it inherits the light-band bar
+         with no dashboard-specific CSS. Never restyle a scrollbar per page.
+       - radius 0, like everything else.
+       - the track stays transparent so the bar sits on the band's own
+         background instead of cutting a grey channel through it.
+
+     Two engines, deliberately not both at once: Blink/WebKit ignores the
+     ::-webkit-scrollbar pseudo-elements as soon as the standard
+     `scrollbar-width` / `scrollbar-color` are set to anything but `auto`, so
+     the standard properties are gated behind "this engine has no
+     ::-webkit-scrollbar" — Firefox takes that branch, Chrome and Safari take
+     the pseudo-element branch and get the exact 4px bar.
+     ------------------------------------------------------------------------- */
+  :root {
+    --scrollbar-size: 8px;
+    /* Default matches the navy body, for anything outside a tone. */
+    --scrollbar-thumb: rgba(247, 250, 252, 0.18);
+    --scrollbar-thumb-hover: rgba(247, 250, 252, 0.34);
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    /* `*`, not inheritance: scrollbar-color inherits as a resolved colour, so
+       a value declared once on <html> would follow the dark thumb into the
+       light dashboard. Resolving the var per element is what keeps it
+       tone-aware. */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+  }
+
+  ::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    background-clip: content-box;
+    border: 2px solid transparent;
+    border-radius: 0;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
   }
 
   p {
@@ -299,6 +403,56 @@
   /* `.display-md` used to sit here in Archivo 800. It had no usages left in the
      app, and it was the only thing keeping a third typeface in the build, so it
      went with the font. Sentence-case sub-headings are plain Inter utilities. */
+
+  /* The application tier — the dashboard Welcome name, and any future product
+     heading holding USER-SUPPLIED text at display size.
+
+     It exists because `.display-lg` is `white-space: nowrap` at >=1024px. That
+     is correct for the landing page, whose headings are authored copy of known
+     length, but it is unsafe for a name: "Maria Fernanda Gonzalez" measured
+     1024px inside the 577px Welcome column at 1440, and `main` uses
+     `overflow-x-clip`, so it would have been clipped mid-word without ever
+     triggering page overflow — the exact failure this file already documents.
+
+     So: same Inter display voice, but it WRAPS, and it can break a word that
+     is longer than its box rather than run past the edge. The 5.2vw slope is
+     continuous across 1024 (unlike `.display-lg`, which steps from 9vw to 5vw
+     there and therefore renders LARGER at 768 than at 1024). Measured against
+     the Welcome column at 320/390/768/1024/1280/1440: the longest wrapped word
+     clears its box at every width. */
+  .display-app {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    white-space: normal;
+    overflow-wrap: break-word;
+    /* Stepped down one notch from clamp(2.25rem, 5.2vw, 4.5rem): the greeting
+       has to stay visually dominant on the Overview sheet without crowding the
+       composition below it. Re-measured on the same 320/390/768/1024/1280/1440
+       ladder — the longest wrapped word still clears the Welcome column at
+       every width, with more clearance than before. */
+    font-size: clamp(1.875rem, 4.1vw, 3.5rem);
+  }
+
+  /* Application / Product header tier: compact, architectural, crisp.
+     The title of a dashboard page — PROJECTS, PROFILE — rendered once by
+     `DashboardPageHeader`, never re-typed as inline sizes in a page.
+
+     Inter 700 (not 800: the type system has exactly one display weight), same
+     negative tracking as the rest of the display scale. The clamp tops out at
+     2.25rem, which is where these titles already sat, and floors at 1.5rem so
+     the header band stays short on a phone — this tier shares its viewport
+     with the page content and must not eat it. */
+  .display-product {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    font-size: clamp(1.875rem, 3.6vw, 3rem);
+  }
 
   /* Wrapper for line-by-line masked reveals */
   .line-mask {

@@ -18,7 +18,12 @@ import { cn } from '@/lib/cn'
 // Static classes, not interpolated: Tailwind only emits what it can see.
 const SIZES = {
   nav: { cls: 'h-10 w-10', px: 40 },
+  sidebar: { cls: 'h-9 w-9 sm:h-10 sm:w-10', px: 40 },
   footer: { cls: 'h-14 w-14', px: 56 },
+  // The dashboard Overview, where the mark opens the composition above the
+  // welcome heading and is the only brand element on the sheet. `px` is the
+  // largest step so the reserved box never under-declares the rendered size.
+  hero: { cls: 'h-[4.5rem] w-[4.5rem] sm:h-20 sm:w-20 lg:h-24 lg:w-24', px: 96 },
 }
 
 export default function Logo({ className, onClick, size = 'nav' }) {

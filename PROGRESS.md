@@ -26,6 +26,245 @@ Tone rhythm alternates dark-blue and light:
 
 ---
 
+## G. Project card redesign + dashboard consistency pass (applied)
+
+Dashboard-only. No landing-page, auth or public-navigation file was touched.
+
+### Project card (`ProjectCard`) — rebuilt
+
+- [x] Shows **only real project state**: id, name, `has3DRender`, `hasBoQ`.
+      Removed the invented "ARCHITECTURAL SUITE" category, the created-date
+      stamp and the "2/4 Complete" workflow meter — none of them were state
+- [x] Name is the dominant element (`--font-display`, uppercase), clamped to two
+      lines with its height reserved, so long names wrap instead of breaking the
+      card and every card in a row stays aligned
+- [x] Status is **one block, not two nested boxes**: two hairline-separated rows
+      (icon · stage label · state). `Ready` in `--color-brand-deep` with a filled
+      icon, `Not generated` in `--tone-muted-dark`. No invented success green
+- [x] Icons from the existing Phosphor set, matching the workflow nav's family:
+      `Blueprint` (project), `Cube` (3D rendering), `Calculator` (BoQ),
+      `ArrowRight` (open), `Trash` (delete)
+- [x] Plan band simplified — one measured unit, one dimension string, no
+      crosshairs or survey marks. Radius 0 everywhere (was `rounded-lg`)
+- [x] Action row: **Open project** takes the width and the accent;
+      **Delete** is a neutral icon button beside it, restrained red on
+      hover/focus only. Delete is a sibling of the link, never nested, so it
+      cannot trigger navigation. It still opens the shared `Modal` confirmation
+- [x] Hover is border + 2px lift + arrow shift. No shadow bloom, no zoom, no
+      looping status animation
+- [x] Grid: 1 column below 640px, 2 from 640px, **3 only from 1280px** — three
+      cards at 1024 fell under ~260px once the sidebar took its width
+
+### Dashboard consistency & responsiveness
+
+- [x] `DashboardPageHeader` added — one eyebrow + `.display-product` title +
+      optional right slot. Projects and Profile had been re-typing the same
+      header with different padding, weights and a dead `label-ui` font-size
+      override; both now use it, as do the two unlinked placeholder pages
+- [x] `.display-product` adopted (it existed in `index.css` and was used
+      nowhere): Inter 700 — the display scale has one weight — at
+      `clamp(1.5rem, 2.6vw, 2.25rem)`, matching the size the titles already had
+- [x] `ProjectStepNavigation` stacked below 640px. Both labels are
+      `whitespace-nowrap`, so "3D Rendering" in a half-width column overflowed
+      horizontally on phones. Spacers hide below `sm` (smallest possible fix —
+      the design is otherwise unchanged)
+- [x] `Models` / `Estimates` (unlinked placeholders) rebuilt on the shared
+      header and the shared surface padding — they had been rendering flush to
+      the surface edge with no gutter
+- [x] Projects empty state squared off (`rounded-2xl` → hairline box) and its
+      second line now says what to do instead of repeating the heading
+
+### Cleanup / performance
+
+- [x] Deleted dead files: `WorkspacePanel.jsx` (alias of `DashboardPageSurface`,
+      imported nowhere), `WelcomeWorkflow.jsx`, `PlanAxonometric.jsx`
+- [x] Removed the unused `DashboardBlueprintField` import from
+      `WelcomeWorkflowCanvas` and the dead `[data-canvas-grid]` tween in
+      `DashboardHome` — the field lives in `DashboardPageSurface`, outside that
+      component's GSAP scope, so the selector matched nothing
+- [x] Project grid entrance no longer re-runs over every card when one project
+      is added or deleted; only not-yet-revealed cards animate
+- [x] Project ids come from a monotonic counter instead of `projects.length`.
+      Delete-then-create used to mint a duplicate id — and a duplicate React key
+
+### Still not implemented (unchanged by this pass)
+
+- [ ] Nothing flips `has3DRender` / `hasBoQ` yet — the stage pages are still
+      placeholders, so every card reads "Not generated". The card is data-driven;
+      the data source is what is missing
+- [ ] Persistence, backend, API, real auth
+- [ ] Upload, 3D rendering, BoQ generation, output/downloads
+- [ ] Profile's subscription panel is placeholder content, not billing data
+
+### Verification
+
+Reviewed by reading the rendered structure and lint (`eslint` clean on all
+dashboard paths). No build, no production build and no test run was performed —
+those were out of scope for this pass.
+
+---
+
+## F. Dashboard product UI — Welcome, Projects, Create Project (applied)
+
+The first designed pass over the logged-in application. Structure from section E
+is unchanged; this is UI, plus the session-scoped project store the UI needs.
+
+### Done
+
+- [x] **Sidebar simplified** to Overview + Projects, Profile still pinned at the
+      bottom. `3D Models` and `Estimates` dropped from the nav — they duplicated
+      per-project stages as global pages. Their routes still resolve, unlinked
+- [x] `src/lib/dashboard/currentUser.js` — the one placeholder identity
+      (`{ name: 'User' }`); no name is hardcoded in JSX
+- [x] `ProjectsProvider` + `projectsContext` — session-scoped project store
+      (context + `useState`, no library, no backend, deliberately no
+      localStorage). Mounted in `DashboardLayout` **outside** its Suspense
+      boundary, or a route change would wipe the session's projects
+- [x] **Welcome screen** (`/dashboard`) — white page surface inside the grey
+      workspace, sized to one dashboard viewport. Editorial split down a
+      hairline: greeting + `WELCOME, / USER` + CTA on the left rail, the
+      four-stage setting-out line on the right. Corner ticks, accent rule,
+      station marks; no photography, renders or stock art
+- [x] `.display-app` added to the type scale for the user's name — `.display-lg`
+      is `nowrap` at ≥1024 and would have clipped a two-word name mid-word
+- [x] **BoQ reads as optional** via a plain "Optional" annotation — a word, not
+      a colour and not a lock
+- [x] **Create Project modal** — reuses the shared `Modal` (focus moved in,
+      focus trap, Escape, focus restored to trigger, body scroll lock, all
+      re-verified), one Project Name field, Cancel / Create, then a
+      "Creating Project" state and a route to `/dashboard/projects`
+- [x] **Projects page** — header + CTA, real empty state, and a responsive card
+      grid once projects exist *(both revised in section G)*
+- [x] **Project card** — first pass; **superseded by section G**
+- [x] Touch targets: `touch:min-h-11` on sidebar nav items (coarse pointers
+      only, so the desktop rail is unchanged); mobile drawer icon buttons 40→44px
+
+### Explicitly NOT implemented
+
+- [ ] Persistence of any kind — projects live in memory and are gone on refresh
+- [ ] Backend, API, auth (Login still simulates and routes to `/dashboard`)
+- [ ] Real upload, 3D rendering, BoQ generation, output/downloads
+- [ ] Project status — the card reads `has3DRender` / `hasBoQ`, but no stage
+      writes them yet, so they are `false` for every project
+- [ ] BoQ skip and re-entry behaviour (architecture allows it; no UI yet)
+- [ ] The four workflow step pages remain the section-E placeholders
+
+### Verified (production build, headless Chrome)
+
+| Check | Result |
+|---|---|
+| Journey: login → Welcome → Create Project → Projects → card → workspace → all 4 stages | pass |
+| Modal: focus into dialog, Tab wraps, Escape closes, focus restored, scroll locked | pass |
+| Empty submit blocked with `role="alert"` + `aria-invalid` | pass |
+| Grey workspace `rgb(244,246,248)` on every dashboard page; Welcome panel white | pass |
+| Welcome fits one viewport: 1920×1080 · 1600×900 · 1512×982 · 1440×900/800 · 1366×768 · 1280×800/720 · 1152×720 · 1024×768 | no scroll at any |
+| Horizontal overflow at 1440/1280/1024/768/430/390/375/320 | none |
+| Panel gutters symmetric at mobile widths (20px each side) | pass |
+| Heading order h1 → h2 → h3; all SVGs decorative or labelled | pass |
+| Reduced motion — content lands at full opacity | pass |
+| CTA `rgb(11,94,215)` on light ink | pass |
+| Console errors/warnings across the journey | none |
+
+---
+
+## E. Project workflow — structural foundation (applied)
+
+The empty rooms and hallways of the logged-in application. **Architecture only —
+no workflow functionality was built.**
+
+### Done
+
+- [x] `src/pages/dashboard/projects/` — `ProjectWorkspace`, `UploadStep`,
+      `RenderingStep`, `BoQStep`, `OutputStep`
+- [x] `src/components/dashboard/projects/` — `ProjectWorkflowNav`,
+      `StepPlaceholder`, `CreateProjectDialog`
+- [x] `src/lib/dashboard/projectWorkflow.js` — the four stages declared **once**
+      (id / number / label / segment) plus `projectStagePath()`. No status model
+- [x] Dynamic route `/dashboard/projects/:projectId` in the existing
+      `createBrowserRouter` — no second router, no `BrowserRouter`
+- [x] `ProjectWorkspace` is a parent shell: back link + project context +
+      `ProjectWorkflowNav` + `<Outlet />`. The nav is never repeated in a step page
+- [x] Index route redirects to `upload` via `<Navigate replace />` in the route
+      config — not a `useEffect`
+- [x] All four stages are **siblings**; Output is not nested under BoQ and not
+      gated on it, so a future skip-and-return-to-BoQ stays possible
+- [x] `ProjectWorkflowNav` is route-aware via `NavLink` — no `activeStep` state.
+      Exactly one `aria-current="page"` per route, verified on client-side nav
+- [x] Mobile: the nav row scrolls inside its own container, so four steps never
+      widen the page at 320px
+- [x] Page-level `React.lazy` for all five new pages; a nested `Suspense` in the
+      workspace keeps the workflow nav mounted while a step chunk loads.
+      `DashboardFallback` extracted from `DashboardLayout` so both share it
+- [x] Minimal Create Project demonstration: name field only → "Creating
+      project…" → `/dashboard/projects`. Reuses the existing `Modal`,
+      `FormInput` and `PrimaryButton`
+- [x] `DashboardHome` and `Projects` pared back to minimal; `Projects` carries a
+      single `project-001` route-testing link, not a project card
+- [x] Global sidebar untouched — workflow steps are local to a project
+- [x] `npm run lint` clean · `npm run build` succeeds
+
+### Explicitly NOT implemented
+
+- [ ] Project persistence (no backend, no API, no localStorage — nothing is stored)
+- [ ] Real file upload / 2D plan processing
+- [ ] 3D rendering, viewer or AI integration
+- [ ] BoQ generation, tables or pricing
+- [ ] BoQ skip functionality (architectural allowance only)
+- [ ] Project status / stage-state logic
+- [ ] Output, download or export functionality
+- [ ] Final UI for the Projects list, Dashboard welcome, or any of the four steps
+
+### Removed during this pass
+
+An earlier uncommitted draft had overbuilt ahead of the brief: `mockProjects.js`
+(three realistic fake projects), `ProjectCard.jsx`, `ProjectStepBadge.jsx`, a
+`canNavigateToStage()` gating engine and a next-step-suggesting project
+overview. All deleted — the gating engine in particular contradicted the rule
+that stages stay independently addressable.
+
+### Verified (production build, headless Chrome)
+
+| Check | Result |
+|---|---|
+| `/dashboard`, `/dashboard/projects` render | pass |
+| `/dashboard/projects/project-001` redirects to `…/upload` | pass |
+| Direct URL to `…/upload`, `…/rendering`, `…/boq`, `…/output` | all render |
+| Sidebar + workflow nav mounted on every step route | pass |
+| Only the step content changes between stages | pass |
+| Exactly one correct `aria-current="page"` per stage | pass |
+| Login → `/dashboard` → Create Project → `/dashboard/projects` | pass |
+| Projects → project-001 → upload | pass |
+| BoQ → Output → back to BoQ (re-entry) | pass |
+| Horizontal overflow at 1440/1280/1024/768/430/390/375/320 | none |
+| Console errors or warnings during the full flow | none |
+
+---
+
+## D. Dashboard Foundation — Light Theme (applied)
+
+Initial after-login application workspace structure and routing foundation.
+
+### Architecture & Routing
+- [x] Dedicated `DashboardLayout` in `src/layouts/DashboardLayout.jsx` (Light theme, no public Navbar/Footer)
+- [x] Dashboard folder structure separated from marketing components:
+  - `src/components/dashboard/` — `DashboardSidebar.jsx`, `DashboardNavItem.jsx`, `DashboardMobileNav.jsx`
+  - `src/pages/dashboard/` — `DashboardHome.jsx`, `Projects.jsx`, `Models.jsx`, `Estimates.jsx`, `Profile.jsx`
+  - `src/lib/dashboard/` — `dashboardNavigation.js` (central navigation config)
+- [x] Nested routes added to `src/router/router.jsx`: `/dashboard`, `/dashboard/projects`, `/dashboard/models`, `/dashboard/estimates`, `/dashboard/profile`
+- [x] Route-level lazy loading with `React.lazy` on all 5 dashboard page chunks
+- [x] Login submission connected to navigate to `/dashboard` upon simulated completion
+
+### UI & Styling
+- [x] **Light Theme** workspace: `#F4F6F8` neutral background, white content surfaces, dark navy `#071426` text, strategic brand-deep blue accents (`#0B5ED7`)
+- [x] **Thin / Compact Sidebar** on desktop (208px–224px / `w-52` to `xl:w-56`), white surface, hairline right border
+- [x] Kraios brand logo at top of sidebar
+- [x] 4 Primary tabs (Overview, Projects, 3D Models, Estimates) with Phosphor icons & active indicator states
+- [x] Dedicated Profile item at sidebar bottom (`/dashboard/profile`)
+- [x] Responsive mobile/tablet header (<1024px) with light-theme slide-over navigation drawer
+- [x] Structural placeholder pages with architectural headers and clean layout frames (no fake metrics)
+
+---
+
 ## C. Client content v2 — Kraios (applied)
 
 Content and branding pass over the approved build. **No layout, animation,

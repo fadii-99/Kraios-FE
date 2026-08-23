@@ -117,6 +117,29 @@ A section declares a tone (`tone-dark` / `tone-deep` / `tone-light`) and childre
 
 Each tone also defines `--btn-bg` / `--btn-ink` so buttons stay accessible per band.
 
+### Scrollbars are part of the design, and there is only one
+
+Thin and light everywhere — the window scrollbar on the landing page and every
+internal scroll container (dashboard page surface, sidebar, mobile menu,
+`Modal`). 8px of hit area, **4px of visible bar** (transparent border +
+`background-clip: content-box`), transparent track, radius 0, and a thumb in the
+same rgba family as `--tone-line` so it never out-weighs a real hairline rule.
+
+It is **tone-aware, therefore consistent by construction**: `.tone-dark` /
+`.tone-deep` publish a light `--scrollbar-thumb`, `.tone-light` a dark one. The
+dashboard is one big `.tone-light`, so it inherits the light-band bar with **no
+dashboard-specific scrollbar CSS**. Never restyle a scrollbar per page or
+per component.
+
+The standard `scrollbar-width` / `scrollbar-color` pair is gated behind
+`@supports not selector(::-webkit-scrollbar)` on purpose: Blink/WebKit ignores
+the `::-webkit-scrollbar` pseudo-elements the moment those standard properties
+are set to anything but `auto`, so Firefox takes the standard branch and
+Chrome/Safari take the pseudo-element branch and get the exact 4px bar. And the
+standard branch is applied via `*`, not `<html>` — `scrollbar-color` inherits as
+a *resolved colour*, so declaring it once at the root would drag the dark thumb
+into the light dashboard.
+
 ### Verified contrast (WCAG AA) — measured, not estimated
 
 | Pair | Ratio | Verdict |
@@ -285,26 +308,249 @@ and clears easily. Re-run the measurement if any heading copy gets longer.
 **`createBrowserRouter` only.** Never `<BrowserRouter>` + `<Routes>` + `<Route>`.
 
 ```
-src/router/router.jsx     the single router — the only place routes are declared
-src/layouts/AppLayout.jsx the single parent route: <Navbar /> + <Suspense><Outlet /></Suspense>
-src/pages/*.jsx           Home, Login, ForgotPassword, Signup — all CHILD routes
+src/router/router.jsx               the single router — the only place routes are declared
+src/layouts/AppLayout.jsx           public parent route: <Navbar /> + <Suspense><Outlet /></Suspense> + <Footer />
+src/layouts/DashboardLayout.jsx     dashboard parent route: <DashboardSidebar /> + one <DashboardPageSurface> around <Outlet /> (light theme, no public Navbar)
+src/pages/*.jsx                     Home, Login, ForgotPassword, Signup — public/auth child routes
+src/pages/dashboard/*.jsx           DashboardHome, Projects, Models, Estimates, Profile — dashboard child routes
+src/pages/dashboard/projects/*.jsx  ProjectWorkspace + the four workflow step pages
 ```
 
-| Route | Page |
-|---|---|
-| `/` (index) | `Home` — the landing page, a child route like any other |
-| `/login` | `Login` |
-| `/forgot-password` | `ForgotPassword` |
-| `/signup` | `Signup` — account request + session booking. No password fields |
+| Route | Page | Layout |
+|---|---|---|
+| `/` (index) | `Home` — landing page | `AppLayout` |
+| `/login` | `Login` (navigates to `/dashboard` upon simulated submit) | `AppLayout` |
+| `/forgot-password` | `ForgotPassword` | `AppLayout` |
+| `/signup` | `Signup` — session booking | `AppLayout` |
+| `/dashboard` | `DashboardHome` — Welcome screen (approved design) | `DashboardLayout` |
+| `/dashboard/projects` | `Projects` — project library: empty state or card grid | `DashboardLayout` |
+| `/dashboard/models` | `Models` — placeholder, **unlinked** (see sidebar rule) | `DashboardLayout` |
+| `/dashboard/estimates` | `Estimates` — placeholder, **unlinked** | `DashboardLayout` |
+| `/dashboard/profile` | `Profile` — account details + placeholder subscription panel | `DashboardLayout` |
+| `/dashboard/projects/:projectId` | `ProjectWorkspace` — shell for one project; index redirects to `upload` | `DashboardLayout` |
+| `…/:projectId/upload` | `UploadStep` — placeholder | `ProjectWorkspace` |
+| `…/:projectId/rendering` | `RenderingStep` — placeholder | `ProjectWorkspace` |
+| `…/:projectId/boq` | `BoQStep` — placeholder | `ProjectWorkspace` |
+| `…/:projectId/output` | `OutputStep` — placeholder | `ProjectWorkspace` |
+
+### The dashboard is the application side of the same brand
+
+Light theme, always: `--color-light` canvas, white only where a surface needs
+separating, dark-navy ink, brand-deep as the single interaction accent, hairline
+borders, corner ticks, `label-ui` eyebrows and `tabular-nums` figures. It is the
+landing page's light bands translated into product UI — never a dark admin
+template, and never generic SaaS cards.
+
+**Billing is light too — there is no dark exception any more.** The
+`/dashboard/subscription` cards briefly ran the site's `tone-deep` band (navy-2)
+on the white page surface; at the client's request they were returned to the
+dashboard's own light vocabulary. `CurrentPlanCard` and the three
+`PricingPlanCard` columns are white sheets with a hairline border, radius 0,
+navy ink, brand-deep as the single accent and a blue setting-out rule on the top
+datum. Nothing in the dashboard is dark. Do not reintroduce a dark surface here,
+and do not build a plan column as a Team member composition — the media block,
+the `bg-elevated` crop and the `.scrim-media` hover went with the band.
+
+What the plan columns use instead:
+
+- **The project card's own treatment**, so a plan and a project read as the same
+  kind of product module: white fill, `--tone-line` hairline,
+  `TechnicalIconFrame` plate for the mark, and one hover — border warms to
+  brand-deep, the card lifts 2px. No zoom, no shadow bloom, no glow.
+- **No staggered offsets and one shared datum.** Plans are compared, so the
+  description reserves two lines and the feature list takes `flex-1`; prices and
+  CTAs land on the same lines across the row without a hardcoded height.
+- **The recommended plan holds the hover state permanently** — its accent rule
+  is already run out to full width and its border already carries the brand tint
+  — plus the word "Recommended". Never a fill, a glow, a scale or an enlarged
+  column.
+- **The current plan gets no button.** A disabled control at `opacity-55` reads
+  as a weak button rather than as a state, so the CTA slot takes a status strip
+  on the same 44px box: hairline, `--color-light` fill, `CheckCircle` and the
+  words "Current plan". It is a `<p>`, not a `<button>`.
+
+Consequences of that light band worth knowing:
+
+- **`--color-brand-deep` is correct here** (5.39:1 on white) and is what every
+  mark, check and rule on these cards takes. `--tone-accent` on `.tone-light`
+  resolves to it, so the shared `PrimaryButton` needs nothing special.
+- **`--color-success` is usable again**: the ACTIVE status and the current-plan
+  strip take it as ink on white (5.61:1), paired with a marker and the word, so
+  colour is still never the only signal. ACTIVE uses the same **square** tick
+  the recommended plan does (radius is 0 system-wide, so never a round dot); the
+  current-plan strip keeps `CheckCircle`.
+- **No shadow anywhere on this page.** `CurrentPlanCard` used to carry a long
+  soft drop shadow; on the white page surface that reads as weight. A hairline
+  is the separator, as it is everywhere else in the dashboard.
+- **`CurrentPlanCard` is a drawing sheet plus a title block.** The upper zone is
+  white and carries the plate/identity and the price at opposite edges with
+  nothing but air between them — no vertical rule; the lower zone takes a
+  `--color-light` fill, which is how a drafting sheet separates its title block
+  from the drawing: a tone change, not a frame.
+- **The plan price sits in its own band between two hairlines**, so `$49 /
+  $149 / $299` land on one datum across the row and the figure a plan is
+  actually compared on is isolated by air rather than by a box or a badge.
+- **"Available Plans" hangs from a full-width hairline**, not from extra gap —
+  that rule is what divides the page into its two movements.
+- `TechnicalIconFrame` takes an **`accent` prop**, published to its internals as
+  `--plate-accent` so mark, ticks, border tint and wash cannot drift apart. It
+  defaults to brand-deep, which is what every dashboard plate — billing
+  included — now wants; the prop only exists for a plate on a dark surface,
+  which passes `accent="var(--tone-accent)"`.
+
+**The global sidebar carries application-level destinations only: Overview and
+Projects, with Profile pinned at the bottom.** Upload / 3D Rendering / BoQ /
+Output are *per-project* stages and must never be duplicated as global nav.
+`3D Models` and `Estimates` were dropped from the sidebar for exactly that
+reason — their function lives inside a project. Their routes still resolve but
+nothing links to them; delete the two pages when that is confirmed.
+
+**Grey workspace, white page surface.** The dashboard shell keeps the
+`--color-light` canvas; a page renders as a white surface *inside* it, with the
+workspace padding left visible as a grey gutter on all four sides. Never paint
+the whole right-hand area white — the grey is what makes the application
+structure read.
+
+**There is exactly one dashboard canvas and one dashboard background.**
+`DashboardLayout` renders `DashboardPageSurface` once, around the `<Outlet />`;
+that component owns the white sheet, its hairline border and
+`DashboardBlueprintField`. A page renders its content *into* that surface and
+must never add a second white panel, a second border frame or a second
+background layer. `DashboardBlueprintField` is the About Us square/grid
+translated for light product UI — 40px grid, 80px dot matrix, one faint central
+aura, nothing else. No crosshairs, no technical annotations, no fake
+coordinates, no drifting line fragments. Do not fork it per page.
+
+**Every dashboard page opens with `DashboardPageHeader`** — eyebrow rule +
+`label-ui` label, a `.display-product` title, and an optional right slot for the
+page's primary action or its one line of context. Page titles are never re-typed
+as inline `text-2xl sm:text-3xl` + `style={{ fontFamily }}`; that is how Projects
+and Profile drifted apart. `.display-product` is the application title tier:
+Inter **700** (the display scale has one weight), `clamp(1.5rem, 2.6vw, 2.25rem)`.
+
+Dashboard UI reuses the site's shared primitives: `PrimaryButton` for every
+action (`size="compact"` inside dashboard header bands), `Modal` for every
+dialog and confirmation, `FormInput` for every field, `@phosphor-icons/react`
+for every icon. No new packages, no second button, no second modal system, and
+never `window.confirm()` or `alert()`.
+
+`/dashboard` is the **Welcome screen**, not a metrics dashboard: greet the user,
+explain the four-stage workflow once, and lead to Create Project. No analytics,
+charts or invented statistics until there is real project data to show. It is
+sized to **one dashboard viewport** — `min-h-[calc(100dvh-…)]` less the
+workspace padding and the sub-lg mobile header — so logging in never lands the
+user in a scrolling onboarding page. Verified fitting at 1920×1080 down to
+1280×720 and 1024×768; below lg it stacks and may scroll, which is fine.
+
+The signed-in user comes from `src/lib/dashboard/currentUser.js` — one
+placeholder object, never a name hardcoded in JSX. It renders in **`.display-app`**,
+the application tier of the type scale: `.display-lg` is `white-space: nowrap`
+at ≥1024, which would clip a two-word name mid-word inside the greeting rail
+(measured: "Maria Fernanda Gonzalez" ran 1024px in a 577px column). Any future
+display-size heading holding user-supplied text uses `.display-app` too.
+
+### Projects are the central logged-in entity
+
+`/dashboard/projects` is the project **library** — all projects.
+`/dashboard/projects/:projectId` is **one** project. Never mix those two
+responsibilities; the list page must not grow the workflow.
+
+`ProjectWorkspace` is a parent shell: minimal project context, one
+`ProjectWorkflowNav`, and `<Outlet />`. The workflow is **route-driven** — the
+URL is the source of truth, `NavLink` supplies the active state, and no page
+switches steps with `if (step === …)`. The nav lives in the workspace exactly
+once, never repeated inside a step page.
+
+The four stages — **Upload · 3D Rendering · BoQ · Output** — are declared once in
+`src/lib/dashboard/projectWorkflow.js`. Never re-list them in a component.
+
+**BoQ and Output are siblings, and that is load-bearing.** BoQ will be optional:
+a user may skip it, reach Output, and come back to BoQ later in the same project
+without re-uploading or re-rendering. So Output must never be nested under BoQ
+or gated on its completion, and "skipped" must never mean "disabled".
+
+**The step pages are empty placeholders.** No uploader, no 3D viewer, no BoQ
+table, no downloads, no status model, no skip logic — those are separate tasks.
+
+**The project card shows project state and nothing else.** `ProjectCard` renders
+the project id, the project name, whether the 3D render exists and whether the
+BoQ exists — read from the project object (`has3DRender` / `hasBoQ`), never
+assumed and never hardcoded per card. No client, budget, team, tags, progress
+percentage or "2/4 complete" figure: none of that is project state, and invented
+metadata that looks real is worse than an empty card. Stage state starts `false`
+on create; when a stage writes its result the library reflects it with no UI
+change.
+
+Card composition rules: name is the strongest element (`--font-display`, two-line
+clamp with the block's height reserved so cards in a row align); statuses are two
+hairline-separated rows — icon, stage label, state — never nested boxes.
+
+**Stage state uses the two status tokens**, `--color-success` (#0A6C48, 5.61:1 on
+white) and `--color-danger` (#B42318, 6.24:1) — added at the client's request so
+an ungenerated stage reads as an open item, not as quiet grey text. They are the
+only non-brand hues in the system, they are **ink, never a fill**, and colour is
+never the only signal: every use pairs the token with a `CheckCircle` /
+`XCircle` icon AND the words "Generated" / "Not generated". Radius
+stays 0. Hover is a border change, a 2px lift and the arrow shifting — no
+shadow bloom, no glow, no zoom, and status never animates on a loop.
+
+Open project and Delete share the card's action row: Open takes the full width
+and the accent, Delete is a neutral icon button that only picks up a restrained
+red on hover/focus. Delete is a separate `<button>` outside the `<Link>` (never a
+nested click target), and always routes through the shared `Modal` confirmation
+in `ProjectGrid`.
+
+**Grid columns: 1 below 640px, 2 from 640px, 3 only from 1280px.** The third
+column waits for `xl` because the workspace has already lost the sidebar's
+width — three cards at 1024 fall under ~260px and the status rows start wrapping.
+
+**Projects live in session memory only.** `ProjectsProvider` (context +
+`useState`, mounted in `DashboardLayout` *outside* its Suspense boundary so a
+route change cannot wipe it) is the whole store. No backend, no API — and
+deliberately no `localStorage`, which would fake a durability the product does
+not have. Its value is shaped like the future API — `{ projects, createProject,
+getProject }` — so swapping in a data-fetching provider needs no UI change.
+
+Project **ids come from a monotonic counter in the provider, never from
+`projects.length`**: deleting project-002 and creating another would otherwise
+mint a second "project-002" and hand the grid two identical React keys.
 
 Hard rules:
 
-- **The Navbar is mounted once, in `AppLayout`.** No page renders its own. Adding
-  `<Navbar />` to a page is a bug — it would double-render and break scroll-spy.
-- **Suspense wraps the Outlet**, not each route, so one `PageLoader` covers every page.
-- **Only whole pages are `React.lazy`.** Never lazy-load small shared components —
-  the extra request costs more than the split saves.
-- The landing page must stay a child of the same layout. Do not give it its own tree.
+- **Dashboard code is strictly separated from marketing/public code:**
+  - Dashboard components live in `src/components/dashboard/`, project-workflow
+    components in `src/components/dashboard/projects/`
+  - Dashboard pages live in `src/pages/dashboard/`, single-project pages in
+    `src/pages/dashboard/projects/`
+  - Dashboard configuration/helpers live in `src/lib/dashboard/`
+- **DashboardLayout owns dashboard navigation:**
+  - Houses the thin, light-theme `DashboardSidebar` (desktop) and `DashboardMobileNav` (mobile/tablet).
+  - Public `Navbar` and public `Footer` are NOT rendered inside dashboard routes.
+- **The Navbar is mounted once, in `AppLayout`.** No public page renders its own.
+- **Suspense wraps the Outlet** in both layouts.
+- **Only whole pages are `React.lazy`.** Never lazy-load small shared components.
+- **Real authentication is not implemented yet:** Login currently simulates submit and routes directly to `/dashboard`.
+- **Current dashboard pages are structural placeholders** pending future application development.
+- The landing page must stay a child of `AppLayout`. Do not give it its own tree.
+- **The public site and the dashboard are visually isolated.** Dashboard work
+  never edits landing sections, auth pages, the public `Navbar`/`Footer` or the
+  public animations; the only thing they share is `src/styles/index.css` tokens
+  and the `ui/` primitives. Changing a shared primitive means checking both
+  sides.
+- **Approved, do not redesign** without being asked: the `/dashboard` Welcome
+  screen, `ProjectWorkflowNav`, the workspace shell, and the reusable
+  `ProjectStepNavigation` (Previous / Next). Fix implementation bugs there with
+  the smallest possible change; do not restyle them.
+- **Responsive expectations for every dashboard page:** no horizontal overflow
+  at 320–1920; the header band stays `shrink-0` while the body scrolls; grids
+  and button rows stack below `sm` rather than shrinking (`ProjectStepNavigation`
+  stacks below 640px because its labels are `whitespace-nowrap`); touch targets
+  ≥44px on coarse pointers.
+- **GSAP in the dashboard follows the site rules** — `useGSAP({ scope })`,
+  `fromTo`, gated on `usePrefersReducedMotion()`. A selector only matches inside
+  its scope: a page cannot animate the surface's blueprint field, which lives
+  above it in the tree. Entrance staggers that re-run on data change must skip
+  elements already revealed, or adding one project re-animates the whole grid.
 
 ### Every navigation starts at the top
 
