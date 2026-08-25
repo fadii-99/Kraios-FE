@@ -120,7 +120,7 @@ export default function Team() {
             >
               <div
                 data-portrait
-                className="relative overflow-hidden bg-elevated"
+                className="relative overflow-hidden rounded-md bg-elevated"
                 style={{ aspectRatio: '3 / 4' }}
               >
                 <img

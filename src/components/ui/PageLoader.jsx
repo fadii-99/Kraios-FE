@@ -23,8 +23,15 @@ export default function PageLoader({
       aria-hidden={hidden || undefined}
       className={cn(
         'tone-light flex flex-col items-center justify-center gap-7',
+        // No min-height here on purpose. `cn` is a plain joiner, not
+        // tailwind-merge, so a baked-in `min-h-[50vh]` was not overridden by a
+        // caller's `min-h-56` — it beat it on stylesheet order, and every
+        // dashboard call site's height was silently dead. The worst of it was
+        // the Create Project modal, where a 15rem loader rendered at half the
+        // viewport on a phone. Inline callers now set their own height; the
+        // `overlay` variant (the public Suspense fallback) is untouched.
         inline
-          ? 'relative min-h-[50vh] w-full overflow-hidden my-auto bg-transparent'
+          ? 'relative w-full overflow-hidden my-auto bg-transparent'
           : 'page-loader fixed inset-0 z-[70] transition-opacity duration-500 ease-[var(--ease-out-expo)]',
         !inline && (hidden ? 'pointer-events-none opacity-0' : 'opacity-100'),
         className,

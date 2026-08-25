@@ -1,721 +1,1341 @@
-# Kraios — Project Rules
-
-Marketing site for **Kraios** — an AI design partner for architecture and
-fit-out firms that takes a 2D floor plan through a 3D model, identified
-materials, estimated quantities and a priced Bill of Quantities. Premium
-**dark-blue** architectural landing page. These rules are permanent and apply to
-every change.
-
-## Brand and positioning — read before writing any copy
-
-**The brand is KRAIOS.** The site previously shipped as "Floor" / "FLOOR STUDIO";
-that name is dead. Never reintroduce it. `site.name` in `content.js` is the only
-place the wordmark is defined.
-
-**The browser tab uses the Kraios mark.** `index.html` points `rel="icon"` at
-`/assets/website_logo-128.png` — the same asset `ui/Logo.jsx` renders in the Navbar and
-Footer, so the tab icon cannot drift from the brand. The old `/favicon.svg` (the retired
-Floor plan-icon) was deleted. If the logo is replaced, that one path updates both.
-
-The word "floor" is *not* banned — **floor plan, 2D floor plan, 3D floor plan**
-are product terminology and must stay. Only the standalone brand use is retired.
-
-**Kraios is a self-serve SaaS platform on a subscription.** Users hold their own
-credentials and do the work themselves, inside the product. This governs every
-line of copy:
-
-| Never write | Because |
-|---|---|
-| "send us your plans", "share your files with us" | the user uploads into the platform |
-| "our team creates your model", "we'll build it for you" | the user builds it, iterating with the software |
-| "contact us to process your project" | there is nothing to hand off |
-| **"photoreal" / "photorealistic" / "photorealism"** | output is technical / SketchUp-style 3D, not a render |
-
-The closing section is a **final CTA, not an enquiry form**: Sign Up first, with
-"Schedule a Session" as the secondary path. The landing page carries no contact
-form — the only form a visitor should meet is the one inside the flow they
-picked, on `/signup`. Both CTAs point at `/signup` today because that is the
-only account/session route that exists; they diverge as soon as a separate
-account-creation flow does.
-
-**Client copy is final copy.** Where a brief supplies wording, ship it verbatim —
-do not shorten it, re-tone it, or "improve" it, and never invent statistics,
-customers, pricing or testimonials to fill a slot.
-
-### Navigation naming (final)
-
-`Home · About · How It Works · Why Kraios · Team · FAQ · Contact`, plus
-`Log In` / `Sign Up`. Labels are stored in title case in `navLinks` and
-uppercased by `label-ui` / `display-sm`; the footer renders them as authored.
-**The section ids never change** — `home about process why team faq contact` are
-what scroll-spy, smooth scroll and cross-route navigation all key off. Renaming
-"Why Choose Us" to "Why Kraios" was a label change only; the id stayed `why`.
-
-## Stack
-
-| Concern | Choice | Notes |
-|---|---|---|
-| Build | Vite 8 | `npm run dev` / `build` / `preview` |
-| UI | React 19, **JavaScript only** | No TypeScript. `.jsx` for components |
-| Styling | Tailwind CSS v4 | Config lives in CSS via `@theme`. **No `tailwind.config.js`** |
-| Animation | GSAP + ScrollTrigger + `@gsap/react` | Always `useGSAP` — never bare `gsap` in `useEffect` |
-| Icons | `@phosphor-icons/react` | Never emoji as icons |
-| Fonts | `@fontsource-variable/inter` (self-hosted) | **Inter only.** No CDN, no second family |
-
-## Design direction (from ui-ux-pro-max)
-
-**Swiss Modernism 2.0 + Editorial Grid.** The database rates Swiss Modernism as
-best-in-class for *architecture, editorial, professional services* — strict grid,
-mathematical spacing, asymmetric balance, a single accent, zero decoration.
-
-Deliberate deviations from the generated design system, and why:
-
-- **Palette is brand dark-blue, not the generated purple** (`#7C3AED`). The generator's
-  own anti-pattern list flags "AI purple/pink gradients."
-- **Glassmorphism rejected.** The generated "Cinema Mobile" style leans on frosted glass,
-  glow and ambient blobs. All three are banned here — they read as generic SaaS.
-- **Pattern overridden.** Generator suggested "Interactive 3D Configurator" (e-commerce).
-  This is a studio landing page, so it uses an editorial narrative structure.
-
-### Non-negotiable visual rules
-
-- **Never pure black.** The darkest surface is `#071426`. Black reads cheap and flat.
-- **Light/dark rhythm.** Bands alternate: Hero dark → About light → Process dark →
-  Why light → Team deep → FAQ light → Contact light → Footer dark.
-- **No cards.** No `rounded-xl bg-white/5 border shadow` boxes. Structure comes from the
-  grid, hairline rules, whitespace and type scale. The auth card in `AuthShell` is
-  the single deliberate exception.
-- **No glow, no glassmorphism, no decorative gradients.** The only permitted gradients are
-  neutral navy scrims over media for legibility.
-- **Blue is strategic.** Accent appears on: primary CTA, active nav, focus rings, step
-  numbers, rule accents. Never as a background wash.
-- **Sharp geometry.** `border-radius: 0` everywhere. Architecture is orthogonal.
-
-### Tokens (`src/styles/index.css` → `@theme`)
-
-| Token | Value | Use |
-|---|---|---|
-| `--color-navy` | `#071426` | Primary dark background |
-| `--color-navy-2` | `#0B1C32` | Secondary dark band (Team) |
-| `--color-elevated` | `#102944` | Media placeholder / recessed fills |
-| `--color-brand` | `#1677FF` | Brand blue — rules, marks |
-| `--color-accent` | `#3B91FF` | Accent on dark: CTA, focus, active |
-| `--color-brand-deep` | `#0B5ED7` | AA-safe brand tint for **light** bands |
-| `--color-light` | `#F4F6F8` | Light band background |
-| `--color-ink` | `#F7FAFC` | Text on dark |
-| `--color-ink-dark` | `#0B1624` | Text on light |
-| `--color-muted` | `#9FB2CB` | Secondary text on dark |
-| `--color-muted-dark` | `#4A5A6E` | Secondary text on light |
-
-### The tone system — read this before styling anything
-
-A section declares a tone (`tone-dark` / `tone-deep` / `tone-light`) and children read
-`--tone-*` vars. This is why the same `Button`, `Field` and `Logo` work on both bands.
-
-**Never hardcode a colour in a component.** Use `text-[var(--tone-ink)]`,
-`border-[var(--tone-line)]`, `text-[var(--tone-accent)]`, etc.
-
-Each tone also defines `--btn-bg` / `--btn-ink` so buttons stay accessible per band.
-
-### Scrollbars are part of the design, and there is only one
-
-Thin and light everywhere — the window scrollbar on the landing page and every
-internal scroll container (dashboard page surface, sidebar, mobile menu,
-`Modal`). 8px of hit area, **4px of visible bar** (transparent border +
-`background-clip: content-box`), transparent track, radius 0, and a thumb in the
-same rgba family as `--tone-line` so it never out-weighs a real hairline rule.
-
-It is **tone-aware, therefore consistent by construction**: `.tone-dark` /
-`.tone-deep` publish a light `--scrollbar-thumb`, `.tone-light` a dark one. The
-dashboard is one big `.tone-light`, so it inherits the light-band bar with **no
-dashboard-specific scrollbar CSS**. Never restyle a scrollbar per page or
-per component.
-
-The standard `scrollbar-width` / `scrollbar-color` pair is gated behind
-`@supports not selector(::-webkit-scrollbar)` on purpose: Blink/WebKit ignores
-the `::-webkit-scrollbar` pseudo-elements the moment those standard properties
-are set to anything but `auto`, so Firefox takes the standard branch and
-Chrome/Safari take the pseudo-element branch and get the exact 4px bar. And the
-standard branch is applied via `*`, not `<html>` — `scrollbar-color` inherits as
-a *resolved colour*, so declaring it once at the root would drag the dark thumb
-into the light dashboard.
-
-### Verified contrast (WCAG AA) — measured, not estimated
-
-| Pair | Ratio | Verdict |
-|---|---|---|
-| ink on navy | 17.62:1 | PASS |
-| muted on navy | 8.53:1 | PASS |
-| accent on navy | 5.87:1 | PASS |
-| dark-ink on light | 16.79:1 | PASS |
-| muted-dark on light | 6.51:1 | PASS |
-| brand-deep on light | 5.39:1 | PASS |
-| **brand `#1677FF` as text on light** | **3.79:1** | **FAIL — use `--color-brand-deep`** |
-| **white on brand `#1677FF`** | **3.92:1** | **FAIL — never** |
-| **dark ink on brand `#1677FF`** | **4.43:1** | **FAIL — never** |
-| accent fill + dark ink (dark band button) | 5.79:1 | PASS |
-| navy fill + white ink (light band button) | 17.62:1 | PASS |
-
-Brand blue is a **graphic** colour, not a text colour on light. For text on light, use
-`--color-brand-deep`.
-
-### Typography
-
-### ONE typeface ships. Two roles. Never add a third.
-
-**The whole site is Inter Variable.** The roles are separated by weight, size, case and
-tracking — not by a second family:
-
-| Role | Token | How it is set |
-|---|---|---|
-| Display / headings | `--font-display` | Inter **700**, uppercase, negative tracking (`.display-*`) |
-| Everything else | `--font-body` | Inter 400/500/600, sentence case, normal tracking |
-
-Both tokens resolve to the same stack on purpose. `--font-sans` mirrors them so the
-Tailwind `font-sans` utility can never disagree with the token.
-
-**Every non-heading string uses the body font** — paragraphs, nav links, LOG IN / SIGN UP,
-buttons and CTA labels, eyebrows, section numbers, chips, form labels, inputs and
-placeholders, FAQ questions and answers, team roles and bios, footer, modal, calendar,
-mobile menu, PageLoader.
-
-**Removed and not to return:** Anton (condensed display), JetBrains Mono (technical
-labels), Archivo (was already dead). `--font-mono` is pinned to `initial`, which deletes
-Tailwind's `font-mono` utility so a monospace face cannot be reintroduced by reflex. For
-figure alignment use **`tabular-nums`**, never a monospace family — that is what the About
-stats, the Process step numbers and the booking time slots do.
-
-`ui-sans-serif` / `system-ui` / `sans-serif` tails are generic fallbacks, not third fonts.
-- **All display headings are Inter Variable weight 700, uppercase, with negative tracking**
-  (`--font-display`). The brief is normal-width, formal, professional, premium, modern
-  SaaS — not poster typography.
-- **Anton is banned.** The display stack used to be Anton 400: condensed, narrow, tall,
-  poster-like. It was removed at the client's request and must not come back. Do not
-  reach for any condensed or display face for headings.
-- **Inter is not condensed, so headings set ~⅓ wider than they used to.** Every
-  `.display-*` size is therefore capped by the narrowest box its tier must survive in,
-  and the sizes came down accordingly. They are measured values, not taste — see the
-  comments in `index.css` before changing one.
-- Tracking is **negative** at display size (`-0.03em` on xl/lg, `-0.02em` on sm). Inter's
-  default side bearings leave big caps looking loose; this pulls the word into a block.
-- `.display-xl` — hero only, the single largest thing on the page.
-- `.display-lg` — **every** section heading (About, Process, Why, Team, FAQ, Contact) is
-  deliberately identical so the page reads as one system. Do not vary per section.
-- `.display-sm` — the sub-display tier: Process step titles, mobile-menu items and
-  auth page titles. Anything that is "a heading below the section heading."
-- `.display-md` was deleted. It had no usages and was the last thing holding Archivo in
-  the build. Sentence-case sub-headings are plain Inter utilities.
-- **`.label-ui`** — uppercase Inter 600 at 11px, `+0.16em` tracking. The architectural
-  drafting-annotation voice: eyebrows, indices, metadata, nav links, button labels, form
-  labels. **Never body copy.** It was `.label-mono` in JetBrains Mono; the class was
-  renamed with the font so no name implies a monospace family survives. The 0.16em
-  tracking (down from 0.2em) is load-bearing: Inter's caps are wider than JetBrains
-  Mono's fixed advance, and the seven nav labels have to clear the auth buttons at
-  1024px. Measured clearance there is 15px.
-
-### The display classes own their font-size — never override one with `text-[…]`
-
-`.display-*` are hand-written in `@layer utilities`, so Tailwind emits them **after**
-its generated utilities. At equal specificity the later rule wins, which means
-`class="display-lg text-[clamp(1.75rem,3.4vw,2.875rem)]"` silently renders at the
-**full `display-lg` size** and the override does nothing.
-
-This was not theoretical: the Process step titles, the auth page titles and the mobile
-menu items all carried such an override and all rendered at 89px instead of ~46px. The
-step titles then overflowed their 614px rail and, because `Section` uses
-`overflow-x-clip`, were **clipped mid-word without ever triggering page overflow**.
-
-Pick the tier that is already the right size. If no tier fits, add one to the scale.
-
-### What actually caps each display size
-
-Measured against real rendered text, not estimated. Every heading currently clears its
-box by at least 24px at 320 / 375 / 390 / 430 / 768 / 900 / 1024 / 1280 / 1440 / 1600 /
-1920. The binding constraints:
-
-| Tier | Capped by | Why |
-|---|---|---|
-| `.display-lg` ≥1024 | **"FREQUENTLY"** in FAQ's 5-of-12 rail (~355px @1024) | Longest unbreakable word on the site, in the narrowest heading column |
-| `.display-lg` <1024 | "FREQUENTLY" in the 280px column at 320px wide | Sets the `2.5rem` floor |
-| `.display-sm` | "Export Your BoQ" / "Materials, Quantities &" in the 244px step rail at 320px | Sets the `1.5rem` floor |
-| `.display-xl` | "TO ESTIMATE." in the 52rem hero column | Comfortable — this tier kept its original size |
-
-Contact's "SEE IT ON YOUR" in its 48rem box is the runner-up constraint on `.display-lg`
-and clears easily. Re-run the measurement if any heading copy gets longer.
-
-## Animation rules
-
-- **Always `useGSAP({ scope })`.** It reverts every tween on unmount.
-- **Prefer `fromTo` over `from`.** `from` can strand elements in their start state if the
-  timeline is interrupted or re-created; `fromTo` always resolves to a visible end state.
-  (This caused a real bug where the entire hero was invisible.)
-- **`prefers-reduced-motion` gates every animation** via `usePrefersReducedMotion()`.
-  When reduced, content renders final — never invisible.
-- **Parallax on media only** — never text or controls. Keep `yPercent` within 5–15.
-- Each section gets its own signature move; the shared vocabulary lives in
-  `useSectionReveal`. Do not repeat one animation everywhere.
-- Durations: micro 150–300ms; reveals 700–1200ms. Easing `expo.out` / `power3.out`.
-- `ScrollTrigger.refresh()` after fonts + load (done in `LandingPage`).
-- **`scrub` tweens are desktop-only.** A scrubbed tween runs on every scroll frame for
-  the life of the page. Wrap continuous/parallax work in
-  `gsap.matchMedia().add('(min-width: 1024px)', …)` and return `() => mm.revert()` so it
-  is torn down below the breakpoint. `once: true` entrance reveals are cheap and stay on
-  every size. Never scrub an element that is `display:none` at that width.
-- The shared backdrop drift lives in `useBackdropParallax(scope)` — do not paste it into
-  a section again.
-
-### Hero rules
-
-- **The video is the subject.** Overlays stay light (0.14–0.5). Legibility comes from the
-  **left** scrim (`.scrim-left`) under left-aligned copy, never from darkening the frame.
-  An 0.8+ blanket overlay makes the footage look like a flat navy block — this happened.
-- The navbar is **fully transparent** over the hero; its veil is capped at 30% so it never
-  reads as a solid strip.
-- **Transparent only while it is actually over the hero.** The bar has exactly two
-  states, driven by `overHero = onHome && !scrolled`: transparent + `tone-dark` over the
-  video, and the light `tone-light` surface with dark ink everywhere else — scrolled on
-  the landing page *and* on every auth route. There is no third, navy-on-scroll state;
-  the whole site shares one scrolled bar.
-- The headline is sized to its column, not the viewport. Oversized centred type hides the
-  video, which defeats having one.
-
-### Two hard-won layout rules
-
-1. **`overflow-hidden` on a section breaks `position: sticky` in every descendant.**
-   `Section` uses `overflow-x-clip` for this reason. Do not change it back.
-2. **Images in a sticky/swapped stack must be `loading="eager"`.** A lazy image that is
-   scrolled into view *by a state change* rather than by the viewport may never fetch,
-   leaving the active layer blank.
-
-## Accessibility (hard requirements)
-
-- Visible focus ring on every interactive element.
-- Touch targets ≥44px. Text-sized links (footer rows, the wordmark) use the **`touch:`**
-  variant — `@custom-variant touch (@media (pointer: coarse))` — so they grow only on
-  devices that are actually tapped and the mouse-driven desktop layout never shifts. A
-  width breakpoint cannot express this: a 1024px tablet is touch, a 1024px laptop is not.
-- Every input has a real `<label for>`. Placeholder is never the label.
-- Validate on **blur**; errors sit next to the field, use `role="alert"` + `aria-invalid`,
-  and are prefixed "Error —" so state never depends on colour alone.
-- Focus moves to the first invalid field on submit. Submit shows loading → success.
-- Icon-only buttons carry `aria-label`; decorative SVG is `aria-hidden`.
-- One `h1` (hero); sections use `h2`. Touch targets ≥ 44px.
-- Hero video is `muted playsInline loop`, `aria-hidden`, and fades in only on `canplay`
-  so a blocked CDN degrades to the poster rather than a black box.
-
-## Routing architecture
-
-**`createBrowserRouter` only.** Never `<BrowserRouter>` + `<Routes>` + `<Route>`.
-
-```
-src/router/router.jsx               the single router — the only place routes are declared
-src/layouts/AppLayout.jsx           public parent route: <Navbar /> + <Suspense><Outlet /></Suspense> + <Footer />
-src/layouts/DashboardLayout.jsx     dashboard parent route: <DashboardSidebar /> + one <DashboardPageSurface> around <Outlet /> (light theme, no public Navbar)
-src/pages/*.jsx                     Home, Login, ForgotPassword, Signup — public/auth child routes
-src/pages/dashboard/*.jsx           DashboardHome, Projects, Models, Estimates, Profile — dashboard child routes
-src/pages/dashboard/projects/*.jsx  ProjectWorkspace + the four workflow step pages
-```
-
-| Route | Page | Layout |
-|---|---|---|
-| `/` (index) | `Home` — landing page | `AppLayout` |
-| `/login` | `Login` (navigates to `/dashboard` upon simulated submit) | `AppLayout` |
-| `/forgot-password` | `ForgotPassword` | `AppLayout` |
-| `/signup` | `Signup` — session booking | `AppLayout` |
-| `/dashboard` | `DashboardHome` — Welcome screen (approved design) | `DashboardLayout` |
-| `/dashboard/projects` | `Projects` — project library: empty state or card grid | `DashboardLayout` |
-| `/dashboard/models` | `Models` — placeholder, **unlinked** (see sidebar rule) | `DashboardLayout` |
-| `/dashboard/estimates` | `Estimates` — placeholder, **unlinked** | `DashboardLayout` |
-| `/dashboard/profile` | `Profile` — account details + placeholder subscription panel | `DashboardLayout` |
-| `/dashboard/projects/:projectId` | `ProjectWorkspace` — shell for one project; index redirects to `upload` | `DashboardLayout` |
-| `…/:projectId/upload` | `UploadStep` — placeholder | `ProjectWorkspace` |
-| `…/:projectId/rendering` | `RenderingStep` — placeholder | `ProjectWorkspace` |
-| `…/:projectId/boq` | `BoQStep` — placeholder | `ProjectWorkspace` |
-| `…/:projectId/output` | `OutputStep` — placeholder | `ProjectWorkspace` |
-
-### The dashboard is the application side of the same brand
-
-Light theme, always: `--color-light` canvas, white only where a surface needs
-separating, dark-navy ink, brand-deep as the single interaction accent, hairline
-borders, corner ticks, `label-ui` eyebrows and `tabular-nums` figures. It is the
-landing page's light bands translated into product UI — never a dark admin
-template, and never generic SaaS cards.
-
-**Billing is light too — there is no dark exception any more.** The
-`/dashboard/subscription` cards briefly ran the site's `tone-deep` band (navy-2)
-on the white page surface; at the client's request they were returned to the
-dashboard's own light vocabulary. `CurrentPlanCard` and the three
-`PricingPlanCard` columns are white sheets with a hairline border, radius 0,
-navy ink, brand-deep as the single accent and a blue setting-out rule on the top
-datum. Nothing in the dashboard is dark. Do not reintroduce a dark surface here,
-and do not build a plan column as a Team member composition — the media block,
-the `bg-elevated` crop and the `.scrim-media` hover went with the band.
-
-What the plan columns use instead:
-
-- **The project card's own treatment**, so a plan and a project read as the same
-  kind of product module: white fill, `--tone-line` hairline,
-  `TechnicalIconFrame` plate for the mark, and one hover — border warms to
-  brand-deep, the card lifts 2px. No zoom, no shadow bloom, no glow.
-- **No staggered offsets and one shared datum.** Plans are compared, so the
-  description reserves two lines and the feature list takes `flex-1`; prices and
-  CTAs land on the same lines across the row without a hardcoded height.
-- **The recommended plan holds the hover state permanently** — its accent rule
-  is already run out to full width and its border already carries the brand tint
-  — plus the word "Recommended". Never a fill, a glow, a scale or an enlarged
-  column.
-- **The current plan gets no button.** A disabled control at `opacity-55` reads
-  as a weak button rather than as a state, so the CTA slot takes a status strip
-  on the same 44px box: hairline, `--color-light` fill, `CheckCircle` and the
-  words "Current plan". It is a `<p>`, not a `<button>`.
-
-Consequences of that light band worth knowing:
-
-- **`--color-brand-deep` is correct here** (5.39:1 on white) and is what every
-  mark, check and rule on these cards takes. `--tone-accent` on `.tone-light`
-  resolves to it, so the shared `PrimaryButton` needs nothing special.
-- **`--color-success` is usable again**: the ACTIVE status and the current-plan
-  strip take it as ink on white (5.61:1), paired with a marker and the word, so
-  colour is still never the only signal. ACTIVE uses the same **square** tick
-  the recommended plan does (radius is 0 system-wide, so never a round dot); the
-  current-plan strip keeps `CheckCircle`.
-- **No shadow anywhere on this page.** `CurrentPlanCard` used to carry a long
-  soft drop shadow; on the white page surface that reads as weight. A hairline
-  is the separator, as it is everywhere else in the dashboard.
-- **`CurrentPlanCard` is a drawing sheet plus a title block.** The upper zone is
-  white and carries the plate/identity and the price at opposite edges with
-  nothing but air between them — no vertical rule; the lower zone takes a
-  `--color-light` fill, which is how a drafting sheet separates its title block
-  from the drawing: a tone change, not a frame.
-- **The plan price sits in its own band between two hairlines**, so `$49 /
-  $149 / $299` land on one datum across the row and the figure a plan is
-  actually compared on is isolated by air rather than by a box or a badge.
-- **"Available Plans" hangs from a full-width hairline**, not from extra gap —
-  that rule is what divides the page into its two movements.
-- `TechnicalIconFrame` takes an **`accent` prop**, published to its internals as
-  `--plate-accent` so mark, ticks, border tint and wash cannot drift apart. It
-  defaults to brand-deep, which is what every dashboard plate — billing
-  included — now wants; the prop only exists for a plate on a dark surface,
-  which passes `accent="var(--tone-accent)"`.
-
-**The global sidebar carries application-level destinations only: Overview and
-Projects, with Profile pinned at the bottom.** Upload / 3D Rendering / BoQ /
-Output are *per-project* stages and must never be duplicated as global nav.
-`3D Models` and `Estimates` were dropped from the sidebar for exactly that
-reason — their function lives inside a project. Their routes still resolve but
-nothing links to them; delete the two pages when that is confirmed.
-
-**Grey workspace, white page surface.** The dashboard shell keeps the
-`--color-light` canvas; a page renders as a white surface *inside* it, with the
-workspace padding left visible as a grey gutter on all four sides. Never paint
-the whole right-hand area white — the grey is what makes the application
-structure read.
-
-**There is exactly one dashboard canvas and one dashboard background.**
-`DashboardLayout` renders `DashboardPageSurface` once, around the `<Outlet />`;
-that component owns the white sheet, its hairline border and
-`DashboardBlueprintField`. A page renders its content *into* that surface and
-must never add a second white panel, a second border frame or a second
-background layer. `DashboardBlueprintField` is the About Us square/grid
-translated for light product UI — 40px grid, 80px dot matrix, one faint central
-aura, nothing else. No crosshairs, no technical annotations, no fake
-coordinates, no drifting line fragments. Do not fork it per page.
-
-**Every dashboard page opens with `DashboardPageHeader`** — eyebrow rule +
-`label-ui` label, a `.display-product` title, and an optional right slot for the
-page's primary action or its one line of context. Page titles are never re-typed
-as inline `text-2xl sm:text-3xl` + `style={{ fontFamily }}`; that is how Projects
-and Profile drifted apart. `.display-product` is the application title tier:
-Inter **700** (the display scale has one weight), `clamp(1.5rem, 2.6vw, 2.25rem)`.
-
-Dashboard UI reuses the site's shared primitives: `PrimaryButton` for every
-action (`size="compact"` inside dashboard header bands), `Modal` for every
-dialog and confirmation, `FormInput` for every field, `@phosphor-icons/react`
-for every icon. No new packages, no second button, no second modal system, and
-never `window.confirm()` or `alert()`.
-
-`/dashboard` is the **Welcome screen**, not a metrics dashboard: greet the user,
-explain the four-stage workflow once, and lead to Create Project. No analytics,
-charts or invented statistics until there is real project data to show. It is
-sized to **one dashboard viewport** — `min-h-[calc(100dvh-…)]` less the
-workspace padding and the sub-lg mobile header — so logging in never lands the
-user in a scrolling onboarding page. Verified fitting at 1920×1080 down to
-1280×720 and 1024×768; below lg it stacks and may scroll, which is fine.
-
-The signed-in user comes from `src/lib/dashboard/currentUser.js` — one
-placeholder object, never a name hardcoded in JSX. It renders in **`.display-app`**,
-the application tier of the type scale: `.display-lg` is `white-space: nowrap`
-at ≥1024, which would clip a two-word name mid-word inside the greeting rail
-(measured: "Maria Fernanda Gonzalez" ran 1024px in a 577px column). Any future
-display-size heading holding user-supplied text uses `.display-app` too.
-
-### Projects are the central logged-in entity
-
-`/dashboard/projects` is the project **library** — all projects.
-`/dashboard/projects/:projectId` is **one** project. Never mix those two
-responsibilities; the list page must not grow the workflow.
-
-`ProjectWorkspace` is a parent shell: minimal project context, one
-`ProjectWorkflowNav`, and `<Outlet />`. The workflow is **route-driven** — the
-URL is the source of truth, `NavLink` supplies the active state, and no page
-switches steps with `if (step === …)`. The nav lives in the workspace exactly
-once, never repeated inside a step page.
-
-The four stages — **Upload · 3D Rendering · BoQ · Output** — are declared once in
-`src/lib/dashboard/projectWorkflow.js`. Never re-list them in a component.
-
-**BoQ and Output are siblings, and that is load-bearing.** BoQ will be optional:
-a user may skip it, reach Output, and come back to BoQ later in the same project
-without re-uploading or re-rendering. So Output must never be nested under BoQ
-or gated on its completion, and "skipped" must never mean "disabled".
-
-**The step pages are empty placeholders.** No uploader, no 3D viewer, no BoQ
-table, no downloads, no status model, no skip logic — those are separate tasks.
-
-**The project card shows project state and nothing else.** `ProjectCard` renders
-the project id, the project name, whether the 3D render exists and whether the
-BoQ exists — read from the project object (`has3DRender` / `hasBoQ`), never
-assumed and never hardcoded per card. No client, budget, team, tags, progress
-percentage or "2/4 complete" figure: none of that is project state, and invented
-metadata that looks real is worse than an empty card. Stage state starts `false`
-on create; when a stage writes its result the library reflects it with no UI
-change.
-
-Card composition rules: name is the strongest element (`--font-display`, two-line
-clamp with the block's height reserved so cards in a row align); statuses are two
-hairline-separated rows — icon, stage label, state — never nested boxes.
-
-**Stage state uses the two status tokens**, `--color-success` (#0A6C48, 5.61:1 on
-white) and `--color-danger` (#B42318, 6.24:1) — added at the client's request so
-an ungenerated stage reads as an open item, not as quiet grey text. They are the
-only non-brand hues in the system, they are **ink, never a fill**, and colour is
-never the only signal: every use pairs the token with a `CheckCircle` /
-`XCircle` icon AND the words "Generated" / "Not generated". Radius
-stays 0. Hover is a border change, a 2px lift and the arrow shifting — no
-shadow bloom, no glow, no zoom, and status never animates on a loop.
-
-Open project and Delete share the card's action row: Open takes the full width
-and the accent, Delete is a neutral icon button that only picks up a restrained
-red on hover/focus. Delete is a separate `<button>` outside the `<Link>` (never a
-nested click target), and always routes through the shared `Modal` confirmation
-in `ProjectGrid`.
-
-**Grid columns: 1 below 640px, 2 from 640px, 3 only from 1280px.** The third
-column waits for `xl` because the workspace has already lost the sidebar's
-width — three cards at 1024 fall under ~260px and the status rows start wrapping.
-
-**Projects live in session memory only.** `ProjectsProvider` (context +
-`useState`, mounted in `DashboardLayout` *outside* its Suspense boundary so a
-route change cannot wipe it) is the whole store. No backend, no API — and
-deliberately no `localStorage`, which would fake a durability the product does
-not have. Its value is shaped like the future API — `{ projects, createProject,
-getProject }` — so swapping in a data-fetching provider needs no UI change.
-
-Project **ids come from a monotonic counter in the provider, never from
-`projects.length`**: deleting project-002 and creating another would otherwise
-mint a second "project-002" and hand the grid two identical React keys.
-
-Hard rules:
-
-- **Dashboard code is strictly separated from marketing/public code:**
-  - Dashboard components live in `src/components/dashboard/`, project-workflow
-    components in `src/components/dashboard/projects/`
-  - Dashboard pages live in `src/pages/dashboard/`, single-project pages in
-    `src/pages/dashboard/projects/`
-  - Dashboard configuration/helpers live in `src/lib/dashboard/`
-- **DashboardLayout owns dashboard navigation:**
-  - Houses the thin, light-theme `DashboardSidebar` (desktop) and `DashboardMobileNav` (mobile/tablet).
-  - Public `Navbar` and public `Footer` are NOT rendered inside dashboard routes.
-- **The Navbar is mounted once, in `AppLayout`.** No public page renders its own.
-- **Suspense wraps the Outlet** in both layouts.
-- **Only whole pages are `React.lazy`.** Never lazy-load small shared components.
-- **Real authentication is not implemented yet:** Login currently simulates submit and routes directly to `/dashboard`.
-- **Current dashboard pages are structural placeholders** pending future application development.
-- The landing page must stay a child of `AppLayout`. Do not give it its own tree.
-- **The public site and the dashboard are visually isolated.** Dashboard work
-  never edits landing sections, auth pages, the public `Navbar`/`Footer` or the
-  public animations; the only thing they share is `src/styles/index.css` tokens
-  and the `ui/` primitives. Changing a shared primitive means checking both
-  sides.
-- **Approved, do not redesign** without being asked: the `/dashboard` Welcome
-  screen, `ProjectWorkflowNav`, the workspace shell, and the reusable
-  `ProjectStepNavigation` (Previous / Next). Fix implementation bugs there with
-  the smallest possible change; do not restyle them.
-- **Responsive expectations for every dashboard page:** no horizontal overflow
-  at 320–1920; the header band stays `shrink-0` while the body scrolls; grids
-  and button rows stack below `sm` rather than shrinking (`ProjectStepNavigation`
-  stacks below 640px because its labels are `whitespace-nowrap`); touch targets
-  ≥44px on coarse pointers.
-- **GSAP in the dashboard follows the site rules** — `useGSAP({ scope })`,
-  `fromTo`, gated on `usePrefersReducedMotion()`. A selector only matches inside
-  its scope: a page cannot animate the surface's blueprint field, which lives
-  above it in the tree. Entrance staggers that re-run on data change must skip
-  elements already revealed, or adding one project re-animates the whole grid.
-
-### Every navigation starts at the top
-
-`useScrollToTop()` runs once in `AppLayout`. React Router keeps the window's scroll
-position across routes, so "Sign Up" from halfway down the landing page used to drop
-you into the middle of the auth page. Two deliberate exceptions, both load-bearing:
-
-- **Skips the first render**, so a refresh keeps the browser's own scroll restoration.
-- **Skips when the navigation carries `state.scrollTo`** — that is the Navbar or Footer
-  routing home to reach a section, and `Home` is about to scroll there.
-
-It uses `behavior: 'instant'`. `html` sets `scroll-behavior: smooth`, so a plain
-`scrollTo(0, 0)` animates the entire page height on every route change.
-
-### Landing-section links from other routes
-
-Nav links like About/Team scroll on `/`, but from an auth page they must route
-home *and then* scroll. The Navbar sends the target in `location.state.scrollTo`;
-`Home` reads it and scrolls after two animation frames, once the sections have
-mounted and laid out. It then clears the state so a refresh doesn't re-scroll.
-
-Scroll-spy is passed an empty id list off `/` — there are no sections to observe.
-
-## Shared component rules
-
-These exist so forms never diverge. Use them; do not restyle inputs or buttons inline.
-
-| Component | Purpose |
-|---|---|
-| `ui/FormInput.jsx` | Every input and textarea, site-wide. Boxed, tone-aware |
-| `ui/PrimaryButton.jsx` | Every CTA — Contact, Login, Forgot Password, Signup |
-| `ui/Modal.jsx` | Every dialog. Escape, focus trap, focus restore, scroll lock |
-| `ui/CalendarPicker.jsx` | Date selection |
-| `ui/AuthShell.jsx` | Shared auth frame: light blueprint background + centred card |
-| `ui/PageLoader.jsx` | Suspense fallback — a blueprint plan that draws itself |
-| `ui/Logo.jsx` | The brand lockup — mark + wordmark. Navbar and Footer both use it |
-
-### Logo
-
-- **One component.** The Navbar and the Footer both render `ui/Logo.jsx`, so the lockup
-  cannot drift between them. Never inline a second copy.
-- The mark is `site.logo` in `content.js`, pointing at a **downscaled** copy of the
-  supplied art. The original `website_logo.png` is 1192×1192 / 342kB for a glyph that
-  renders at 28px — shipping it directly would cost more than the hero poster. Keep the
-  original as the source and serve a small derivative.
-- The PNG must keep **real transparency**. The same file sits on the navy footer, on the
-  light auth bar and over the hero video; a baked-in white background shows as a white
-  tile on all three.
-
-### Footer links must resolve to something real
-
-Every footer link points at a section that exists or a route that exists. The footer
-once carried a "Services" column of four links that all scrolled to `#about` — four
-links that looked real and went nowhere. Add a column back only when it has real
-targets.
-
-- **Never `alert()`.** Success and error states use `Modal` or inline `role="alert"`.
-- Booking availability lives in `content.js` → `booking.timeSlots`; each slot supports
-  `disabled`, so swapping in API data needs no component change.
-- `aria-pressed` must be a real boolean (`Boolean(...)`). `value && …` yields `null`
-  when nothing is selected and React drops null attributes, silently removing the
-  toggle semantics — this happened in `CalendarPicker`.
-
-### The CTA never turns white
-
-`--btn-bg` / `--btn-bg-hover` are set per tone and both stay blue:
-
-| Tone | Fill | Ink | Hover | Ratios |
-|---|---|---|---|---|
-| light | `#0B5ED7` | white | `#0E4FA8` | 5.57 → 7.41 |
-| dark | `#3B91FF` | `#0B1624` | `#5CA5FF` | 5.79 → 7.17 |
-
-**`--color-brand` (#1677FF) is never a button fill** — white on it is 3.92:1 and dark
-ink on it is 4.43:1, so both directions fail AA.
-
-## Code rules
-
-- **Components stay small.** A section over ~150 lines gets split.
-- Page in `src/pages/`. Sections in `src/components/sections/`. Primitives in
-  `src/components/ui/`. Chrome in `src/components/layout/`.
-- **All copy and media live in `src/lib/content.js`** — never inline in JSX.
-- Import via the `@/` alias.
-- Images need explicit `aspect-ratio` (or width/height) to prevent CLS.
-- **Every hotlinked photo ships a `srcSet` + `sizes`.** Unsplash resizes on its `w`
-  parameter, so `USet(id, [w, …])` in `content.js` builds a candidate set from one id.
-  Without it a phone downloads the full desktop render.
-- **Two `<img>` tags sharing a `src` must share their `sizes` string.** The Process
-  visual is rendered twice (desktop sticky + inline tablet/mobile); different `sizes`
-  would resolve to different candidates and split one request into two. That is what
-  `PROCESS_SIZES` exists for.
-
-## Placeholder media — all temporary, and currently FROZEN
-
-**Every image, the hero video, the logo and the plan SVGs are placeholders, and
-the client is preparing the real assets.** Do not swap, re-crop or "improve" any
-of them, and never fetch replacements from the internet, unless the task
-explicitly delivers client media. Copy changes must fit the media that is there.
-
-Two consequences of that freeze worth knowing:
-
-- **"FLOOR STUDIO" is still baked into the title block of the hand-authored plan
-  SVGs** — `plan-2d-light.svg`, `plan-3d-light.svg` (both live, in How It Works
-  steps 01–02) and the three unused `plan-*-primary/detail.svg`. It is a plain
-  `<text>` node, so it is a one-line fix per file whenever editing the drawings
-  is authorised.
-- Team portraits do not depict the named people, and the fourth slot is a single
-  portrait standing in for the collective "The Build Team" entry.
-
-Images are hotlinked from **Unsplash**, the hero video from **Pexels**. Every URL was
-verified to return 200 before shipping. Local SVG drawings in `public/assets/` are
-hand-authored (a real measured 2D plan and a 3D axonometric).
-
-Trade-off: hotlinking means no offline dev and no control over the CDN. Accepted because
-these are explicitly placeholders.
-
-**To replace:** change the string in `src/lib/content.js`, or drop a file into
-`public/assets/` and point to it. No component edits.
-
-**Placeholder copy is deliberately generic, not plausible.** `site` carries
-`hello@example.com` and `+1 (000) 000 0000` on purpose — an invented address and phone
-number that *look* real are worse than obvious dummies, because they ship unnoticed.
-
-| Slot | Currently |
-|---|---|
-| Logo | `website_logo.png` (source) → `website_logo-128.png` (served) |
-| Hero video | Pexels: architect's desk, 3D model + 2D plans in one frame |
-| Hero poster | **Local `hero-poster-*.jpg`, captured from the video's own frame at t=0.4s** |
-| Process 01 | Local `plan-2d-light.svg` — light drafting sheet |
-| Process 02 | Local `plan-3d-light.svg` — furnished 3D of the **same** unit |
-| Process 03 | Unsplash furnished interior (customization) |
-| Process 04 | Unsplash printed plan sheets (the delivered set) |
-| Why Kraios | Unsplash 3D visualization (lg and up only) |
-| Team | 4 Unsplash portraits |
-
-About, FAQ and Contact carry no imagery — all three are type-only bands over
-`BlueprintBackdrop`.
-
-The four How It Works visuals are awaiting, in order: a real 2D plan output, a
-real 3D model view, a real materials/quantities view, and a real exported BoQ.
-
-**The hero poster is cut from the hero video.** Poster and first frame are the same
-image, so the hand-off is invisible rather than a jump cut between two unrelated
-pictures. If the video is replaced, regenerate the poster from the new one.
-
-### Each Process step's visual must match its own heading
-
-The step images are not decoration, they are the step. Step 04 once showed a
-finished interior — a near-duplicate of step 03's photo — under the heading
-"Download Floor Plans"; it now shows the printed set.
-
-Steps 01 and 02 are **the same apartment**, drawn twice: `plan-2d-light.svg` is the
-measured plan, `plan-3d-light.svg` is that plan extruded and furnished. The copy
-promises step 02 "transform[s] your 2D plan into a 3D floor plan", so the two
-drawings have to stay the same unit — if either is replaced, the other has to be
-replaced with it.
-
-`plan-3d-light.svg` is generated, not hand-typed — it projects the 2D drawing's own
-room and wall coordinates through a dimetric transform. Walls are kept low (76 plan
-units) on purpose: at full height the render becomes a field of blank slabs and
-hides every room's contents.
-
-### Drawing assets are authored at 4:3
-
-The Process media box is `aspect-4/3` with `object-cover`. A drawing at any other
-ratio gets centre-cropped — at its native 1.6:1 the 2D plan lost ~133px off each
-side, taking the left dimension string with it. Author plan SVGs at 4:3 and make the
-sheet background cover the **whole** viewBox, or the margins fall through to the
-navy media box behind the image.
+KRAIOS — CLAUDE.md
+
+Permanent project rules for KRAIOS.
+
+Read this file before changing the application. Then read PROGRESS.md for the current implementation state, known issues, mock/backend limitations, and latest validation status.
+
+1. Source of truth
+
+When instructions or documents disagree, use this priority:
+
+The user's explicit instruction for the current task.
+
+This CLAUDE.md for durable KRAIOS product, design, architecture, and engineering rules.
+
+The actual current source code for implementation details.
+
+PROGRESS.md for current completion state, mock behavior, known issues, and validation status.
+
+Do not preserve stale documentation just because it already exists.
+
+Do not guess routes, filenames, component names, state ownership, backend capability, or supported features. Inspect the current code first.
+
+2. Product
+
+Brand: KRAIOS
+
+KRAIOS is a self-serve SaaS application for architectural / fit-out workflows.
+
+The current project workflow has exactly four stages:
+
+Upload
+
+3D Rendering
+
+BoQ
+
+Output
+
+The user works inside the application. KRAIOS is not an agency hand-off service.
+
+Do not use agency copy such as:
+
+“send us your plans”
+
+“share your files with us”
+
+“our team will build it for you”
+
+“contact us to process your project”
+
+Do not invent:
+
+customer counts
+
+fake testimonials
+
+fake project metrics
+
+fake pricing
+
+fake processing accuracy
+
+fake backend persistence
+
+fake AI analysis
+
+fake file-generation claims
+
+Frontend/demo data is allowed while backend services are unavailable, but it must remain identifiable as mock/demo behavior in code and documentation.
+
+3. Current stack
+
+Current project stack from package.json:
+
+Vite 8
+
+React 19
+
+JavaScript / JSX only
+
+React Router DOM 7 using createBrowserRouter
+
+Tailwind CSS v4
+
+GSAP
+
+@gsap/react
+
+Phosphor Icons
+
+React Markdown
+
+remark-gfm
+
+React Hot Toast
+
+Inter Variable
+
+Do not introduce:
+
+TypeScript
+
+a second router
+
+Redux / Zustand / another state library
+
+another icon library
+
+another UI kit
+
+another form framework
+
+another toast library
+
+unless the user explicitly requests it or there is a clear architectural reason.
+
+The React Hot Toast migration is DONE. React-Toastify is uninstalled and no Toastify import, container, CSS class or helper remains. Do not reintroduce it, and do not add a second notification library alongside React Hot Toast.
+
+4. Design system — critical
+
+When creating or modifying KRAIOS UI, reuse the existing KRAIOS system first.
+
+Preserve and reuse:
+
+current KRAIOS colors
+
+CSS design tokens
+
+KRAIOS blue
+
+current typography
+
+current spacing rhythm
+
+current border language
+
+current subtle radius system
+
+existing Button component
+
+existing FormInput
+
+existing Modal
+
+existing full-screen floor-plan viewer
+
+current dropdown family
+
+existing toast styling
+
+Phosphor Icons
+
+dashboard page surface
+
+architectural grid/detail language
+
+current motion language
+
+Do not introduce a visually separate mini-design-system inside one feature.
+
+New UI must feel native to the current KRAIOS product.
+
+Useful shared components/patterns to inspect before creating equivalents:
+
+src/components/ui/PrimaryButton.jsx
+
+src/components/ui/FormInput.jsx
+
+src/components/ui/Modal.jsx
+
+src/components/ui/PageLoader.jsx
+
+src/components/ui/KraiosToaster.jsx
+
+src/components/ui/Logo.jsx
+
+src/components/dashboard/DashboardPageHeader.jsx
+
+src/components/dashboard/DashboardPageSurface.jsx
+
+src/components/dashboard/TechnicalIconFrame.jsx
+
+src/components/dashboard/projects/workflow/shared/FloorPlanFullscreenModal.jsx
+
+src/components/dashboard/projects/workflow/shared/FloorPlanWorkArea.jsx
+
+src/styles/index.css
+
+src/styles/toast.css
+
+Do not recreate these concepts per page.
+
+5. Color / typography rules
+
+The live visual source of truth is the current CSS in src/styles/index.css.
+
+Current brand direction includes:
+
+navy / deep navy
+
+KRAIOS blue
+
+white / light application surfaces
+
+restrained neutral borders
+
+semantic success / warning / danger colors
+
+The runtime font is Inter Variable.
+
+Do not add another font unless explicitly requested.
+
+6. Shape language
+
+KRAIOS uses a restrained, lightly-rounded architectural shape language.
+
+The application is no longer zero-radius.
+
+Current radius scale:
+
+--radius-xs: 3px
+
+--radius-sm: 4px
+
+--radius-md: 6px
+
+--radius-lg: 8px
+
+Use the current token system rather than inventing arbitrary radii.
+
+Typical use:
+
+tiny chips / marks: xs
+
+buttons / inputs / compact controls: sm
+
+cards / panels / dropdown surfaces / image frames: md
+
+large modal / major framed surface: lg
+
+Do not introduce generic SaaS rounding such as large 12–24px card radii.
+
+Intentional circles remain circles:
+
+status dots
+
+avatars
+
+spinners
+
+workflow nodes
+
+circular controls
+
+decorative radial marks
+
+Structural layout wrappers do not need radius merely because they are <div> elements.
+
+7. Public site
+
+Public/auth routes live under AppLayout.
+
+Current public routes:
+
+/
+
+/login
+
+/forgot-password
+
+/signup
+
+Public landing navigation:
+
+Home
+
+About
+
+How It Works
+
+Why Kraios
+
+Team
+
+FAQ
+
+Contact
+
+Landing section ids:
+
+home
+
+about
+
+process
+
+why
+
+team
+
+faq
+
+contact
+
+Do not casually rename section ids because navigation and scroll behavior depend on them.
+
+Public content primarily comes from src/lib/content.js.
+
+Auth is currently frontend/mock-oriented. Do not describe it as production authentication unless a real auth backend is connected.
+
+8. Dashboard shell
+
+Authenticated routes use one shared DashboardLayout.
+
+The dashboard shell owns:
+
+Sidebar / mobile dashboard navigation
+
+shared page surface
+
+dashboard providers
+
+right-side application workspace
+
+Do not create another dashboard shell inside workflow features.
+
+Do not hide/recreate the Sidebar for Design Assistant or BoQ Assistant.
+
+“Full-screen assistant” means the full available right-side dashboard workspace, not replacing the dashboard shell.
+
+Global dashboard navigation source:
+
+src/lib/dashboard/dashboardNavigation.js
+
+Current navigation:
+
+Overview
+
+Projects
+
+Subscription
+
+Profile
+
+Log out
+
+Project workflow stages do not belong in the global Sidebar.
+
+9. Current dashboard routes
+
+Current router includes:
+
+/dashboard
+/dashboard/projects
+/dashboard/profile
+/dashboard/subscription
+
+/dashboard/projects/:projectId
+/dashboard/projects/:projectId/upload
+/dashboard/projects/:projectId/rendering
+/dashboard/projects/:projectId/rendering/assistant
+/dashboard/projects/:projectId/boq
+/dashboard/projects/:projectId/boq/assistant
+/dashboard/projects/:projectId/output
+
+The four workflow stages are sibling routes under one selected project.
+
+Design Assistant and BoQ Assistant are sibling focused workspaces inside DashboardLayout.
+
+They intentionally sit outside ProjectWorkspace, so they do not inherit the workflow stepper / Previous-Next bar.
+
+Do not create a second router.
+
+Use the existing path builders in src/lib/dashboard/workflow/projectWorkflow.js.
+
+10. Dashboard pages
+
+Current dashboard UI exists for:
+
+Overview
+
+Projects
+
+Projects empty state
+
+Project cards
+
+Create Project modal
+
+Delete Project confirmation
+
+Subscription
+
+Profile
+
+complete four-stage project workflow UI
+
+These screens should not be described as placeholders.
+
+Maintenance/optimization tasks must not visually redesign them unless the user explicitly requests a redesign.
+
+11. Project state
+
+ProjectsProvider is mounted in the dashboard shell and currently coordinates:
+
+project list
+
+per-project Step 1 floor-plan source
+
+per-project Step 2 Design Assistant state
+
+per-project Step 3 BoQ Assistant state
+
+Current state is session-memory frontend state.
+
+There is no project API/database/localStorage persistence.
+
+Refresh loses the project session.
+
+has3DRender is derived from whether Step 2 has an approved Design Assistant result.
+
+hasBoQ is derived from whether Step 3 has an approved BoQ result.
+
+Do not independently write duplicate status truth into ProjectCard or another store.
+
+Do not add Redux/Zustand merely to restructure the current provider.
+
+If high-frequency assistant updates become a performance issue, first consider narrower contexts/providers or selector-style boundaries.
+
+12. Feature ownership
+
+The project workflow is already feature-scoped.
+
+Current UI ownership:
+
+src/components/dashboard/projects/
+├── library/
+│   ├── CreateProjectModal.jsx
+│   ├── ProjectCard.jsx
+│   └── ProjectGrid.jsx
+│
+└── workflow/
+    ├── shared/
+    │   ├── DiscardProjectModal.jsx
+    │   ├── FloorPlanFullscreenModal.jsx
+    │   ├── FloorPlanWorkArea.jsx
+    │   ├── ProjectStepNavigation.jsx
+    │   ├── ProjectWorkflowNav.jsx
+    │   └── StepPlaceholder.jsx
+    │
+    ├── step-1/
+    ├── step-2/
+    │   ├── assistant/
+    │   └── canvas/
+    ├── step-3/
+    │   └── assistant/
+    └── step-4/
+
+Project routes are guarded once, not per stage:
+src/pages/dashboard/projects/RequireProject.jsx wraps the workspace and both
+assistant routes and redirects an unknown :projectId to /dashboard/projects.
+Do not add per-stage `if (!project)` checks; extend the guard instead.
+
+Current domain ownership:
+
+src/lib/dashboard/
+├── toast helpers live in src/lib/toast.js (NOT in the toast component module)
+├── projects/
+└── workflow/
+    ├── projectWorkflow.js
+    ├── step-1/
+    ├── step-2/
+    ├── step-3/
+    │   ├── boqDemoData.js     # the ONE BoQ fixture, read by Step 3 and Step 4
+    │   └── boqDocuments.js    # supporting-document record + blob-URL release
+    └── step-4/
+
+All four workflow stage folders already contain real UI/domain code.
+
+Do not create documentation saying Step 3 or Step 4 are future placeholders.
+
+Do not perform another broad folder restructure unless there is a real ownership problem.
+
+13. Shared vs feature-specific code
+
+Share only genuinely generic primitives.
+
+Good future shared-assistant candidates:
+
+assistant workspace header shell
+
+dropdown shell
+
+composer shell
+
+message/timestamp metadata
+
+approval-control shell
+
+conversation frame
+
+Keep feature behavior separate.
+
+Step 2 owns:
+
+render-style behavior
+
+view-angle behavior
+
+3D result
+
+image editing / canvas
+
+3D approval
+
+Step 3 owns:
+
+document type
+
+uploaded-document context
+
+BoQ result
+
+BoQ table
+
+BoQ approval/finalization
+
+Do not create one giant conditional component such as:
+
+<Assistant type="design" />
+<Assistant type="boq" />
+
+with large if/else branches for feature-specific behavior.
+
+14. Workflow source of truth
+
+Workflow source:
+
+src/lib/dashboard/workflow/projectWorkflow.js
+
+Current stages:
+
+Upload
+
+3D Rendering
+
+BoQ
+
+Output
+
+BoQ is currently declared optional.
+
+That means the user may reach Output without completing BoQ.
+
+If this product rule changes, change the workflow deliberately and update both code and documentation together.
+
+Do not create a fifth stage for Design Assistant or BoQ Assistant.
+
+They are focused workspaces belonging to Steps 2 and 3.
+
+15. ProjectWorkspace structure
+
+ProjectWorkspace owns the normal four-stage shell.
+
+Conceptual layout:
+
+TOP
+Project workflow stepper
+
+MIDDLE
+Active stage content
+
+BOTTOM
+Previous / Next navigation
+
+Preserve this architecture.
+
+Do not move the bottom workflow navigation inside a large nested stage scroller.
+
+Do not replace it with brittle fixed/absolute hacks.
+
+16. Step 1 — Upload / Generate
+
+UI implemented.
+
+Step 1 is the active 2D floor-plan source stage.
+
+Current UI/components include:
+
+FloorPlanInputStage
+
+FloorPlanModeToggle
+
+FloorPlanBrief
+
+FloorPlanSourcePreview
+
+UploadFloorPlanPanel
+
+GenerateFloorPlanPanel
+
+Current behavior:
+
+Upload mode
+
+Generate mode
+
+one active source per project
+
+upload and generated source are mutually exclusive
+
+source preview
+
+source removal/replacement
+
+image/PDF handling
+
+object URL cleanup
+
+Shared full-screen/work-area primitives live under workflow/shared/.
+
+Backend reality:
+
+local file selection/preview is frontend-real
+
+AI floor-plan generation backend is not connected
+
+generation service currently uses an unavailable contract rather than pretending a real backend exists
+
+Step 1 UI is approved unless the task explicitly targets it.
+
+17. Step 2 — 3D Rendering gateway
+
+UI implemented.
+
+Route:
+
+/dashboard/projects/:projectId/rendering
+
+Normal Step 2 is a gateway/status screen, not the full assistant.
+
+Current Step 2 UI includes:
+
+Rendering stage composition
+
+Design Assistant gateway
+
+reference source strip
+
+approval status
+
+approved-design presentation
+
+current state/status copy
+
+transition into Design Assistant
+
+Do not embed the full long chat inside the gateway.
+
+18. Design Assistant
+
+UI and frontend state workflow implemented.
+
+Route:
+
+/dashboard/projects/:projectId/rendering/assistant
+
+Current workspace includes:
+
+dashboard Sidebar retained
+
+dedicated assistant header
+
+Back to 3D Rendering
+
+Render Style dropdown
+
+approval status
+
+conversation area
+
+assistant/user messages
+
+message timestamps
+
+prompt composer
+
+quick prompts
+
+loading / failure / retry states
+
+generated 3D result blocks
+
+result selection
+
+View Angle menu
+
+result approval
+
+Expand result
+
+Edit/refine path
+
+Kraios Design Canvas
+
+optional DWG action only when a real URL exists
+
+Current render styles:
+
+SketchUp
+
+Photo Realistic
+
+Current view angles:
+
+Isometric 45°
+
+Bird’s Eye 45°
+
+Current 3D generation backend:
+
+real model-generation backend is not connected
+
+frontend mock generation is enabled
+
+the mock result uses a local asset
+
+A newly generated result clears previous approval.
+
+Only an explicitly approved result should represent Step 2 completion.
+
+View Angle rule:
+
+Selecting a view angle is a generation request, not a display setting. It moves the header to the chosen angle and then runs the SAME generation path a typed instruction runs, producing a new, unapproved result. Do not add a second generation implementation for it, and do not fake a viewpoint by transforming an existing image.
+
+19. Kraios Design Canvas
+
+The Design Assistant currently contains a dedicated canvas editing UI.
+
+It is a Step 2 feature, not a separate workflow stage.
+
+Do not move canvas-specific logic into global dashboard UI.
+
+Performance rule:
+
+Canvas history must not grow without practical bounds. It is capped at MAX_HISTORY full-canvas snapshots; when the cap is exceeded the oldest is dropped and the index is clamped to the newest slot.
+
+Honesty rule:
+
+The toolbar's advertised shortcuts (L / P / H / E, Ctrl+Z, Ctrl+Y) are wired. The Lasso / Cutout tool currently draws a freehand stroke like the pen — it is not a selection or cutout tool. Do not describe it as one until a real path/composite implementation exists.
+
+The current implementation stores full canvas snapshots; future optimization should cap/optimize this without redesigning the canvas.
+
+Do not advertise keyboard shortcuts or lasso behavior as functional unless those interactions are implemented.
+
+20. Step 3 — BoQ gateway
+
+UI implemented.
+
+Route:
+
+/dashboard/projects/:projectId/boq
+
+Current Step 3 is a gateway/status experience for BoQ Assistant.
+
+Current UI includes:
+
+KRAIOS BoQ Assistant gateway
+
+approved 3D context
+
+2D plan context
+
+current BoQ approval state
+
+what-you-build / BoQ information
+
+entry into BoQ Assistant
+
+current optional Skip-to-Output product path
+
+shared full-screen floor-plan preview where used
+
+Do not describe Step 3 as StepPlaceholder only.
+
+The route page uses StepPlaceholder as a shell wrapper, but the actual content is BoQStage / BoQAssistantGateway.
+
+21. BoQ Assistant
+
+UI and frontend/mock state workflow implemented.
+
+Route:
+
+/dashboard/projects/:projectId/boq/assistant
+
+Current workspace includes:
+
+same dashboard shell family as Design Assistant
+
+BoQ Assistant header
+
+Back to BoQ
+
+Document Type dropdown
+
+Uploaded Documents dropdown
+
+approval status
+
+conversation
+
+user / assistant messages
+
+timestamps
+
+prompt composer
+
+dummy/mock generation
+
+structured light BoQ result table
+
+Approve / revoke approval
+
+Add row
+
+Delete row
+
+retry / loading state
+
+Current document types in code:
+
+General Document
+
+MEP Drawing
+
+HVAC Drawing
+
+Door and Window Schedule
+
+Current BoQ generation is frontend/mock.
+
+Do not claim the dummy table was actually calculated from the user’s floor plan, approved 3D geometry, uploaded files, or live market prices.
+
+Document record contract:
+
+A supporting document is built by createBoqDocument in workflow/step-3/boqDocuments.js and carries { id, name, size, mime, extension, kind, typeId, typeLabel, file, previewUrl, ownsPreviewUrl, addedAt } — the shape Step 4 needs to list, preview, download and package it. The reducer takes a finished record and stays pure; ProjectsProvider revokes previewUrl when a document leaves the list, when the project is deleted, and on unmount. Mirror step-1/floorPlanSource.js rather than inventing a second file-record shape.
+
+Known implementation gap:
+
+the reducer has uploadDocument and the header has uploaded-document UI, but the composer exposes NO attachment control, so nothing dispatches it — supporting-document upload is not reachable end to end
+
+Adding that control means adding a new element to an approved interface, which is a design decision, not a cleanup. Do not document document upload as functional until it is wired, and do not write UI copy directing users to an upload action that does not exist.
+
+22. BoQ approval rules
+
+Approval belongs to one specific BoQ version/result.
+
+Generating a new BoQ result invalidates the previous approval.
+
+Any material change to an approved BoQ also invalidates approval. Add Row and Delete Row both clear `approvedResultId` when they touch the approved result — every table mutation goes through one write helper so a future edit action cannot keep an approval it invalidated. `approvedResultId` is the single approval flag; do not add a component-local `isApproved`.
+
+Examples:
+
+adding a row
+
+deleting a row
+
+changing approved table content
+
+Current code still needs this behavior fixed for row modifications.
+
+Do not consider the issue complete until the reducer actually clears approval on those mutations.
+
+23. Step 4 — Output / Deliverables
+
+UI implemented.
+
+Route:
+
+/dashboard/projects/:projectId/output
+
+Step 4 is the final project deliverables workspace.
+
+It is not an assistant/editor.
+
+Current Step 4 UI includes:
+
+Output header
+
+Download Project ZIP action
+
+Plans & Renders section
+
+Original 2D Floor Plan card
+
+Approved 3D Design card
+
+shared full-screen floor-plan viewer
+
+individual 2D/3D download actions
+
+Final BoQ section
+
+structured read-only BoQ table
+
+BoQ CSV export
+
+Uploaded Documents section
+
+document empty state
+
+project package ZIP generation
+
+Current Step 4 feature components include:
+
+OutputStage
+
+OutputHeader
+
+OutputPlanCard
+
+PlansAndRendersSection
+
+FinalBoQSection
+
+FinalBoQTable
+
+UploadedDocumentsSection
+
+Current domain modules include:
+
+outputConfig.js
+
+outputDownloads.js
+
+Step 4 should remain primarily:
+
+View
+
+Review
+
+Download
+
+Do not add upstream editing behavior to Output.
+
+24. Step 4 data truth
+
+Step 4 reads:
+
+Step 1 current 2D source
+
+Step 2 explicitly approved 3D result
+
+Step 3 explicitly approved/finalized BoQ — and NOTHING else
+
+Step 3 uploaded documents
+
+Final BoQ rule:
+
+The final BoQ is `approvedBoqResult(boqState)`. There is no fallback to the latest result: an unapproved draft is not a deliverable, must not appear under an approved badge, must not be exportable as the project CSV, and must not be written into the deliverables ZIP. Because BoQ is optional and skippable, "no finalized BoQ" is a normal state, shown with Output's existing dashed empty presentation; the rest of the page works without it.
+
+Demo fixtures:
+
+Output still uses demo 2D/3D assets when upstream real state is missing, and the BoQ fixture in workflow/step-3/boqDemoData.js remains available for UI work. Keep fixtures isolated from finalized-state truth: a fixture may stand in for a picture, never for an approval.
+
+25. Downloads
+
+Current Output supports client-side download behavior including:
+
+2D asset download
+
+3D asset download
+
+BoQ CSV generation/download
+
+client-side project ZIP package generation
+
+Download rules:
+
+verify `response.ok` before packaging any fetched asset; a failed fetch is unavailable, never a file
+
+normalize every user-supplied name with `safeFileName` before it becomes a ZIP path (no `/`, `\`, `..`, or empty names)
+
+use real available data when possible
+
+do not hardcode fake external URLs
+
+sanitize user-controlled filenames
+
+verify fetched assets succeeded before packaging
+
+do not package an HTTP error response as a project file
+
+Large real architectural packages may eventually require backend packaging rather than holding all data in browser memory.
+
+26. Notifications
+
+The notification system is React Hot Toast. There is no second notification
+library and no second notification API.
+
+One global host:
+
+src/components/ui/KraiosToaster.jsx renders the single `<Toaster>`, mounted once
+in src/main.jsx beside the RouterProvider. It therefore serves public, auth,
+dashboard, workflow, assistant and modal surfaces alike. Never render a second
+Toaster inside a page, layout or feature.
+
+Module split (the reason it is split — do not undo it):
+
+src/components/ui/KraiosToaster.jsx exports ONLY components. Mixing helpers into
+a component module broke React Fast Refresh for every consumer.
+
+src/lib/toast.js is the plain-JS API every caller uses:
+
+showSuccessToast / showErrorToast / showInfoToast / showLoadingToast /
+dismissToast, plus TOAST_DURATION and toastKind.
+
+No file outside those two imports `react-hot-toast` directly. Do not add a third
+call style.
+
+Presentation — light KRAIOS theme:
+
+top-right, inset from the viewport; below 1024 the stack clears the 56px mobile
+navigation bar
+
+white surface, hairline border, --radius-md geometry, restrained shadow, product
+body type at 0.75rem, width capped so long copy wraps
+
+semantic meaning is carried by a small icon badge and a 2px remaining-time rule
+— success green, error red, info/loading KRAIOS blue. The surface is never
+filled with the semantic colour.
+
+Styling lives in src/styles/toast.css (`.kraios-toaster` / `.kraios-toast`) and
+in the component. Nothing else reads those classes.
+
+Durations: success 3000ms, info 3500ms, error 4500ms, loading until resolved or
+dismissed. They live in TOAST_DURATION; do not pass ad-hoc timings per call
+site.
+
+Duplicate prevention:
+
+Pass a stable `{ id }` for anything a user can fire repeatedly — a workflow
+gate, a rejected file, a blocked action, a retried generation. React Hot Toast
+replaces the toast holding that id instead of stacking copies.
+
+ONE user-facing toast per event, decided by the UI/action layer. A service or
+helper returns or throws a structured failure; it does not raise a toast, and a
+page must not toast the same failure a component already toasted.
+
+Form validation:
+
+Transient validation copy is a toast, never an inline red line. On submit:
+validate, prevent the submit, keep the invalid field styling, focus the first
+invalid field, and raise ONE toast for the first/highest-priority error. The
+next issue surfaces on the next submit.
+
+Never toast while the user types. Internal validation state may still update on
+change and blur; it just stays silent.
+
+Field-level state is NOT optional. `aria-invalid`, required semantics, the
+invalid border and the message carried in a screen-reader-only node that
+`aria-describedby` points at all remain — the toast says what is wrong, the
+field says where. Never leave a dangling `aria-describedby` id.
+
+Honest feedback:
+
+Never announce success before the action succeeded. A download reports success
+only when the file was actually produced (`downloadAssetUrl` returns whether it
+was). Never surface a raw thrown `message`, Axios/fetch string or backend field
+name to a user.
+
+No success toast for small UI interactions — opening a dropdown or a modal,
+selecting a render style or a document type, focusing a field.
+
+Transient event feedback belongs in toast notifications.
+
+Persistent product states remain visible in page UI.
+
+Examples of persistent state:
+
+DESIGN APPROVED
+
+BOQ READY
+
+NO DOCUMENTS UPLOADED
+
+NO PROJECTS YET
+
+27. Custom dropdown rules
+
+Custom KRAIOS dropdowns must:
+
+visually match the current control family
+
+select exactly once per user action
+
+close correctly
+
+be keyboard/focus accessible
+
+not claim keyboard behavior that does not exist
+
+Selection is bound to onClick and to nothing else. Binding it to onMouseDown as well ran it twice for one mouse press; if a duplicate ever reappears, remove the second binding rather than suppressing the second call with a flag or a timer.
+
+Current keyboard reality, stated plainly so no comment overstates it: the trigger is a real button (focusable, Enter/Space to open), Escape closes the menu and returns focus to the trigger, and choosing an option also returns focus there. Arrow-key roving focus over the option rows is NOT implemented in any of the three menus. Implement it properly or say it does not exist — do not document it as present, and do not add a third-party dropdown library.
+
+28. Route integrity
+
+Workflow state should belong to a real project.
+
+A direct URL with an invalid projectId should not silently create a usable fake workflow session.
+
+Preferred architecture:
+
+validate project existence once at the project workflow/assistant route boundary
+
+redirect to Projects or show a safe project-not-found state
+
+Do not duplicate this check in every child component.
+
+Implemented as src/pages/dashboard/projects/RequireProject.jsx, wrapping the ProjectWorkspace route and both assistant routes. An unknown :projectId redirects (replace) to /dashboard/projects. The per-project state hooks still return a shared frozen default for a project that exists but is untouched — that is the fallback's only job, and the guard is what stops it being reached with an id that does not exist.
+
+29. Responsiveness
+
+Use one responsive implementation per component.
+
+Do not create:
+
+DesktopDashboard
+
+TabletDashboard
+
+MobileDashboard
+
+Use the existing CSS/Tailwind responsive system.
+
+Important viewport classes to preserve/test when a responsive QA task is requested:
+
+1920
+
+1440
+
+1366
+
+1280
+
+1024
+
+834
+
+768
+
+430
+
+390
+
+375
+
+360
+
+Do not claim those widths are visually verified unless they were actually tested.
+
+30. Scroll ownership
+
+Avoid unnecessary nested scrollbars.
+
+Valid internal scroll examples:
+
+Design Assistant conversation
+
+BoQ Assistant conversation
+
+responsive BoQ table horizontal overflow
+
+Normal gateway pages and standard forms should use natural page/workspace layout rather than nested scrolling caused by bad height constraints.
+
+31. Motion
+
+Use existing GSAP patterns and usePrefersReducedMotion.
+
+Clean up:
+
+timers
+
+event listeners
+
+GSAP timelines
+
+object URLs
+
+transient resources
+
+Do not add heavy motion during maintenance work.
+
+32. React performance
+
+Do not blindly add:
+
+React.memo
+
+useMemo
+
+useCallback
+
+Optimize real bottlenecks.
+
+Prefer:
+
+correct state ownership
+
+narrower high-frequency subscriptions
+
+bounded histories
+
+effect cleanup
+
+route-level code splitting
+
+avoiding duplicate expensive work
+
+avoiding unnecessary artificial waits
+
+Current page-level route lazy loading should be preserved.
+
+33. Known performance targets
+
+Current areas worth future optimization:
+
+ProjectsProvider is broad and receives high-frequency assistant state updates.
+
+Kraios Design Canvas history stores full snapshot data and is currently unbounded.
+
+Several UI/demo flows contain artificial delays.
+
+Client-side ZIP packaging keeps project files in browser memory.
+
+Do not redesign the UI while optimizing these.
+
+34. Dead / unused code cleanup
+
+Do not keep unused source indefinitely.
+
+Current audit found files with no current importer, including:
+
+src/hooks/useSectionReveal.js
+
+src/components/ui/Figure.jsx
+
+src/components/dashboard/projects/workflow/step-2/StageIntro.jsx
+
+src/components/dashboard/projects/workflow/step-2/assistant/AssistantGeometryBackdrop.jsx
+
+src/components/dashboard/projects/workflow/step-2/assistant/ExpandResultModal.jsx
+
+src/components/dashboard/projects/workflow/step-2/assistant/ComposerContextStrip.jsx
+
+Verify once before deleting because dynamic usage/import patterns can exist.
+
+Unused-code cleanup must not change visible UI.
+
+35. Maintenance tasks must preserve UI
+
+When the task is:
+
+bug fixing
+
+lint cleanup
+
+performance optimization
+
+state correction
+
+architecture cleanup
+
+dead-code removal
+
+dependency migration
+
+notification migration
+
+do not redesign the application unless the user explicitly asks for visual changes.
+
+Preserve:
+
+layout
+
+spacing
+
+typography
+
+colors
+
+button appearance
+
+icon appearance
+
+radius
+
+page composition
+
+existing responsive intent
+
+existing motion
+
+A maintenance refactor should ideally be visually indistinguishable from the previous UI.
+
+36. Lint / validation
+
+Never write “lint passes” unless lint was actually run and passed on the current source.
+
+The current source is lint-clean (0 errors, 0 warnings). Keep it that way: fix the stale code a rule points at rather than silencing the rule. Do not add eslint-disable, dummy references, `void unused`, or blanket `_` renames to get a green run.
+
+After relevant cleanup, run:
+
+npm run lint
+
+or the equivalent ESLint command in the actual development environment.
+
+Do not claim production readiness solely from static source inspection.
+
+37. Documentation
+
+CLAUDE.md contains durable rules.
+
+PROGRESS.md contains current implementation status.
+
+Do not turn either file into append-only history.
+
+After a meaningful change:
+
+inspect final code
+
+update the relevant current section
+
+remove stale/contradictory statements
+
+record only real validation results
+
+Most important current rule:
+
+All four workflow stage UIs are implemented in the current source. Step 3 and Step 4 are not placeholders.

@@ -23,9 +23,12 @@ const ICON_SIZE = 19
  * Row geometry, shared by every variant so a Log out row and a destination row
  * can never sit at different heights.
  */
+/* `rounded-r-sm` only: the row is full-bleed to the rail's left edge, where the
+   active marker sits flush, so the inner (right) edge is the one that gets the
+   softened corner. Rounding the left would leave the 2.5px marker proud of it. */
 const ROW = [
-  'group relative flex w-full min-h-11 touch:min-h-12 items-center gap-3.5 py-2.5 pl-6 pr-4',
-  'text-[0.8125rem] font-normal transition-colors duration-150 motion-reduce:transition-none',
+  'group relative flex w-full min-h-11 touch:min-h-12 items-center gap-3.5 py-2.5 pl-6 pr-4 rounded-l-none rounded-r-sm',
+  'text-[0.8125rem] font-medium transition-colors duration-150 motion-reduce:transition-none',
   'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
 ].join(' ')
 
@@ -49,8 +52,16 @@ function ActiveMarker({ active }) {
 /**
  * One row of the dashboard sidebar — a destination, or the Log out action.
  */
-export default function DashboardNavItem({ item, onClick, className }) {
+export default function DashboardNavItem({ item, onClick, onNavigate, className }) {
   const Icon = ICON_MAP[item.icon] ?? Layout
+
+  const handleClick = (e) => {
+    if (onNavigate) {
+      const allowed = onNavigate(item.path, e)
+      if (allowed === false) return
+    }
+    onClick?.(e)
+  }
 
   if (item.disabled) {
     return (
@@ -63,8 +74,8 @@ export default function DashboardNavItem({ item, onClick, className }) {
           className,
         )}
       >
-        <Icon size={ICON_SIZE} weight="regular" aria-hidden="true" className="shrink-0" />
-        <span className="min-w-0 flex-1 truncate font-normal tracking-[0.01em]">{item.label}</span>
+        <Icon size={ICON_SIZE} weight="medium" aria-hidden="true" className="shrink-0" />
+        <span className="min-w-0 flex-1 truncate font-medium tracking-[0.01em]">{item.label}</span>
       </div>
     )
   }
@@ -75,7 +86,7 @@ export default function DashboardNavItem({ item, onClick, className }) {
       <NavLink
         to={item.path}
         end={item.end}
-        onClick={onClick}
+        onClick={handleClick}
         className={cn(
           ROW,
           'text-[var(--tone-muted-dark)]',
@@ -89,7 +100,7 @@ export default function DashboardNavItem({ item, onClick, className }) {
           aria-hidden="true"
           className="shrink-0 transition-colors duration-150 motion-reduce:transition-none"
         />
-        <span className="min-w-0 flex-1 truncate font-normal tracking-[0.01em]">{item.label}</span>
+        <span className="min-w-0 flex-1 truncate font-medium tracking-[0.01em]">{item.label}</span>
       </NavLink>
     )
   }
@@ -98,7 +109,7 @@ export default function DashboardNavItem({ item, onClick, className }) {
     <NavLink
       to={item.path}
       end={item.end}
-      onClick={onClick}
+      onClick={handleClick}
       className={({ isActive }) =>
         cn(
           ROW,
@@ -115,7 +126,7 @@ export default function DashboardNavItem({ item, onClick, className }) {
 
           <Icon
             size={ICON_SIZE}
-            weight={isActive ? 'bold' : 'regular'}
+            weight={isActive ? 'bold' : 'bold'}
             aria-hidden="true"
             className={cn(
               'shrink-0 transition-all duration-150 motion-reduce:transition-none',
@@ -127,8 +138,10 @@ export default function DashboardNavItem({ item, onClick, className }) {
 
           <span
             className={cn(
-              'min-w-0 flex-1 truncate font-normal tracking-[0.01em]',
-              isActive && 'text-[var(--color-brand-deep)]',
+              'min-w-0 flex-1 truncate tracking-[0.01em]',
+              isActive
+                ? 'font-semibold text-[var(--color-brand-deep)]'
+                : 'font-medium text-[var(--tone-ink)]',
             )}
           >
             {item.label}

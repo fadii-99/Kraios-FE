@@ -82,7 +82,7 @@ export default function Contact() {
 
             <Link
               to={contact.secondaryCta.to}
-              className="label-ui inline-flex min-h-13 cursor-pointer items-center justify-center border border-[var(--tone-line-strong)] px-8 py-4 text-[var(--tone-ink)] transition-colors duration-300 hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
+              className="label-ui inline-flex min-h-13 cursor-pointer items-center justify-center rounded-sm border border-[var(--tone-line-strong)] px-8 py-4 text-[var(--tone-ink)] transition-colors duration-300 hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
             >
               {contact.secondaryCta.label}
             </Link>

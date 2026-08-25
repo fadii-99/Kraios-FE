@@ -8,6 +8,7 @@ import PrimaryButton from '@/components/ui/PrimaryButton'
 import Modal from '@/components/ui/Modal'
 import CalendarPicker from '@/components/ui/CalendarPicker'
 import { booking } from '@/lib/content'
+import { showErrorToast } from '@/lib/toast'
 import { isEmail } from '@/lib/validate'
 import { cn } from '@/lib/cn'
 
@@ -38,8 +39,8 @@ export default function Signup() {
     const next = {}
     if (!v.name.trim()) next.name = 'Enter your full name.'
     if (!v.firm.trim()) next.firm = 'Enter the name of your firm.'
-    if (!v.email.trim()) next.email = 'Enter an email address so we can send the invitation.'
-    else if (!isEmail(v.email)) next.email = 'That address looks incomplete — check for a missing @ or domain.'
+    if (!v.email.trim()) next.email = 'Enter your email address.'
+    else if (!isEmail(v.email)) next.email = 'Enter a valid email address.'
     if (!v.country.trim()) next.country = 'Enter the country your firm operates from.'
     if (!d) next.date = 'Choose a preferred date.'
     if (!t) next.time = 'Choose a preferred time.'
@@ -65,14 +66,22 @@ export default function Signup() {
     setErrors(next)
     setTouched({ name: true, firm: true, email: true, country: true, date: true, time: true })
 
-    // text fields first, then the pickers
+    /*
+     * Text fields first, then the pickers — and exactly ONE toast, for the
+     * first issue in that order. An empty form has six problems; six
+     * notifications would only bury each other. The next one surfaces on the
+     * next submit, and the invalid fields keep their own border and
+     * `aria-invalid` in the meantime.
+     */
     const firstField = ['name', 'firm', 'email', 'country'].find((k) => next[k])
     if (firstField) {
       formRef.current?.querySelector(`#${firstField}`)?.focus()
+      showErrorToast(next[firstField], { id: 'signup-validation' })
       return
     }
     if (next.date || next.time) {
       formRef.current?.querySelector('[data-scheduling]')?.scrollIntoView({ block: 'center' })
+      showErrorToast(next.date ?? next.time, { id: 'signup-validation' })
       return
     }
 
@@ -163,7 +172,12 @@ export default function Signup() {
                 </span>
               </p>
 
-              <div className="mt-3">
+              <div
+                role="group"
+                aria-labelledby="date-label"
+                aria-describedby={touched.date && errors.date ? 'date-error' : undefined}
+                className="mt-3"
+              >
                 <CalendarPicker
                   value={date}
                   onSelect={(d) => {
@@ -173,8 +187,10 @@ export default function Signup() {
                 />
               </div>
 
+              {/* The visible copy is the submit toast; this stays for assistive
+                  tech, which the scheduling group has no border state to tell. */}
               {touched.date && errors.date && (
-                <p role="alert" className="label-ui mt-3 text-[#E5484D]">
+                <p id="date-error" className="sr-only">
                   Error — {errors.date}
                 </p>
               )}
@@ -192,6 +208,7 @@ export default function Signup() {
               <div
                 role="group"
                 aria-labelledby="time-label"
+                aria-describedby={touched.time && errors.time ? 'time-error' : undefined}
                 className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-2"
               >
                 {booking.timeSlots.map((slot) => {
@@ -224,7 +241,7 @@ export default function Signup() {
               </div>
 
               {touched.time && errors.time && (
-                <p role="alert" className="label-ui mt-3 text-[#E5484D]">
+                <p id="time-error" className="sr-only">
                   Error — {errors.time}
                 </p>
               )}
@@ -275,7 +292,7 @@ export default function Signup() {
         <div className="mt-7 flex items-start gap-5">
           <span
             aria-hidden="true"
-            className="flex h-12 w-12 shrink-0 items-center justify-center border border-[var(--tone-accent)] text-[var(--tone-accent)]"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-[var(--tone-accent)] text-[var(--tone-accent)]"
           >
             <CalendarCheck size={22} weight="light" />
           </span>
@@ -299,7 +316,7 @@ export default function Signup() {
         <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Link
             to="/"
-            className="label-ui inline-flex min-h-13 cursor-pointer items-center justify-center border border-[var(--tone-line-strong)] px-7 py-4 text-[var(--tone-ink)] transition-colors duration-300 hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
+            className="label-ui inline-flex min-h-13 cursor-pointer items-center justify-center rounded-sm border border-[var(--tone-line-strong)] px-7 py-4 text-[var(--tone-ink)] transition-colors duration-300 hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
           >
             Back Home
           </Link>

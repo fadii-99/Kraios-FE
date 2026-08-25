@@ -2,13 +2,15 @@ import { useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { FolderSimpleDashed } from '@phosphor-icons/react'
-import CreateProjectModal from '@/components/dashboard/projects/CreateProjectModal'
+import CreateProjectModal from '@/components/dashboard/projects/library/CreateProjectModal'
 import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader'
-import ProjectGrid from '@/components/dashboard/projects/ProjectGrid'
+import ProjectGrid from '@/components/dashboard/projects/library/ProjectGrid'
 import PrimaryButton from '@/components/ui/PrimaryButton'
-import { useProjects } from '@/lib/dashboard/projectsContext'
+import { DASHBOARD_GUTTER } from '@/lib/dashboard/layout'
+import { useProjects } from '@/lib/dashboard/projects/projectsContext'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { cn } from '@/lib/cn'
 
 /**
  * Project library (/dashboard/projects) — all projects, never one project's
@@ -89,19 +91,27 @@ export default function Projects() {
 
       {!hasProjects ? (
         /* STATE 1: NO PROJECTS YET */
-        <div className="relative flex flex-1 items-center justify-center overflow-hidden px-5 py-8 sm:px-7 sm:py-10 lg:px-10 lg:py-12 xl:px-12">
+        <div
+          className={cn(
+            // `overflow-y-auto`, not `hidden`: a landscape phone leaves this
+            // band ~200px tall, and a clipped empty state has no way out.
+            'relative flex flex-1 items-center justify-center overflow-y-auto py-8 sm:py-10 lg:py-12',
+            DASHBOARD_GUTTER,
+          )}
+        >
           <div className="relative flex flex-col items-center text-center">
             <div
               data-empty-icon
-              className="flex h-20 w-20 items-center justify-center border border-[var(--color-brand-deep)]/[0.14] bg-[var(--color-brand-deep)]/[0.06]"
+              className="flex h-20 w-20 items-center justify-center rounded-md border border-rose-500/25 bg-rose-50/80 shadow-[0_4px_16px_rgba(225,29,72,0.08)]"
               aria-hidden="true"
             >
               <FolderSimpleDashed
                 size={38}
                 weight="regular"
-                className="text-[var(--color-brand-deep)]"
+                className="text-rose-500"
               />
             </div>
+
 
             <div data-empty-text className="contents">
               <h2
@@ -118,7 +128,12 @@ export default function Projects() {
         </div>
       ) : (
         /* STATE 2: PROJECTS EXIST */
-        <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7 sm:py-8 lg:px-10 lg:py-8 xl:px-12 xl:py-10">
+        <div
+          className={cn(
+            'flex-1 overflow-y-auto py-6 sm:py-8 xl:py-10',
+            DASHBOARD_GUTTER,
+          )}
+        >
           <ProjectGrid projects={projects} />
         </div>
       )}

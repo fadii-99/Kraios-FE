@@ -6,6 +6,7 @@ import AuthShell from '@/components/ui/AuthShell'
 import FormInput from '@/components/ui/FormInput'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import Modal from '@/components/ui/Modal'
+import { showErrorToast } from '@/lib/toast'
 import { isEmail } from '@/lib/validate'
 
 export default function ForgotPassword() {
@@ -17,8 +18,8 @@ export default function ForgotPassword() {
   const inputRef = useRef(null)
 
   const check = (value) => {
-    if (!value.trim()) return 'Enter the email address on your account.'
-    if (!isEmail(value)) return 'That address looks incomplete — check for a missing @ or domain.'
+    if (!value.trim()) return 'Enter your email address.'
+    if (!isEmail(value)) return 'Enter a valid email address.'
     return undefined
   }
 
@@ -28,8 +29,13 @@ export default function ForgotPassword() {
     setError(next)
     setTouched(true)
 
+    /*
+     * The field keeps its invalid border and `aria-invalid`; the copy is a
+     * toast, raised only here — never while the user types.
+     */
     if (next) {
       inputRef.current?.querySelector('#email')?.focus()
+      showErrorToast(next, { id: 'forgot-password-validation' })
       return
     }
 
@@ -88,7 +94,7 @@ export default function ForgotPassword() {
         <div className="mt-7 flex items-start gap-5">
           <span
             aria-hidden="true"
-            className="flex h-12 w-12 shrink-0 items-center justify-center border border-[var(--tone-accent)] text-[var(--tone-accent)]"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-[var(--tone-accent)] text-[var(--tone-accent)]"
           >
             <EnvelopeSimple size={22} weight="light" />
           </span>

@@ -156,12 +156,12 @@ export default function WhyUs() {
               {/* offset outer rule = a mat around the image, not a chunky border */}
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute -inset-4 border border-[var(--tone-line)]"
+                className="pointer-events-none absolute -inset-4 rounded-md border border-[var(--tone-line)]"
               />
 
               <div
                 data-why-plan
-                className="relative aspect-4/3 w-full overflow-hidden border border-[var(--tone-line-strong)] bg-elevated"
+                className="relative aspect-4/3 w-full overflow-hidden rounded-md border border-[var(--tone-line-strong)] bg-elevated"
               >
                 <img
                   src={whyUs.image.src}
@@ -198,13 +198,13 @@ export default function WhyUs() {
                 <li
                   key={reason.title}
                   data-benefit
-                  className="border border-[var(--tone-line)] p-6 lg:p-7"
+                  className="rounded-md border border-[var(--tone-line)] p-6 lg:p-7"
                 >
                   <div className="flex items-start gap-5">
                     <span
                       data-benefit-icon
                       aria-hidden="true"
-                      className="flex h-12 w-12 shrink-0 items-center justify-center bg-brand/8 text-[var(--tone-accent)]"
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-sm bg-brand/8 text-[var(--tone-accent)]"
                     >
                       <Icon size={24} weight="light" />
                     </span>

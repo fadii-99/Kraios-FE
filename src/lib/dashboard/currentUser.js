@@ -9,6 +9,7 @@
  * nothing in the UI has to change — no component hardcodes a name.
  */
 export const currentUser = {
-  name: 'Alex',
+  name: 'Usama',
   role: 'Architect Account',
 }
+

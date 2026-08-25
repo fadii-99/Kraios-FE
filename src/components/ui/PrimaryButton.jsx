@@ -37,6 +37,8 @@ const VARIANTS = {
 const SIZES = {
   default: 'min-h-13 gap-4 px-8 py-4',
   compact: 'min-h-11 gap-3 px-6 py-3',
+  sm: 'h-9 min-h-9 gap-2 px-3.5 py-0',
+  xs: 'h-8 min-h-8 gap-1.5 px-3 py-0',
 }
 
 export default function PrimaryButton({
@@ -61,7 +63,7 @@ export default function PrimaryButton({
       disabled={Tag === 'button' ? disabled || loading : undefined}
       aria-busy={loading || undefined}
       className={cn(
-        'group label-ui inline-flex cursor-pointer items-center',
+        'group label-ui inline-flex cursor-pointer items-center rounded-sm',
         SIZES[size] || SIZES.default,
         VARIANTS[variant] || VARIANTS.solid,
         'transition-[background-color,border-color,color,transform] duration-300 ease-[var(--ease-out-expo)]',

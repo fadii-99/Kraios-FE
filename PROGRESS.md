@@ -1,1026 +1,1216 @@
-# Kraios — Progress
-
-Landing page plus the auth routes (Login, Forgot Password, Signup/Booking).
-
-Legend: `[x]` done · `[~]` in progress · `[ ]` pending
-
-> Status reflects what has actually been built and verified — nothing is marked
-> done in advance.
-
----
-
-## Page structure (final)
-
-Tone rhythm alternates dark-blue and light:
-
-| # | Section | Tone | id |
-|---|---------|------|-----|
-| — | Hero (left-aligned, video background) | dark navy | `home` |
-| 01 | About Us | light | `about` |
-| 02 | How It Works (2D → 3D → customize → download) | dark navy | `process` |
-| 03 | Why Kraios | light | `why` |
-| 04 | The Team | deep navy | `team` |
-| 05 | Frequently Asked | light | `faq` |
-| 06 | Contact — final CTA (no form) | light | `contact` |
-| — | Footer | dark navy | — |
-
----
-
-## G. Project card redesign + dashboard consistency pass (applied)
-
-Dashboard-only. No landing-page, auth or public-navigation file was touched.
-
-### Project card (`ProjectCard`) — rebuilt
-
-- [x] Shows **only real project state**: id, name, `has3DRender`, `hasBoQ`.
-      Removed the invented "ARCHITECTURAL SUITE" category, the created-date
-      stamp and the "2/4 Complete" workflow meter — none of them were state
-- [x] Name is the dominant element (`--font-display`, uppercase), clamped to two
-      lines with its height reserved, so long names wrap instead of breaking the
-      card and every card in a row stays aligned
-- [x] Status is **one block, not two nested boxes**: two hairline-separated rows
-      (icon · stage label · state). `Ready` in `--color-brand-deep` with a filled
-      icon, `Not generated` in `--tone-muted-dark`. No invented success green
-- [x] Icons from the existing Phosphor set, matching the workflow nav's family:
-      `Blueprint` (project), `Cube` (3D rendering), `Calculator` (BoQ),
-      `ArrowRight` (open), `Trash` (delete)
-- [x] Plan band simplified — one measured unit, one dimension string, no
-      crosshairs or survey marks. Radius 0 everywhere (was `rounded-lg`)
-- [x] Action row: **Open project** takes the width and the accent;
-      **Delete** is a neutral icon button beside it, restrained red on
-      hover/focus only. Delete is a sibling of the link, never nested, so it
-      cannot trigger navigation. It still opens the shared `Modal` confirmation
-- [x] Hover is border + 2px lift + arrow shift. No shadow bloom, no zoom, no
-      looping status animation
-- [x] Grid: 1 column below 640px, 2 from 640px, **3 only from 1280px** — three
-      cards at 1024 fell under ~260px once the sidebar took its width
-
-### Dashboard consistency & responsiveness
-
-- [x] `DashboardPageHeader` added — one eyebrow + `.display-product` title +
-      optional right slot. Projects and Profile had been re-typing the same
-      header with different padding, weights and a dead `label-ui` font-size
-      override; both now use it, as do the two unlinked placeholder pages
-- [x] `.display-product` adopted (it existed in `index.css` and was used
-      nowhere): Inter 700 — the display scale has one weight — at
-      `clamp(1.5rem, 2.6vw, 2.25rem)`, matching the size the titles already had
-- [x] `ProjectStepNavigation` stacked below 640px. Both labels are
-      `whitespace-nowrap`, so "3D Rendering" in a half-width column overflowed
-      horizontally on phones. Spacers hide below `sm` (smallest possible fix —
-      the design is otherwise unchanged)
-- [x] `Models` / `Estimates` (unlinked placeholders) rebuilt on the shared
-      header and the shared surface padding — they had been rendering flush to
-      the surface edge with no gutter
-- [x] Projects empty state squared off (`rounded-2xl` → hairline box) and its
-      second line now says what to do instead of repeating the heading
-
-### Cleanup / performance
-
-- [x] Deleted dead files: `WorkspacePanel.jsx` (alias of `DashboardPageSurface`,
-      imported nowhere), `WelcomeWorkflow.jsx`, `PlanAxonometric.jsx`
-- [x] Removed the unused `DashboardBlueprintField` import from
-      `WelcomeWorkflowCanvas` and the dead `[data-canvas-grid]` tween in
-      `DashboardHome` — the field lives in `DashboardPageSurface`, outside that
-      component's GSAP scope, so the selector matched nothing
-- [x] Project grid entrance no longer re-runs over every card when one project
-      is added or deleted; only not-yet-revealed cards animate
-- [x] Project ids come from a monotonic counter instead of `projects.length`.
-      Delete-then-create used to mint a duplicate id — and a duplicate React key
-
-### Still not implemented (unchanged by this pass)
-
-- [ ] Nothing flips `has3DRender` / `hasBoQ` yet — the stage pages are still
-      placeholders, so every card reads "Not generated". The card is data-driven;
-      the data source is what is missing
-- [ ] Persistence, backend, API, real auth
-- [ ] Upload, 3D rendering, BoQ generation, output/downloads
-- [ ] Profile's subscription panel is placeholder content, not billing data
-
-### Verification
-
-Reviewed by reading the rendered structure and lint (`eslint` clean on all
-dashboard paths). No build, no production build and no test run was performed —
-those were out of scope for this pass.
-
----
-
-## F. Dashboard product UI — Welcome, Projects, Create Project (applied)
-
-The first designed pass over the logged-in application. Structure from section E
-is unchanged; this is UI, plus the session-scoped project store the UI needs.
-
-### Done
-
-- [x] **Sidebar simplified** to Overview + Projects, Profile still pinned at the
-      bottom. `3D Models` and `Estimates` dropped from the nav — they duplicated
-      per-project stages as global pages. Their routes still resolve, unlinked
-- [x] `src/lib/dashboard/currentUser.js` — the one placeholder identity
-      (`{ name: 'User' }`); no name is hardcoded in JSX
-- [x] `ProjectsProvider` + `projectsContext` — session-scoped project store
-      (context + `useState`, no library, no backend, deliberately no
-      localStorage). Mounted in `DashboardLayout` **outside** its Suspense
-      boundary, or a route change would wipe the session's projects
-- [x] **Welcome screen** (`/dashboard`) — white page surface inside the grey
-      workspace, sized to one dashboard viewport. Editorial split down a
-      hairline: greeting + `WELCOME, / USER` + CTA on the left rail, the
-      four-stage setting-out line on the right. Corner ticks, accent rule,
-      station marks; no photography, renders or stock art
-- [x] `.display-app` added to the type scale for the user's name — `.display-lg`
-      is `nowrap` at ≥1024 and would have clipped a two-word name mid-word
-- [x] **BoQ reads as optional** via a plain "Optional" annotation — a word, not
-      a colour and not a lock
-- [x] **Create Project modal** — reuses the shared `Modal` (focus moved in,
-      focus trap, Escape, focus restored to trigger, body scroll lock, all
-      re-verified), one Project Name field, Cancel / Create, then a
-      "Creating Project" state and a route to `/dashboard/projects`
-- [x] **Projects page** — header + CTA, real empty state, and a responsive card
-      grid once projects exist *(both revised in section G)*
-- [x] **Project card** — first pass; **superseded by section G**
-- [x] Touch targets: `touch:min-h-11` on sidebar nav items (coarse pointers
-      only, so the desktop rail is unchanged); mobile drawer icon buttons 40→44px
-
-### Explicitly NOT implemented
-
-- [ ] Persistence of any kind — projects live in memory and are gone on refresh
-- [ ] Backend, API, auth (Login still simulates and routes to `/dashboard`)
-- [ ] Real upload, 3D rendering, BoQ generation, output/downloads
-- [ ] Project status — the card reads `has3DRender` / `hasBoQ`, but no stage
-      writes them yet, so they are `false` for every project
-- [ ] BoQ skip and re-entry behaviour (architecture allows it; no UI yet)
-- [ ] The four workflow step pages remain the section-E placeholders
-
-### Verified (production build, headless Chrome)
-
-| Check | Result |
-|---|---|
-| Journey: login → Welcome → Create Project → Projects → card → workspace → all 4 stages | pass |
-| Modal: focus into dialog, Tab wraps, Escape closes, focus restored, scroll locked | pass |
-| Empty submit blocked with `role="alert"` + `aria-invalid` | pass |
-| Grey workspace `rgb(244,246,248)` on every dashboard page; Welcome panel white | pass |
-| Welcome fits one viewport: 1920×1080 · 1600×900 · 1512×982 · 1440×900/800 · 1366×768 · 1280×800/720 · 1152×720 · 1024×768 | no scroll at any |
-| Horizontal overflow at 1440/1280/1024/768/430/390/375/320 | none |
-| Panel gutters symmetric at mobile widths (20px each side) | pass |
-| Heading order h1 → h2 → h3; all SVGs decorative or labelled | pass |
-| Reduced motion — content lands at full opacity | pass |
-| CTA `rgb(11,94,215)` on light ink | pass |
-| Console errors/warnings across the journey | none |
-
----
-
-## E. Project workflow — structural foundation (applied)
-
-The empty rooms and hallways of the logged-in application. **Architecture only —
-no workflow functionality was built.**
-
-### Done
-
-- [x] `src/pages/dashboard/projects/` — `ProjectWorkspace`, `UploadStep`,
-      `RenderingStep`, `BoQStep`, `OutputStep`
-- [x] `src/components/dashboard/projects/` — `ProjectWorkflowNav`,
-      `StepPlaceholder`, `CreateProjectDialog`
-- [x] `src/lib/dashboard/projectWorkflow.js` — the four stages declared **once**
-      (id / number / label / segment) plus `projectStagePath()`. No status model
-- [x] Dynamic route `/dashboard/projects/:projectId` in the existing
-      `createBrowserRouter` — no second router, no `BrowserRouter`
-- [x] `ProjectWorkspace` is a parent shell: back link + project context +
-      `ProjectWorkflowNav` + `<Outlet />`. The nav is never repeated in a step page
-- [x] Index route redirects to `upload` via `<Navigate replace />` in the route
-      config — not a `useEffect`
-- [x] All four stages are **siblings**; Output is not nested under BoQ and not
-      gated on it, so a future skip-and-return-to-BoQ stays possible
-- [x] `ProjectWorkflowNav` is route-aware via `NavLink` — no `activeStep` state.
-      Exactly one `aria-current="page"` per route, verified on client-side nav
-- [x] Mobile: the nav row scrolls inside its own container, so four steps never
-      widen the page at 320px
-- [x] Page-level `React.lazy` for all five new pages; a nested `Suspense` in the
-      workspace keeps the workflow nav mounted while a step chunk loads.
-      `DashboardFallback` extracted from `DashboardLayout` so both share it
-- [x] Minimal Create Project demonstration: name field only → "Creating
-      project…" → `/dashboard/projects`. Reuses the existing `Modal`,
-      `FormInput` and `PrimaryButton`
-- [x] `DashboardHome` and `Projects` pared back to minimal; `Projects` carries a
-      single `project-001` route-testing link, not a project card
-- [x] Global sidebar untouched — workflow steps are local to a project
-- [x] `npm run lint` clean · `npm run build` succeeds
-
-### Explicitly NOT implemented
-
-- [ ] Project persistence (no backend, no API, no localStorage — nothing is stored)
-- [ ] Real file upload / 2D plan processing
-- [ ] 3D rendering, viewer or AI integration
-- [ ] BoQ generation, tables or pricing
-- [ ] BoQ skip functionality (architectural allowance only)
-- [ ] Project status / stage-state logic
-- [ ] Output, download or export functionality
-- [ ] Final UI for the Projects list, Dashboard welcome, or any of the four steps
-
-### Removed during this pass
-
-An earlier uncommitted draft had overbuilt ahead of the brief: `mockProjects.js`
-(three realistic fake projects), `ProjectCard.jsx`, `ProjectStepBadge.jsx`, a
-`canNavigateToStage()` gating engine and a next-step-suggesting project
-overview. All deleted — the gating engine in particular contradicted the rule
-that stages stay independently addressable.
-
-### Verified (production build, headless Chrome)
-
-| Check | Result |
-|---|---|
-| `/dashboard`, `/dashboard/projects` render | pass |
-| `/dashboard/projects/project-001` redirects to `…/upload` | pass |
-| Direct URL to `…/upload`, `…/rendering`, `…/boq`, `…/output` | all render |
-| Sidebar + workflow nav mounted on every step route | pass |
-| Only the step content changes between stages | pass |
-| Exactly one correct `aria-current="page"` per stage | pass |
-| Login → `/dashboard` → Create Project → `/dashboard/projects` | pass |
-| Projects → project-001 → upload | pass |
-| BoQ → Output → back to BoQ (re-entry) | pass |
-| Horizontal overflow at 1440/1280/1024/768/430/390/375/320 | none |
-| Console errors or warnings during the full flow | none |
-
----
-
-## D. Dashboard Foundation — Light Theme (applied)
-
-Initial after-login application workspace structure and routing foundation.
-
-### Architecture & Routing
-- [x] Dedicated `DashboardLayout` in `src/layouts/DashboardLayout.jsx` (Light theme, no public Navbar/Footer)
-- [x] Dashboard folder structure separated from marketing components:
-  - `src/components/dashboard/` — `DashboardSidebar.jsx`, `DashboardNavItem.jsx`, `DashboardMobileNav.jsx`
-  - `src/pages/dashboard/` — `DashboardHome.jsx`, `Projects.jsx`, `Models.jsx`, `Estimates.jsx`, `Profile.jsx`
-  - `src/lib/dashboard/` — `dashboardNavigation.js` (central navigation config)
-- [x] Nested routes added to `src/router/router.jsx`: `/dashboard`, `/dashboard/projects`, `/dashboard/models`, `/dashboard/estimates`, `/dashboard/profile`
-- [x] Route-level lazy loading with `React.lazy` on all 5 dashboard page chunks
-- [x] Login submission connected to navigate to `/dashboard` upon simulated completion
-
-### UI & Styling
-- [x] **Light Theme** workspace: `#F4F6F8` neutral background, white content surfaces, dark navy `#071426` text, strategic brand-deep blue accents (`#0B5ED7`)
-- [x] **Thin / Compact Sidebar** on desktop (208px–224px / `w-52` to `xl:w-56`), white surface, hairline right border
-- [x] Kraios brand logo at top of sidebar
-- [x] 4 Primary tabs (Overview, Projects, 3D Models, Estimates) with Phosphor icons & active indicator states
-- [x] Dedicated Profile item at sidebar bottom (`/dashboard/profile`)
-- [x] Responsive mobile/tablet header (<1024px) with light-theme slide-over navigation drawer
-- [x] Structural placeholder pages with architectural headers and clean layout frames (no fake metrics)
-
----
-
-## C. Client content v2 — Kraios (applied)
-
-Content and branding pass over the approved build. **No layout, animation,
-routing, breakpoint or component redesign** — everything below is copy, data and
-the two routing changes the new CTAs require.
-
-### Branding
-
-- [x] Brand is **KRAIOS** everywhere in the DOM — navbar mark `aria-label`,
-      oversized footer wordmark, footer legal line, loader/auth labels
-- [x] `site.name` / `site.tagline` are the single source; footer strap now reads
-      **KRAIOS | FROM BRIEF TO ESTIMATE**
-- [x] "Floor"/"FLOOR STUDIO" gone from all `src/` and `index.html` copy
-- [x] Product terminology **kept**: floor plan, 2D floor plan, 3D floor plan
-- [ ] **"FLOOR STUDIO" still baked into the plan SVG title blocks** — see below
-
-### Positioning
-
-- [x] Agency language removed — no "send us", "share your files", "tell us what
-      you need", "we'll build it for you"
-- [x] "photoreal / photorealistic" removed from meta description and all copy
-- [x] Copy reframed as self-serve SaaS: the user uploads, iterates and exports
-      inside the platform, with their own login
-
-### SEO / meta (`index.html`, existing Vite setup — no SEO library added)
-
-- [x] Title → `Kraios — From Brief to Estimate | AI Design Partner for Architecture Firms`
-- [x] Description → the client's BoQ one-liner
-- [x] `theme-color` `#071426` (already correct, left alone)
-
-### Sections
-
-- [x] **Navigation** — Home · About · How It Works · **Why Kraios** · Team · FAQ ·
-      Contact. Ids unchanged, so scroll-spy, smooth scroll and cross-route
-      scrolling all still work. Log In / Sign Up unchanged
-- [x] **Hero** — new eyebrow, two-line `FROM BRIEF / TO ESTIMATE.`, new
-      paragraph. Primary CTA **Sign Up** now *routes* to `/signup` (was a scroll);
-      secondary **See How It Works** still scrolls to `#process`
-- [x] **About** — new paragraph; stats now Established 2026 · Headquarters Dubai,
-      UAE · Plans Delivered 20+ · Markets Served 5+. Same editorial `<dl>`, no
-      stat cards introduced
-- [x] **How It Works** — all four steps rewritten to the platform workflow
-      (upload → 3D model → materials/quantities/pricing → export BoQ), chips
-      updated. Sticky/crossfade behaviour untouched and verified in sync
-- [x] **Why Choose Us → Why Kraios** — heading, eyebrow, nav label and all four
-      benefits replaced. Kept the editorial split + framed visual; icons remapped
-      to match the new benefits (Phosphor, same size/weight/container). Not
-      converted into SaaS cards
-- [x] **Team** — Michel Abourizk, Jad Soubra, Hammad Rizwan + collective
-      "The Build Team / Engineering & AI" fourth slot. The bio row is now
-      conditional so the collective entry renders no empty gap
-- [x] **FAQ** — 12 client items, three-line desktop heading kept, accordion
-      behaviour untouched
-- [x] **Contact → final CTA** — `SEE IT ON YOUR / NEXT PROJECT.` + paragraph +
-      **Sign Up** (primary) and **Schedule a Session** (secondary), both real
-      `<Link>`s. The generic project-enquiry form was **removed** and
-      `ContactForm.jsx` deleted
-- [x] **Footer** — brand strap updated; the placeholder note replaced with the
-      client's own product line
-
-### Auth pages (copy only — architecture untouched)
-
-- [x] `/signup` fields are now **Name · Firm · Email · Country** plus the
-      existing date + time pickers; submit is "Schedule Session"; confirmation
-      modal reads **"Booked. A calendar invitation is on its way."**
-- [x] `/login` description and the "no account yet" line de-agencied
-- [x] `you@studio.com` → `you@firm.com`; the fake-person placeholder replaced
-
-### Open item — both final CTAs share one route
-
-`Sign Up` and `Schedule a Session` both point at `/signup`, because `/signup` is
-the only account/session route that exists and no account backend was invented
-for this pass. They should diverge once a real account-creation flow lands.
-
----
-
-## R. Router architecture
-
-- [x] `react-router-dom` with **`createBrowserRouter`** (not BrowserRouter/Routes/Route)
-- [x] Single router in `src/router/router.jsx`
-- [x] Parent layout `src/layouts/AppLayout.jsx` = `<Navbar />` + `<Suspense><Outlet /></Suspense>` + `<Footer />`
-- [x] Navbar and Footer render **once**, from the layout — no page mounts its own
-      (the Footer moved out of `Home`, so auth pages get it too)
-- [x] Child routes: `/` (index) · `/login` · `/forgot-password` · `/signup`
-- [x] The landing page is a child route of the same layout
-- [x] `main.jsx` renders `<RouterProvider />`; `App.jsx` and `LandingPage.jsx` removed
-
-### Lazy loading
-
-- [x] `React.lazy` on all four pages, `Suspense` around the Outlet
-- [x] Confirmed separate chunks in the production build:
-      `Home` 86.9kB · `Signup` 15.1kB · `ForgotPassword` 4.2kB · `Login` 2.5kB
-- [x] Reusable components are deliberately **not** lazy
-
-### PageLoader
-
-- [x] **Light theme** — `#F4F6F8` surface, `#1677FF` outlined floor-plan icon,
-      dark-navy label. Never dark, never black
-- [x] Blueprint grid behind it (two hairline scales, radially masked so it fades
-      at the edges and never competes with the icon)
-- [x] The plan draws itself via `stroke-dashoffset` — pure CSS, so no JS runs
-      while a chunk is in flight
-- [x] **Full-screen overlay**: `position: fixed`, `inset: 0`, `z-index: 70`,
-      opaque. The Navbar and Footer sit outside the Suspense boundary, so an
-      in-flow loader previously left the footer visible during a refresh
-- [x] **Real fade-out**: the overlay is not the Suspense fallback — a fallback is
-      unmounted synchronously, leaving nothing to animate. It stays mounted and a
-      `RouteReady` sentinel inside the boundary flips it, so it fades over 500ms
-      and goes `pointer-events: none` + `aria-hidden`
-- [x] **Verified mid-flight** (1500ms latency, cache disabled): `position: fixed`,
-      `inset: 0px`, `z-index: 70`, background `rgb(244,246,248)`, covers the
-      viewport, and hit-testing at the footer's position returns the loader —
-      the footer is fully covered. After load: `opacity: 0`, transition on opacity
-
-### Navigation behaviour
-
-- [x] Navbar `LOG IN` → `/login`, `SIGN UP` → `/signup` (desktop and mobile menu)
-- [x] Landing-section links still scroll when already on `/`
-- [x] From an auth page they route home first, then scroll — the target rides in
-      `location.state.scrollTo` and `Home` scrolls after two frames, once the
-      sections have mounted; the state is then cleared so refresh doesn't re-scroll
-- [x] Scroll-spy receives an empty id list off `/` (no sections to observe)
-- [x] **Every navigation starts at the top** — `useScrollToTop()` in `AppLayout`.
-      React Router preserves scroll across routes, so "Sign Up" from halfway down the
-      landing page landed mid-way down the auth page. Skips the first render (so a
-      refresh keeps browser scroll restoration) and skips when the navigation carries
-      `state.scrollTo` (that is the section-link flow, which does its own scrolling).
-      Verified: from scrollY 3992, clicking Sign Up lands on `/signup` at scrollY 1,
-      while a footer "Team" click from `/signup` still reaches `/` at scrollY 6215
-      with Team at the top of the viewport
-
-### Navbar per route
-
-- [x] **Two states only**, driven by `overHero = onHome && !scrolled`:
-      transparent + `tone-dark` over the hero video, light `tone-light` surface with
-      dark ink everywhere else. The old navy-on-scroll state is gone — the landing
-      page and the auth routes now share one scrolled bar
-- [x] **Auth pages**: never transparent; the hero veil is not rendered
-- [x] Nav links, hamburger and the Sign Up button all read `--tone-*` /
-      `--btn-*`, so one component serves both bars
-- [x] **Verified by measurement** — at the top of the hero the bar is
-      `rgba(0, 0, 0, 0)` with `rgb(159,178,203)` links; scrolled it is the light
-      surface with `rgb(74,90,110)` links, byte-identical to the auth bar
-- [x] **Verified** — from `/forgot-password`, clicking `Team` landed on `/` at
-      scrollY 6215 with the Team section at the top of the viewport
-
-## A. Auth pages
-
-- [x] `AuthShell` — shared light architectural background (`BlueprintBackdrop`)
-      + centred white card with a subtle border and shadow
-- [x] Short entrance only (card → head → body). No scroll animation on auth pages
-- [x] **Login** — `WELCOME BACK` / `LOGIN`, email + password, Forgot Password link
-- [x] **Forgot Password** — `ACCOUNT RECOVERY` / `FORGOT PASSWORD`, email,
-      `SEND RESET LINK`, success modal
-- [x] **Signup / Booking** — name, email, calendar, time slots, `SEND REQUEST`,
-      success modal showing the chosen slot. **No password fields**, by design
-
-### Calendar & booking
-
-- [x] Custom light-theme `CalendarPicker` — month navigation, Monday-first grid,
-      past dates disabled, today marked, selected state in brand blue
-- [x] Every day is a real `<button>` with `aria-pressed` and a full-date `aria-label`
-- [x] Six placeholder time slots in `content.js` → `booking.timeSlots`, each
-      supporting `disabled` so API data drops straight in
-- [x] Live "Selected" summary of the chosen date and time
-- [x] Fixed: unselected days rendered **no** `aria-pressed` — `value && …` returns
-      `null` and React omits null attributes, so they stopped reading as toggles
-
-### Reusable components
-
-- [x] `FormInput` — label, name, type, placeholder, value, onChange, onBlur,
-      required, disabled, error, autoComplete; used by Contact **and** all auth pages
-- [x] `PrimaryButton` — one CTA for the whole site, loading state, arrow motion
-- [x] `Modal` — Escape to close, focus moved in and restored to the trigger,
-      Tab cycled inside the panel, body scroll locked, animated. Never `alert()`
-- [x] Old `Field.jsx` and `Button.jsx` deleted; nothing duplicates their styles
-
-### CTA hover fix
-
-- [x] The Contact button no longer turns white on hover. `--btn-bg` /
-      `--btn-bg-hover` are per-tone and both stay blue:
-      light `#0B5ED7 → #0E4FA8` (5.57 → 7.41), dark `#3B91FF → #5CA5FF` (5.79 → 7.17)
-- [x] `#1677FF` is never a fill — white on it is 3.92:1, dark ink 4.43:1, both fail AA
-
-### Verified in a real browser
-
-| Check | Result |
-|---|---|
-| All four routes render, exactly one navbar each | pass |
-| Lazy chunks fetched per route | pass |
-| Client-side nav (no full reload) | pass |
-| Empty submit blocked, `aria-invalid`, focus to first invalid | pass |
-| Modal `role="dialog"` + `aria-modal`, focus inside, body locked | pass |
-| Escape closes and restores scroll | pass |
-| Calendar: 31 days, 24 enabled, past disabled | pass |
-| Date + time select → summary "Tuesday, August 11, 2026 · 09:00 AM" | pass |
-| Signup success modal shows the chosen slot | pass |
-| CTA computed background `rgb(11,94,215)` (blue, not white) | pass |
-| No horizontal overflow at 1440 / 1280 / 768 / 375 | pass |
-| Console errors | none |
-
-- [ ] Not wired to a backend — Login, Forgot Password and Signup all simulate
-
-## 0. Foundation
-
-- [x] Vite 8 + React 19 + JavaScript scaffold
-- [x] Tailwind CSS v4 via `@tailwindcss/vite` (CSS-first config, no JS config file)
-- [x] ESLint flat config, `@/` alias
-- [x] GSAP + ScrollTrigger + `@gsap/react`
-- [x] Phosphor icons
-- [x] Self-hosted fonts: Archivo (display), Inter (body), JetBrains Mono (labels)
-- [x] Design direction via ui-ux-pro-max (Swiss Modernism 2.0 + Editorial Grid)
-- [x] Design system persisted to `design-system/floor/MASTER.md`
-- [x] Dark-blue palette contrast-validated (found 3 failing pairs — documented in CLAUDE.md)
-- [x] Tone system (`tone-dark` / `tone-deep` / `tone-light`) driving all components
-- [x] `CLAUDE.md` permanent project rules
-
-## 1. Navbar
-
-- [x] Dummy logo, smooth scroll, header offset
-- [x] Seven links: Home · About · How It Works · Why Us · Team · FAQ · Contact
-- [x] **Log In** (ghost) + **Sign Up** (accent fill) on the right
-- [x] Transparent over hero (veil capped at 30%); solid navy after scroll
-- [x] Scroll-spy active link across all seven sections
-- [x] GSAP entrance (drop-in + staggered items)
-- [x] Full-screen mobile menu with the same links + auth buttons, scroll lock, Escape
-- [x] Keyboard accessible, visible focus rings
-- [x] Log In / Sign Up point at the real `/login` and `/signup` routes via
-      `authLinks` in `content.js` (superseded the old scroll-to-contact placeholder).
-      Still no auth **backend** — both pages simulate.
-- [ ] "Start a Project" button was dropped from the bar to make room for the auth
-      pair; the CTA still appears in the hero and contact section
-
-## 2. Hero
-
-- [x] **Footage now carries the product.** The old clip was generic. It is now an
-      architect's desk holding 2D drawings, a physical 3D model and a stack of navy
-      blueprints — plan and model in one frame, which is the 2D→3D story. Fallback is
-      a dark-navy plan sheet, the closest clip to the brand palette
-- [x] **The poster is a frame cut from the video itself** (t=0.4s), so the hand-off
-      from poster to footage is invisible instead of a jump cut between two unrelated
-      images. Local `hero-poster-1600.jpg` (83kB) / `-768.jpg` (31kB), which also
-      drops one third-party dependency
-- [x] Verified playing on the real page at 1440 and 390: `readyState 4`,
-      `duration 8.96`, `currentTime` advancing, no media error, opacity 1
-- [x] Video fades in on `canplay`; poster shows if the CDN is blocked
-- [x] **Left-aligned** composition — copy sits over a left scrim, not a blanket overlay
-- [x] Overlays cut right down (0.14–0.5 vertical) so the footage stays the subject
-- [x] ALL-CAPS headline sized to its column rather than filling the frame
-- [x] White pill primary CTA + circular play-icon secondary
-- [x] Floating 3D preview card (bottom right, ≥1280px)
-- [x] Navbar fully transparent over the hero; veil reduced to 30%
-- [x] Cinematic entrance: video scale, masked line reveal, staggered CTAs, card slide-in
-- [x] Bottom rail: scroll cue + credential line
-- [x] Verified playing (`readyState 4`, `currentTime` advancing)
-
-## 3. About Us
-
-Pared back to essentials on request:
-
-- [x] Light band with the shared `BlueprintBackdrop`
-- [x] `01 ABOUT US` index + label, matching every other section header
-- [x] One-line `ABOUT US` heading at the shared size
-- [x] Paragraph left, studio credentials flush right (values bold, larger),
-      lifted so the block's centre lines up with the paragraph's
-- [x] Masked heading reveal + staggered copy
-- [x] Removed on request: the statement line, the four icon cells, and the
-      draggable plan gallery (`PlanSlider.jsx` deleted, its content data too).
-      `public/assets/plan-2d-light.svg` is kept for future use.
-
-## 4. How It Works (merged process section)
-
-- [x] Replaced the old separate "2D/3D Showcase" + "How It Works" — now ONE section
-- [x] Four steps: Upload 2D → Get Your 3D Floor → Customize → Download
-- [x] Desktop: CSS-sticky visual, image swaps per active step
-- [x] Oversized step number + meta over the visual
-- [x] Scroll-driven progress ticks
-- [x] Image always matches the step content
-- [x] Tablet/mobile: stacked sequence with per-step wipes, no pinning
-- [x] Sticky images load eagerly (a lazy fetch left the active layer blank)
-
-### Step visuals — reworked so each matches its own heading
-
-| Step | Was | Now |
-|---|---|---|
-| 01 Upload 2D Floor Plan | `plan-2d-primary.svg` — dark sheet | **`plan-2d-light.svg`** — white drafting sheet, black walls, blue dimension strings |
-| 02 Get Your 3D Floor | `plan-3d-primary.svg` — dark wireframe axonometric | **`plan-3d-light.svg`** — light furnished 3D render of the same unit |
-| 03 Customize Your Space | Unsplash furnished interior | unchanged — it already matched the heading |
-| 04 Download Floor Plans | Unsplash **interior** — a near-duplicate of step 03 | **Unsplash printed plan sheets** — the delivered set |
-
-- [x] Steps 01 and 02 now show **the same apartment**, which is what the copy
-      already claimed ("derived from your original plan so the two never
-      disagree"). `plan-3d-light.svg` is generated by projecting the 2D drawing's
-      own room and wall coordinates through a dimetric transform, so the two
-      drawings cannot drift apart.
-- [x] 3D render: low dollhouse walls, per-room floor tones, wood counters, a sofa
-      built from arms/back/seat, beds, wardrobe, bath fixtures, rugs painted with
-      the floors (centroid sorting would otherwise let a rug paint over the coffee
-      table standing on it), blue glazing, halo'd room labels, and a matching
-      `DRAWING 3D-104` title block
-- [x] `plan-2d-light.svg` re-framed to a 4:3 viewBox with even margins. At its
-      native 1.6:1 the `aspect-4/3` `object-cover` box cropped ~133px off each side
-      and cut the left dimension string off the drawing. Drawing coordinates are
-      unchanged — only the viewBox and the two sheet-background rects moved.
-- [x] Verified in the real component at 390px and 1440px: all four visuals render,
-      nothing is cropped, and the 2D keeps both dimension strings
-- [x] Desktop image weight unchanged at **5 requests / 365kB** (the two SVGs
-      transfer at 2kB and 4kB). No horizontal overflow and a clean console at all
-      eight widths; lint and build pass
-- [ ] `plan-2d-primary.svg`, `plan-3d-primary.svg` and `plan-2d-detail.svg` are now
-      unused. Kept for the dark-band variants a future section may want
-
-## 5. Why Choose Us
-
-- [x] Light band with the shared `BlueprintBackdrop`
-- [x] Two columns from the top: header + visualization left, benefits right,
-      running alongside the heading rather than below it
-- [x] Left rail is **6 columns, not 5** — at the shared heading size
-      "WHY CHOOSE US" needs ~532px and was being silently clipped in a 5-col rail
-- [x] Benefits start at column 7 (no empty column between the halves)
-- [x] Framed 3D architectural visualization — offset mat rule + corner ticks
-- [x] Four boxed benefits: hairline border, blue icon tile, title, description
-- [x] No numbering, no hover effects (kept deliberately quiet)
-- [x] Signature move: each box lifts in → icon settles → copy rises
-
-## 6. Team
-
-- [x] Four members, large editorial portraits
-- [x] Staggered vertical offsets, not a card grid
-- [x] Clip reveal + scale-down settle, differential column drift
-- [x] Hover: grayscale→colour, scale, accent rule, name/role shift
-
-## 7. FAQ
-
-- [x] Six questions covering upload, 3D delivery, customization, revisions,
-      download formats and timing
-- [x] Accessible accordion: `aria-expanded` + `aria-controls` + `role="region"`,
-      real `<button>` inside `<h3>`
-- [x] Only one item open at a time
-- [x] GSAP height animation, exit faster than enter; plus icon rotates 45°
-- [x] Deliberately restrained motion — label/heading/copy only, no per-row slide
-- [x] **Verified functionally** — click opens exactly one panel, Enter and Space
-      both toggle from the keyboard, focus lands on a native button
-
-## 8. Contact
-
-- [x] Deliberately the simplest section: **centred** label → heading →
-      one paragraph, with the form directly beneath it. Nothing else.
-- [x] Same light band and `BlueprintBackdrop` as Why Choose Us / About / FAQ
-- [x] Contact detail rows removed — phone, email and address still live in the
-      footer, so nothing is lost
-- [x] Fields: Name, Email, Project Details — **boxed** inputs, sharp corners,
-      tone-aware surface (`--field-bg`)
-- [x] Real `<label>` per field, no placeholder-as-label
-- [x] Blur validation, inline errors, `role="alert"`, "Error —" prefix
-- [x] Focus moves to first invalid field on submit
-- [x] Loading → success states; arrow steps forward on button hover
-- [x] Understated direct contact rows (no icon tiles — kept plain here)
-- [x] **Verified functionally** — all three fields labelled, 54px/128px touch
-      targets, empty submit blocked with focus on the first invalid field and
-      three `role="alert"` messages, valid submit reaches the success state
-- [ ] Frontend only — not wired to a backend yet (by design)
-
-## 9. Footer
-
-- [x] Oversized wordmark, nav links, email/phone, dynamic-year copyright
-- [x] **Fake links removed.** The "Services" column listed 2D Floor Plans / 3D
-      Visualization / Site Plans / Walkthroughs — four links that all scrolled to
-      `#about`. Replaced with **Sections** (the 7 real landing sections) and
-      **Account** (`/login`, `/signup`, real routes). Verified: 0 dead links
-- [x] Copy is now openly generic — `hello@example.com`, `+1 (000) 000 0000`, a
-      placeholder description. The invented San Francisco address, the
-      `studio@floor-visual.com` address and "Est. 2016" are gone: details that look
-      real are the ones that ship unnoticed
-- [x] Uses the shared `Logo` component, so navbar and footer can never drift
-
-## 9b. Brand logo
-
-- [x] Supplied `public/assets/website_logo.png` replaces the old inline SVG glyph in
-      `ui/Logo.jsx`, so it appears in **both** the navbar and the footer
-- [x] Confirmed the PNG carries real transparency (61.4% fully-clear pixels, alpha-0
-      corners) before shipping it — it has to sit on the navy footer, the light auth
-      bar and the hero video
-- [x] **Served at 128px, not 1192px.** The original is 342kB for a mark that renders
-      at 28px. `website_logo-128.png` is 13.6kB — a 96% reduction. The original is
-      kept as the source; regenerate the derivative when the logo changes
-
-## 10. Animations
-
-- [x] Every section has its own signature move (no repeated treatment)
-- [x] Masked heading reveals, clip-path image reveals, staggers, parallax
-- [x] Scroll-driven progress, sticky story sequence, hover micro-interactions
-- [x] All GSAP scoped via `useGSAP` — auto cleanup
-- [x] `fromTo` everywhere (a bare `from` once stranded the hero invisible)
-- [x] `prefers-reduced-motion` honoured globally
-- [x] `ScrollTrigger.refresh()` after fonts + load
-
-## 10b. Heading rule
-
-Every section heading uses **one size** — About, How It Works, Why Choose Us,
-Team, FAQ and Contact are identical: `clamp(3rem, 6.2vw, 6rem)` at ≥1024px
-(63px at 1024, 89px at 1440, 96px at 1920).
-
-Each holds **one line** on desktop/laptop (`white-space: nowrap` at ≥1024px).
-**FAQ is the only exception** — `FREQUENTLY / ASKED / QUESTIONS` stays a
-three-line stack via `.display-lg--stack`, which now changes stacking only, not
-size.
-
-Headings sit in full-width rows so they have room. This matters: at the shared
-size, `WHY CHOOSE US` measured 532px inside a 501px five-column rail and was
-being **silently clipped** — `Section` uses `overflow-x-clip`, so an
-overflowing nowrap heading never triggers page overflow. It was moved to a
-full-width row. Verified by measuring real text width (via `Range`) against
-available width at 1024 / 1280 / 1440 / 1920 — all six sections fit at every
-breakpoint.
-
-The intro paragraph sits **under the heading on the left** in every section.
-
-## 10c. Section backdrop
-
-`BlueprintBackdrop` is shared by About, Why Choose Us, FAQ and Contact so the
-light bands read as one family: blueprint grid, dot grid, dimension strings,
-registration marks and crosshairs, all inheriting `currentColor` at very low
-opacity. Layers carry `data-bp-layer` and parallax at different rates. A
-`compass` variant adds a rosette and an axonometric wireframe floor.
-
-## 11. Responsive — verified by measurement
-
-Measured in headless Chrome over CDP against the **production build**, at every
-required width. Each pass scrolls the whole document so lazy media and every
-ScrollTrigger fire, then reports overflow, clipped text and undersized targets.
-
-| Width | scrollWidth / clientWidth | Overflow | Clipped headings | Console |
-|---|---|---|---|---|
-| 1440 | 1440 / 1440 | none | none | clean |
-| 1280 | 1280 / 1280 | none | none | clean |
-| 1024 | 1024 / 1024 | none | none | clean |
-| 768 | 768 / 768 | none | none | clean |
-| 430 | 430 / 430 | none | none | clean |
-| 390 | 390 / 390 | none | none | clean |
-| 375 | 375 / 375 | none | none | clean |
-| 320 | 320 / 320 | none | none | clean |
-
-- [x] Fluid type via `clamp()`
-- [x] Pinning/sticky disabled below 1024px
-- [x] Touch targets ≥ 44px **on touch devices** — measured with CDP touch emulation:
-      at 320 / 390 / 768 the only sub-44px control left is the `sr-only` skip link,
-      which expands on focus. At 1440 with a mouse the bar is byte-identical to before.
-- [x] Mobile menu at 320/390: opens, 28px items, 70px rows, fits the viewport,
-      nothing clipped, no page overflow
-- [x] Reduced motion: full scroll-through at 1440 and 390 leaves **zero** elements
-      under full opacity — content always lands final, never invisible
-- [ ] Real-device testing (verified in Chromium headless only)
-
-## 11b. Responsive + performance audit
-
-### Defects found and fixed
-
-**1. Section-heading size overrides were silently ignored (the big one).**
-`.display-*` are hand-written in `@layer utilities`, so Tailwind emits them after its
-generated utilities and they win at equal specificity. Three components carried
-`display-lg` **plus** a `text-[clamp(…)]` override, and every one of those overrides did
-nothing:
-
-| Where | Intended | Actually rendered @1440 | Result |
-|---|---|---|---|
-| Process step titles | ~46px | **89.28px**, `nowrap` | `scrollWidth` 821 in a 614px rail — "Download Floor Plans" was **cut off mid-word** |
-| Auth page `h1` | ~44px | **89.28px** | wrapped to 2 lines / 161px inside the card |
-| Mobile menu items | ~30px | **44px** | seven oversized rows crowding the panel |
-
-All three now use `.display-sm`, the sub-display tier that already existed in the scale
-(and was previously dead code). Verified after: step titles 48px @1440 / 28px mobile,
-all four `fits: true`; auth `h1` 48px @1440 on a single 46px line.
-
-This is the **only intentional change to desktop appearance** — the previous rendering
-was losing text off the edge of the screen.
-
-**2. Hero headline clipped at 320px.** `.display-xl`'s `2.75rem` floor stops shrinking
-below 667px while the column keeps narrowing: "FROM FLOOR PLANS" measured 317px inside a
-280px column and the hero's `overflow-hidden` clipped it. A `max-width: 400px` rule takes
-over at `11vw`, which resolves to exactly `2.75rem` at 400px — continuous with the clamp,
-so **nothing changes at ≥400px**.
-
-**3. Footer section links did nothing on the auth routes.** `Footer` called
-`scrollToSection` directly; off `/` there is no such element and it returned silently.
-Navbar already solved this, so the logic moved into `useSectionNavigate()` and both use
-it. Verified: from all three auth routes, footer "Team" now lands on `/` at scrollY 6215
-with Team at the top of the viewport.
-
-**4. Sub-44px touch targets.** The wordmark (22.5px) and all 13 footer link/contact rows
-(22.5 / 19px). Fixed with a new `touch:` variant (`@media (pointer: coarse)`) so desktop
-is untouched.
-
-### Performance work
-
-- **Responsive images.** Every hotlinked photo now ships a `srcSet` built by `USet()` in
-  `content.js`, plus a `sizes` string.
-
-  | | Before | After |
-  |---|---|---|
-  | 390px, cold cache | 5 requests at desktop resolution (1920w poster, 1400w photos) | **5 requests, 86kB** (640w poster, 420w photos) |
-  | 1440px | 698kB | **364kB** |
-
-  The desktop sticky image and the inline tablet/mobile image deliberately share one
-  `sizes` string (`PROCESS_SIZES`), so they still resolve to the same candidate and the
-  pair costs **one** request, not two — confirmed at 5 total requests, not 9.
-
-- **Scrub tweens gated to ≥1024px** via `gsap.matchMedia`, with `mm.revert()` on cleanup:
-  the blueprint backdrop drift (4 sections), the Team column drift, and the Why Us image
-  parallax — which was scrubbing a transform on a `display:none` element on every mobile
-  scroll frame. Verified: at 1280/1440 all 3 backdrop layers and all 4 team members carry
-  a live transform; at 768/390 **zero** do. Desktop motion is unchanged.
-
-- **Duplicate code removed.** The backdrop-parallax block was byte-identical in About,
-  Why Us, FAQ and Contact; it is now `useBackdropParallax(scope)`. `Home` chunk
-  86.9kB → 84.7kB.
-
-- **Duplicate listener churn.** `Navbar` passed `onClose={() => setMenuOpen(false)}`, a
-  new identity every render, and the Navbar re-renders on every scroll-spy change —
-  tearing down and rebuilding `MobileMenu`'s Escape listener and scroll lock each time.
-  Now a stable `useCallback`.
-
-- **Dead CSS removed:** `.no-scrollbar` (the deleted plan gallery) and `@keyframes nudge`
-  (the removed hero scroll cue).
-
-### Checked and deliberately left alone
-
-- **No horizontal overflow existed at any width**, before or after — the earlier work
-  holds up. Nothing needed restructuring for tablet or mobile.
-- **The FAQ `h3` reports 7px of `scrollWidth` overrun at every width.** It is the open
-  item's plus icon: a 32px box rotated 45° has a 45.25px *bounding box*. The 18px glyph
-  stays well inside, nothing is visible, and it causes no page overflow. Left as is.
-- **`Figure.jsx` and `useSectionReveal.js` are currently unimported.** They are the shared
-  vocabulary CLAUDE.md mandates for new sections, and Vite tree-shakes unimported modules
-  out of the bundle, so they cost nothing at runtime. Kept.
-- **`gsap.registerPlugin(ScrollTrigger)` repeats across seven files.** It is idempotent,
-  and a module-level call is what guarantees registration before `useGSAP` runs.
-  Centralising it would add an import-order hazard for no gain.
-- **Desktop nav links are 40px tall**, not 44. They are `hidden lg:flex` chrome and the
-  underline is positioned against the button box, so growing it would shift the
-  underline. Left at the approved appearance.
-
-## 12. QA
-
-- [x] `npm run lint` clean
-- [x] `npm run build` succeeds
-- [x] Dev server verified over HTTP
-- [x] Zero console errors, zero failed/4xx requests
-- [x] All 11 external media URLs verified 200 before shipping
-- [x] Rendered and visually inspected at all four widths
-- [ ] Safari / iOS pass
-- [ ] Lighthouse / performance budget
-
-### Post-audit regression pass (production build, headless Chrome over CDP)
-
-| Check | Result |
-|---|---|
-| `npm run lint` | clean |
-| `npm run build` | succeeds |
-| Horizontal overflow at 1440/1280/1024/768/430/390/375/320 | none |
-| Console errors or warnings, every width and route | none |
-| Clipped headings | none (was 4 per width at ≥1024) |
-| Reveals stranded below full opacity after settling | none |
-| Reduced motion — content lands final | pass |
-| Desktop backdrop + team parallax still live at 1280/1440 | pass |
-| Parallax fully reverted at 768/390 | pass |
-| Touch targets on emulated touch (320/390/768) | pass |
-| All 4 routes, exactly one navbar + one footer each | pass |
-| PageLoader faded out: `opacity 0`, `pointer-events none`, `aria-hidden` | pass |
-| Footer section link from each auth route | routes to `/`, Team at viewport top |
-| FAQ: one panel open at a time, aria wired, focus on native button | pass |
-| Calendar: 31 days, 24 enabled, `aria-pressed` on every day | pass |
-| Booking submit → modal labelled, body locked, focus inside; Escape restores | pass |
-| Mobile menu at 320/390: fits viewport, no clipping, no overflow | pass |
-
-### Display typography change — Anton removed (applied)
-
-Client rejected the condensed/poster heading face. **Typography only** — no layout,
-colour, spacing, media, animation or component change.
-
-- [x] `--font-display` is now `'Inter Variable', 'Archivo Variable', ui-sans-serif, sans-serif`
-- [x] Anton removed from the stack **and** its `@fontsource/anton` import dropped, so it
-      no longer ships (~74kB of woff/woff2 gone from `dist`). The npm package is still in
-      `package.json` and can be uninstalled
-- [x] Display weight **400 → 700** across `.display-xl` / `.display-lg` / `.display-sm`
-- [x] Tracking flipped positive → negative (`-0.03em` xl/lg, `-0.02em` sm); line-heights
-      opened very slightly (0.94→0.95, 0.9→0.95, 0.96→1)
-- [x] Sizes re-capped because Inter sets ~⅓ wider than Anton:
-      `.display-lg` desktop `clamp(3rem, 6.2vw, 6rem)` → `clamp(2.75rem, 5vw, 4.5rem)`;
-      base floor `2.75rem` → `2.5rem`; `.display-sm` `clamp(1.75rem, 3.4vw, 3rem)` →
-      `clamp(1.5rem, 3.1vw, 2.75rem)`. **`.display-xl` kept its original size**
-- [x] `.display-md` deliberately untouched — still Archivo 800, the sentence-case tier
-- [x] All copy unchanged; hero still two lines, FAQ still three, Contact still two
-- [x] 176/176 heading-fit checks across 11 widths, every heading ≥24px clear of its box
-
-### Production build + deploy readiness
-
-Clean build from an empty `dist`: **1.4 MB total, 4608 modules, ~1.6s.**
-`npm run lint` clean. Route chunks split as intended (Home 84.8kB / Signup 15.7kB /
-ForgotPassword 4.2kB / Login 2.5kB; vendor 380kB → **126kB gzipped**).
-
-**Blocker found and fixed — SPA deep links returned 404.** The app uses
-`createBrowserRouter`, so `/login`, `/signup` and `/forgot-password` have no file on
-disk. `vite preview` adds an SPA fallback automatically, which hid this for every test
-run so far; served from a plain static server all three returned a hard 404. Added:
-
-- `public/_redirects` — Netlify / Cloudflare Pages / Render (`/* /index.html 200`)
-- `vercel.json` — Vercel, with `/assets/` excluded so a missing asset still 404s
-  instead of silently returning HTML
-
-Re-verified against a server that applies the rewrite: all routes 200, a genuinely
-missing asset still 404s. For nginx use `try_files $uri $uri/ /index.html;`; for Apache
-an equivalent `mod_rewrite` fallback.
-
-**Full suite re-run against the production `dist` (not `vite preview`): 220/220** —
-92/92 responsive, 98/98 client content/typography, 30/30 scroll-spy/navbar. No console
-errors or warnings.
-
-**Security:** `npm audit --omit=dev` → **0 vulnerabilities**. One high-severity `nanoid`
-advisory exists in *dev* dependencies only (Vite tooling); it does not ship. `npm audit
-fix` clears it when convenient.
-
-#### Still open before a real launch
-
-| Item | Impact |
-|---|---|
-| `public/assets/website_logo.png` (344kB) is the 1192×1192 **source** original, referenced only in comments, but `public/` ships it — **~25% of the bundle** | move it out of `public/` |
-| 4 unused drawings ship: `hero-poster.svg`, `plan-2d-detail.svg`, `plan-2d-primary.svg`, `plan-3d-primary.svg` (~28kB) | minor |
-| `@fontsource-variable/archivo`, `@fontsource-variable/jetbrains-mono`, `@fontsource/anton` still in `package.json`, imported by nothing | slows `npm ci`, not the bundle |
-| `site.email` / `site.phone` are still the deliberate dummies and are **visible** in the footer and mobile menu | launch blocker |
-| Hero video + 3 images are hotlinked from Pexels/Unsplash | third-party CDN dependency in production |
-| No OG / Twitter card meta | link previews are bare |
-
-### Two-font cleanup + Kraios favicon (applied)
-
-- [x] **Site is now a single typeface, Inter Variable**, in two roles: display (700,
-      uppercase, negative tracking) and body (400/500/600). Approved heading look
-      unchanged — same family, weight and sizes as the previous pass
-- [x] **JetBrains Mono removed.** `.label-mono` → **`.label-ui`** in Inter (52 usages
-      renamed across 18 files, 0 left). Weight 500→600 and tracking 0.2em→0.16em to
-      compensate for Inter's wider caps
-- [x] **Archivo removed.** It was reachable only from `.display-md`, which had zero
-      usages; both are gone
-- [x] Four `font-mono` utility usages (About stats, Process step numbers ×2, backdrop
-      coordinates) now use **`tabular-nums`** — same figure alignment, no second family
-- [x] `--font-mono: initial` deletes Tailwind's `font-mono` utility as a guardrail
-- [x] Bundle: **15 font files → 7**, Inter only
-- [x] **Favicon = the Navbar's own Kraios mark** (`/assets/website_logo-128.png`), plus
-      `apple-touch-icon`. Old Floor `favicon.svg` deleted. Verified legible at 16/24/32px
-      on light and dark tab strips
-- [x] Navbar clearance at 1024px **improved 5px → 15px** as a side effect of the tracking
-
-### Client V2 content audit — verified against the live production build
-
-**98/98 checks passed.** Every string compared to the client's approved copy
-character-for-character (curly vs straight apostrophes normalised).
-
-| Area | Result |
-|---|---|
-| Title / meta description / theme-color | exact match |
-| Favicon = navbar logo asset, loads 200 | pass |
-| Nav labels + LOG IN / SIGN UP | exact |
-| Hero eyebrow, 2 headline lines, paragraph, both CTAs | exact |
-| About label, heading, paragraph, 4 stats | exact |
-| How It Works heading, intro, 4 × (title, chips, body) | exact |
-| Why Kraios heading, intro, 4 × (title, body) | exact |
-| Team heading, intro, 3 members + Build Team slot | exact |
-| FAQ 3-line heading, intro, **all 12 Q&A pairs** | exact |
-| Final CTA 2 headline lines, paragraph, both CTAs, no form | exact |
-| Footer strap renders `KRAIOS \| FROM BRIEF TO ESTIMATE` | pass |
-| No "Floor"/"Floor Studio" brand in rendered DOM (all routes) | pass |
-| "floor plan" product term preserved | pass |
-| No photoreal / "send us" / "share your files" / agency wording | pass |
-| Every text element computes to Inter Variable | pass |
-| Media unchanged (video, poster, 2 plan SVGs, 3 Unsplash, 4 team plates) | pass |
-
-Regression suites re-run green after the change: **92/92** responsive, **30/30**
-scroll-spy/navbar, **176/176** heading-fit across 11 widths. No console errors or
-warnings.
-
-### Content v2 verification (production build, headless Chrome over CDP)
-
-`npm run lint` clean · `npm run build` succeeds · **92/92 automated checks pass.**
-
-| Check | Result |
-|---|---|
-| Horizontal overflow at 1440/1280/1024/768/430/390/375/320 | none |
-| Clipped `display-*` headings, every width | none |
-| Reveals stranded below full opacity after settling | none |
-| Console errors, every width and route | none |
-| Failed / 4xx requests | none; all 16 images load |
-| Hero headline holds two lines at every width | pass |
-| Contact headline holds two lines at every width | pass |
-| 12 FAQ items render; one panel open at a time; aria wired | pass |
-| Navbar labels + one h1 / one navbar / one footer per route | pass |
-| `SEE HOW IT WORKS` → `#process` at the navbar offset | pass (top 76px) |
-| `WHY KRAIOS` nav → `#why` | pass (top 76px) |
-| Hero `SIGN UP` → `/signup` · navbar `LOG IN`/`SIGN UP` | pass |
-| Contact CTAs are two real links, section carries no form | pass |
-| Footer "Why Kraios" from `/login` routes home then scrolls | pass |
-| `/signup` fields = Name, Firm, Email, Country | pass |
-| `/signup` submit → "Booked. A calendar invitation is on its way." | pass |
-| How It Works sticky visual in sync with the active step (all 4) | pass |
-| Reduced motion — content lands final | pass |
-
-Measured, not estimated: at **1024px the primary nav clears the auth buttons by
-5px**. "Why Kraios" is a wider label than "Why Us", so this is the tightest the
-bar has been. No overlap and no overflow, but it is the first thing to re-measure
-if another nav item is ever added.
-
-### Remaining performance concerns
-
-- **The hero video is still a 1080p MP4 on every device.** It is by far the largest
-  asset on the page and a phone downloads the full desktop encode. Left alone
-  deliberately: the video *is* the hero, and swapping in a mobile encode or dropping to
-  the poster below a breakpoint is a visual decision, not a safe optimisation. Ship a
-  720p/540p source alongside it when the placeholder media is replaced.
-- Placeholder photos are still hotlinked from Unsplash — now correctly sized, but
-  third-party and uncacheable by us.
-- No Lighthouse run yet; the numbers above are direct measurements, not a score.
-
----
-
-## Known trade-offs
-
-- **Placeholder media is hotlinked** (Unsplash images, Pexels video). Verified live, but
-  it means no offline dev and no control over the CDN. Replace before launch.
-- **Forms are frontend-only.** Signup/booking and password reset each simulate a
-  900ms request; there is no backend.
-- **Team portraits do not depict the named people**, and the fourth portrait is a
-  single person standing in for the collective "The Build Team" entry.
-- **Headless Chrome cannot composite `<video>` into screenshots**, so the hero video is
-  absent from the captures. It was verified playing by inspecting the element directly.
-
-## Next up
-
-### Awaiting client assets — nothing below was changed in the content v2 pass
-
-- [ ] Hero video + hero poster (poster must be regenerated from the new film)
-- [ ] How It Works ×4 — real 2D plan, 3D model view, materials/quantities view,
-      exported BoQ
-- [ ] Why Kraios visual (currently an Unsplash interior standing in for a product view)
-- [ ] Team ×4 portraits
-- [ ] Final Kraios logo — `website_logo.png` and its 128px derivative
-- [ ] **"FLOOR STUDIO" in the plan SVG title blocks** — `plan-2d-light.svg:126`,
-      `plan-3d-light.svg:95`, plus the three unused `plan-*-primary/detail.svg`.
-      Left alone deliberately: editing baked-in brand art was out of scope for
-      the content pass. One `<text>` node per file
-- [ ] Real `site.email` / `site.phone` — still the obvious dummies
-
-### Product / engineering
-
-- [ ] Give `Sign Up` and `Schedule a Session` separate destinations once an
-      account-creation flow exists
-- [ ] Wire signup/booking + password reset to a backend
-- [ ] OG / Twitter card meta (title + description are done)
-- [ ] Safari + real-device pass
-- [ ] Lighthouse / performance budget
-- [ ] Projects/Portfolio route (explicitly out of scope for now)
+KRAIOS — PROGRESS.md
+
+Current implementation snapshot for the supplied KRAIOS frontend.
+
+This file describes what exists now, what is mock/frontend-only, what is known to be incomplete, and what currently needs cleanup.
+
+Do not use this as an append-only development diary.
+
+1. Overall status
+
+The current frontend contains UI for the complete KRAIOS application flow:
+
+public marketing website
+
+authentication pages
+
+authenticated dashboard
+
+Projects
+
+Profile
+
+Subscription
+
+Step 1 — Upload
+
+Step 2 — 3D Rendering
+
+Design Assistant
+
+Step 3 — BoQ
+
+BoQ Assistant
+
+Step 4 — Output / Project Deliverables
+
+Important correction from older documentation:
+
+Step 3 and Step 4 are fully designed/implemented as frontend UI in the current source. They are not empty placeholders.
+
+Their route files still use the shared StepPlaceholder wrapper, but the actual stage content is implemented inside BoQStage and OutputStage.
+
+2. Stack
+
+Current package stack:
+
+React 19.2.8
+
+React DOM 19.2.8
+
+Vite 8.2.1
+
+React Router DOM 7.18.2
+
+Tailwind CSS 4.3.3
+
+GSAP 3.15.0
+
+@gsap/react 2.1.2
+
+Phosphor Icons
+
+React Markdown
+
+remark-gfm
+
+React Hot Toast 2.6.0
+
+Inter Variable
+
+Current scripts:
+
+npm run dev
+npm run build
+npm run preview
+npm run lint
+
+No automated test script is configured in package.json.
+
+3. Public website
+
+Implemented frontend:
+
+Navbar
+
+Hero
+
+About
+
+How It Works
+
+Why Kraios
+
+Team
+
+FAQ
+
+Contact
+
+Footer
+
+mobile navigation
+
+Public content uses the current KRAIOS design language.
+
+4. Authentication
+
+Implemented frontend UI:
+
+Login
+
+Signup
+
+Forgot Password
+
+Current auth behavior remains frontend/mock-oriented.
+
+No production auth backend is documented as connected. Because there is no
+credential check, no "email or password is incorrect" or sign-in failure
+feedback exists — inventing one would claim an authentication that never ran.
+
+Login carries a "Demo Access" note above the form stating that any dummy email
+and password will open the dashboard UI and that credentials are not checked.
+It exists so the page does not imply an account it never verifies; remove it
+when a real auth backend is connected.
+
+Validation feedback is React Hot Toast (see section 19): one error toast per
+invalid submit, no inline red error line, field invalid styling and aria
+preserved.
+
+5. Dashboard shell
+
+Implemented:
+
+DashboardLayout
+
+desktop Sidebar
+
+mobile dashboard navigation
+
+shared Dashboard page surface
+
+dashboard provider layer
+
+route-level lazy loading
+
+Sidebar navigation:
+
+Overview
+
+Projects
+
+Subscription
+
+Profile
+
+Log out
+
+6. Dashboard pages
+
+Overview
+
+Implemented.
+
+Includes the current welcome/dashboard composition and project entry flow.
+
+Projects
+
+Implemented.
+
+Includes:
+
+real empty state
+
+create project
+
+project cards
+
+project grid
+
+open project workflow
+
+delete project
+
+project 3D/BoQ status derived from current session state
+
+Profile
+
+Implemented frontend.
+
+Form/data remains local/frontend-oriented — Save Changes writes to component
+state for the session and nothing else.
+
+No production profile backend persistence is documented.
+
+Name and email are validated on submit (email via the shared isEmail). Feedback
+is a toast; the inline "Changes saved" line was removed. Layout, fields and
+actions are unchanged.
+
+Subscription
+
+Implemented frontend/mock.
+
+Plan/current-plan UI exists.
+
+No billing/payment backend is documented as connected.
+
+7. Project state
+
+ProjectsProvider currently coordinates:
+
+projects
+
+Step 1 floor-plan source
+
+Step 2 Design Assistant state
+
+Step 3 BoQ Assistant state
+
+Project data is session-memory only.
+
+Refresh loses the dashboard project state.
+
+Derived status:
+
+has3DRender = Step 2 approved result exists
+
+hasBoQ = Step 3 approved BoQ result exists
+
+No separate persistent backend project store is currently connected.
+
+8. Workflow
+
+Current source of truth:
+
+src/lib/dashboard/workflow/projectWorkflow.js
+
+Stages:
+
+Upload
+
+3D Rendering
+
+BoQ
+
+Output
+
+BoQ is currently marked optional.
+
+Current routes:
+
+/dashboard/projects/:projectId/upload
+/dashboard/projects/:projectId/rendering
+/dashboard/projects/:projectId/rendering/assistant
+/dashboard/projects/:projectId/boq
+/dashboard/projects/:projectId/boq/assistant
+/dashboard/projects/:projectId/output
+
+Normal four-stage pages use ProjectWorkspace.
+
+Design Assistant and BoQ Assistant are focused sibling routes inside the same dashboard shell.
+
+9. Step 1 — Upload
+
+Status: UI IMPLEMENTED
+
+Current UI includes:
+
+Upload / Generate mode
+
+2D source selection
+
+image/PDF handling
+
+floor-plan preview
+
+source replacement/removal
+
+generated-source UI contract
+
+shared full-screen preview/work-area patterns
+
+Current real behavior:
+
+local file selection/preview works in frontend
+
+object URL cleanup exists
+
+Current mock/backend limitation:
+
+AI floor-plan generation backend is not connected
+
+Step 1 UI should not be described as placeholder.
+
+10. Step 2 — 3D Rendering gateway
+
+Status: UI IMPLEMENTED
+
+Current Step 2 normal route includes:
+
+RenderingStage
+
+Design Assistant gateway
+
+reference/source state
+
+approval status
+
+approved-design presentation
+
+current 3D status
+
+transition into Design Assistant
+
+Step 2 normal page is intentionally a gateway/status page.
+
+11. Design Assistant
+
+Status: UI + FRONTEND STATE IMPLEMENTED
+
+Route:
+
+/dashboard/projects/:projectId/rendering/assistant
+
+Current UI/functionality includes:
+
+same DashboardLayout / Sidebar
+
+assistant header
+
+Back to 3D Rendering
+
+Render Style dropdown
+
+SketchUp option
+
+Photo Realistic option
+
+approval status
+
+user/assistant conversation
+
+timestamps
+
+prompt composer
+
+quick prompts
+
+generation pending/error/retry UI
+
+generated 3D result
+
+selectable result context
+
+View Angle UI
+
+Isometric 45°
+
+Bird’s Eye 45°
+
+result approval
+
+Expand
+
+Edit/refine path
+
+Kraios Design Canvas
+
+DWG action only when a real URL exists
+
+Current generation status:
+
+real 3D backend not connected
+
+frontend mock generation is enabled
+
+mock uses a local result asset
+
+Approval behavior:
+
+generating a new result clears previous approval
+
+approved result drives project has3DRender
+
+View Angle flow — FIXED
+
+Selecting a view angle now sets the angle and then runs the SAME generation path a typed prompt runs (runGeneration in DesignAssistantPage), using the angle's declared prompt from designAssistantConfig and a "Generating <angle> view…" pending line.
+
+The new result is not auto-approved, the previous turns stay in the transcript, and approval remains explicit. No second generation implementation was added, and the existing frontend mock is still what answers the request.
+
+12. Kraios Design Canvas
+
+Status: UI IMPLEMENTED
+
+Current Design Assistant includes a full canvas editing workspace.
+
+History — FIXED
+
+History still stores full canvas snapshots (approach unchanged) but is now capped at MAX_HISTORY = 30. Past the cap the oldest snapshot is dropped and historyIndex is clamped to the newest slot, so Undo/Redo cannot walk off a trimmed stack. Toolbar, drawing behaviour, canvas sizing and button states are unchanged.
+
+Keyboard shortcuts — FIXED
+
+L / P / H / E and Ctrl+Z / Ctrl+Y (plus Ctrl+Shift+Z) are now bound by a window keydown handler that steps aside for editable targets. The toolbar tooltips advertising them were accurate as displayed, they simply had nothing listening. Nothing visible changed.
+
+Lasso / Cutout — STILL NOT A REAL TOOL
+
+It draws a freehand stroke exactly like the pen: no path closing, no selection, no cutout. The visible tool was deliberately left in place, and the code now says this plainly instead of implying a selection tool exists. Implementing it is a feature, not cleanup.
+
+13. Step 3 — BoQ gateway
+
+Status: UI IMPLEMENTED
+
+Route:
+
+/dashboard/projects/:projectId/boq
+
+Current UI includes:
+
+BoQStage
+
+BoQAssistantGateway
+
+KRAIOS BoQ Assistant entry
+
+project/floor-plan context
+
+approved 3D context
+
+BoQ approval state
+
+“what you’ll build”/BoQ information
+
+full-screen plan preview
+
+route into BoQ Assistant
+
+optional Skip to Output path
+
+Older documentation saying Step 3 is only StepPlaceholder is obsolete.
+
+The page wrapper uses StepPlaceholder, but the real Step 3 UI is implemented inside it.
+
+14. BoQ Assistant
+
+Status: UI + FRONTEND/MOCK STATE IMPLEMENTED
+
+Route:
+
+/dashboard/projects/:projectId/boq/assistant
+
+Current UI/functionality includes:
+
+same dashboard shell family as Design Assistant
+
+BoQ Assistant header
+
+Back to BoQ
+
+Document Type dropdown
+
+Uploaded Documents dropdown
+
+approval state
+
+conversation
+
+timestamps
+
+prompt composer
+
+mock BoQ generation
+
+light structured BoQ result table
+
+approve / revoke approval
+
+Add row
+
+Delete row
+
+retry/loading state
+
+Current document types:
+
+General Document
+
+MEP Drawing
+
+HVAC Drawing
+
+Door and Window Schedule
+
+Current generation status:
+
+BoQ generation is frontend/mock
+
+dummy BoQ tables are used for UI demonstration
+
+no real quantity-analysis/costing backend is connected
+
+Document data contract — FIXED (upload path still missing)
+
+Documents are now built by createBoqDocument in lib/dashboard/workflow/step-3/boqDocuments.js, mirroring step-1/floorPlanSource.js:
+
+{ id, name, size, mime, extension, kind, typeId, typeLabel, file, previewUrl, ownsPreviewUrl, addedAt }
+
+That is the contract Step 4 needs to list, preview, download and package a document. The reducer stays pure and takes a finished record; ProjectsProvider revokes previewUrl when a document leaves the list, when the project is deleted, and when the provider unmounts.
+
+Still NOT functional end to end:
+
+the BoQ composer exposes no attachment control, so nothing dispatches uploadDocument
+
+no visible upload control exists anywhere in Step 3, and adding one would mean putting a new element into the approved interface — deliberately out of scope for an engineering-only pass
+
+Because the flow does not exist, the Uploaded Documents empty copy no longer instructs the user to upload documents from the BoQ Assistant composer; it now states that none have been added. Supporting-document upload remains a real feature gap.
+
+BoQ approval invalidation — FIXED
+
+Generating a new BoQ clears approval (as before), and Add Row / Delete Row now clear approvedResultId when they touch the approved result. Both go through one write helper inside the reducer, so a future edit action cannot keep an approval it invalidated. There is still exactly one approval flag; no component-local isApproved was introduced, and no approval styling changed.
+
+15. Step 4 — Output / Project Deliverables
+
+Status: UI IMPLEMENTED
+
+Route:
+
+/dashboard/projects/:projectId/output
+
+Current Step 4 is a full deliverables workspace.
+
+Current UI includes:
+
+Output header
+
+PROJECT OUTPUT
+
+YOUR PROJECT DELIVERABLES
+
+package information
+
+DOWNLOAD PROJECT ZIP
+
+Plans & Renders
+
+Original 2D Floor Plan
+
+Approved 3D Design
+
+View
+
+Download
+
+shared FloorPlanFullscreenModal
+
+Final BoQ
+
+full structured light BoQ table
+
+item count
+
+approved/ready presentation
+
+DOWNLOAD BOQ
+
+client-side CSV generation
+
+Uploaded Documents
+
+supporting-document list UI
+
+document type metadata
+
+preview path for supported files
+
+download actions
+
+no-documents empty state
+
+Project package
+
+client-side ZIP generation
+
+package intended to include 2D, 3D, BoQ CSV, and supporting documents
+
+Older documentation saying Step 4 is only StepPlaceholder is obsolete.
+
+The page wrapper uses StepPlaceholder, but OutputStage is a real implemented feature.
+
+16. Step 4 current demo behavior
+
+Current Step 4 contains frontend demo fallbacks:
+
+demo 2D floor-plan asset
+
+demo 3D render asset
+
+demo BoQ rows
+
+These make the UI testable even when previous stages have no real data.
+
+Final BoQ selection — FIXED
+
+Output now reads approvedBoqResult(boqState) and nothing else. The `|| latestBoqResult(...)` fallback is gone, so an unapproved draft is never treated as the finalized BoQ.
+
+With no approved BoQ:
+
+the Final BoQ section shows a not-finalized state using Output's existing dashed empty presentation (the same pattern the no-documents state already used) — no new visual language was introduced
+
+the "BOQ APPROVED · N Items" badge and the Download BoQ CSV action are not rendered
+
+the header stat chip and the ZIP caption report what the package actually contains
+
+the ZIP omits the BoQ CSV entirely
+
+BoQ is optional, so this is a normal state: Skip to Output still works, and 2D / 3D / documents / ZIP are unaffected. Output gating was NOT added and Skip to Output was NOT removed.
+
+Demo 2D/3D assets are unchanged and still stand in when upstream data is missing — deliberate UI-demonstration behaviour, not an approval claim. The BoQ fixture is no longer among them.
+
+17. Output download status
+
+Current frontend download features include:
+
+individual 2D download
+
+individual 3D download
+
+BoQ CSV download
+
+client-side ZIP package generation
+
+Current BoQ CSV is client-generated.
+
+No backend PDF/XLSX export is documented as connected.
+
+Hardening — DONE
+
+response.ok is checked for every fetched package asset; a failed fetch is treated as unavailable rather than packaged, so an HTML 404 body can no longer land in the ZIP as the user's floor plan
+
+every user-supplied name passes through safeFileName before becoming a ZIP path — path separators, .., and illegal characters are neutralized and an empty name falls back
+
+projectSlug is one shared helper now, instead of an inline copy in FinalBoQSection
+
+document preview/download reads the Step 3 record's previewUrl / file
+
+Still outstanding:
+
+large production packages may be better generated on the backend
+
+18. BoQ product rule
+
+Current workflow code marks BoQ as optional.
+
+Therefore current product behavior allows:
+
+Step 2
+→ Step 3
+→ Skip BoQ
+→ Output
+
+This creates an important rule:
+
+Output must not require a fabricated BoQ when the user intentionally skipped Step 3.
+
+If the product later decides BoQ is mandatory:
+
+remove/disable skip behavior
+
+gate Output
+
+update workflow config
+
+update Step 3
+
+update Step 4
+
+update CLAUDE.md / PROGRESS.md
+
+Do not leave optional and mandatory rules mixed.
+
+19. Current notification system
+
+MIGRATED. React-Toastify is removed; React Hot Toast 2.6.0 is the notification
+system.
+
+Package
+
+react-toastify uninstalled and gone from package.json / package-lock.json
+react-hot-toast ^2.6.0 installed
+
+Repository search returns zero results for react-toastify, ToastContainer,
+Toastify__ and the Toastify stylesheet import.
+
+Global host
+
+src/components/ui/KraiosToaster.jsx — ONE `<Toaster>`, mounted once in
+src/main.jsx next to the RouterProvider. Public, auth, dashboard, workflow,
+assistant and modal surfaces all use it. No page renders its own Toaster.
+The old src/components/ui/KraiosToastContainer.jsx was deleted, not wrapped.
+
+Position: top-right, 18px inset. Below 1024 the stack drops to top 64px so it
+clears the 56px mobile navigation bar; at 480 and below the inset narrows to
+12px, and the toast is width-capped at 360px, so it wraps rather than
+overflowing at 430 / 390 / 375 / 360.
+
+Theme: light KRAIOS. White surface, hairline border, --radius-md geometry,
+restrained shadow, product body type at 0.75rem/600, compact 46px row. Semantics
+are a small icon badge plus a 2px remaining-time rule — success green, error
+red, info and loading KRAIOS blue. The surface is never filled with the
+semantic colour. The toast row is rendered by hand through the Toaster's
+children render prop rather than through the library's `ToastBar`, whose own
+surface, radius and shadow would have to be unpicked inline.
+
+Toasts pause while the pointer is inside the toast container — that is the
+library's own behaviour, and the container's `onMouseEnter` / `onMouseLeave`
+drive it. Two things had to respect it, and both were fixed after the first
+pass reported toasts that never disappeared:
+
+pointer-events is granted only while the toast is visible (`.kraios-toast--enter`),
+not for its whole life. It was unconditional, so a toast removed from under the
+cursor never fired `mouseleave`, the pause stayed set, and the library's
+auto-dismiss effect — which returns early for as long as `pausedAt` is set —
+stopped dismissing ANY toast for the rest of the session. This now matches what
+the library's own ToastBar does.
+
+the 2px remaining-time rule pauses with the timers
+(`.kraios-toaster:hover .kraios-toast__progress { animation-play-state: paused }`).
+It used to keep running while the toast was frozen, so the rule emptied and the
+toast read as finished while it sat there.
+
+removeDelay is 300ms rather than the default 1000ms: the exit animation is
+220ms, so a dismissed toast has no reason to stay mounted and inert for the
+remainder of a second.
+
+Styling: src/styles/toast.css was rewritten for React Hot Toast
+(`.kraios-toaster` / `.kraios-toast` / `.kraios-toast__progress`). No
+`.Toastify__` rule survives, and no unrelated style in that file was touched.
+The enter/exit keyframes and the reduced-motion guard are the Kraios ones.
+
+Centralized API
+
+src/lib/toast.js is the only module that imports react-hot-toast:
+
+showSuccessToast / showErrorToast / showInfoToast / showLoadingToast /
+dismissToast, plus TOAST_DURATION and toastKind.
+
+Durations: success 3000ms, info 3500ms, error 4500ms, loading until resolved or
+dismissed. No call site passes its own timing.
+
+WARNING was dropped. The application raised exactly one warning toast (Step 1's
+empty prompt), which is a validation error and is now an error toast, so a
+fourth semantic state had nothing left to describe.
+
+The component/helper split is preserved for the same reason as before:
+KraiosToaster.jsx exports only components, so Fast Refresh keeps working.
+
+The two competing call styles are gone. Every call site now uses the
+@/lib/toast helpers; nothing imports the library directly.
+
+Duplicate prevention
+
+Stable ids on everything a user can fire repeatedly: workflow-stage-gate,
+locked-mode-notice, multiple-files, unsupported-file, upload-success,
+empty-prompt, floor-plan-generation-notice, model-generation-notice,
+boq-generation-notice, login-validation, signup-validation,
+forgot-password-validation, profile-validation, profile-saved,
+create-project-validation, project-created, project-deleted,
+output-download-2d / -3d / -zip, output-export-boq, output-doc-download,
+output-doc-preview.
+
+One user-facing toast per event, raised by the page or component that owns the
+action. No service or helper raises a toast, so no event can be reported twice.
+
+No loading toast is currently in use: every async flow in the product already
+owns a visible loading state (the modal PageLoader, the assistant pending turn,
+the button's loading label), and stacking a loading toast on top of those would
+duplicate them. showLoadingToast + dismissToast exist for a real backend call
+that has no such state.
+
+Call sites migrated
+
+Auth — Login, Signup, Forgot Password. Validation copy moved out of the page
+and into one error toast per invalid submit, chosen by field order (Login:
+email then password; Signup: name, firm, email, country, then date and time).
+The first invalid field is still focused, the pickers still scroll into view,
+and the existing rules were preserved exactly — no password or format rule was
+invented. Copy was tightened to the product voice ("Enter a valid email
+address."). The mock 900ms delays and the Signup / Forgot Password confirmation
+modals are unchanged, and nothing claims an authentication or an email that did
+not happen.
+
+Dashboard — Create Project (empty-name validation, and "Project created." only
+once the project is in the store), Delete Project (confirmation stays a modal;
+"Project deleted." is the receipt afterwards), Profile.
+
+Profile also gained the validation the toast needed something to say: name
+required, email required and well-formed, using the shared isEmail. One toast
+per submit, first invalid field focused. The transient inline "Changes saved"
+line and its 3s timer were removed in favour of a "Profile updated." toast; the
+form, its fields and the Save Changes / Discard changes row are untouched.
+
+Subscription raises no toast: its two mock notices are Modals by design, and
+inventing payment or plan-change feedback would claim a backend that is not
+connected.
+
+Workflow —
+
+Step 1: locked-mode notice, multiple-files notice, unsupported file, upload
+success, empty prompt, generation success, and the "generation backend not
+connected" notice (kept as info — it is a statement about the product, not a
+user error).
+
+Step 2 / workflow gating: the Previous-Next gate message. It is raised in
+ProjectStepNavigation only, which stays domain-agnostic — the message still
+comes from each stage's selector.
+
+Design Assistant: generation success, generation/retry failure, canvas-edit
+handoff, approval granted and revoked.
+
+Step 3 / BoQ gateway: no toast of its own — its states (no approved 3D design,
+BoQ not generated) are persistent page UI and stayed that way.
+
+BoQ Assistant: generation success, document removed, approval granted and
+revoked, row added, row removed, and a generation failure toast that did not
+exist before. A thrown error's own message no longer reaches the transcript or
+the user; both now read one controlled line.
+
+Step 4 / Output: ZIP success and failure, BoQ CSV export success and failure,
+2D and 3D download success and failure, document download, and the previously
+silent "no file behind this record" case.
+
+Output downloads are honest now. downloadAssetUrl returns whether the asset was
+actually fetched and saved; the Step 4 handlers used to announce a successful
+download unconditionally, including for an asset that never arrived. The
+best-effort direct-link fallback is unchanged, but because its outcome cannot be
+observed it is reported as a failure rather than a success.
+
+Inline transient messages removed
+
+FormInput no longer prints a red error line. The message is now carried in a
+screen-reader-only node that aria-describedby points at, and the field keeps its
+red border and aria-invalid. Same treatment for Signup's date/time errors (which
+also gained the aria-describedby wiring they lacked) and Step 1's generate-prompt
+textarea.
+
+Nothing else changed visually. Field validation, focus behaviour, required
+semantics and disabled/loading button states are as they were, and no toast
+fires on keystroke — validation still runs on change and blur, silently.
+
+Persistent state deliberately left in the page: NO PROJECTS YET, DESIGN
+APPROVED / NOT APPROVED, BOQ READY / not finalized, NO DOCUMENTS UPLOADED, the
+Output empty states, the assistant transcripts' failed turns with Retry, and
+the Subscription and confirmation modals.
+
+20. Responsiveness
+
+Responsive implementation exists across:
+
+dashboard shell
+
+Sidebar/mobile nav
+
+Projects
+
+Profile
+
+Subscription
+
+workflow
+
+Step 1
+
+Step 2
+
+Design Assistant
+
+Step 3
+
+BoQ Assistant
+
+Step 4
+
+This audit is based on source inspection.
+
+It does not claim a fresh manual browser QA pass at every viewport.
+
+Do not write “fully responsive and verified” without actual browser/device inspection.
+
+21. Architecture status
+
+Current workflow structure is already sensibly feature-scoped.
+
+Current structure:
+
+projects/
+├── library/
+└── workflow/
+    ├── shared/
+    ├── step-1/
+    ├── step-2/
+    │   ├── assistant/
+    │   └── canvas/
+    ├── step-3/
+    │   └── assistant/
+    └── step-4/
+
+All four stage folders are in active use.
+
+Modules added during the engineering cleanup pass (no folder restructure was performed):
+
+src/lib/toast.js
+    the centralized React Hot Toast API, so KraiosToaster.jsx exports only
+    components
+
+src/components/ui/KraiosToaster.jsx
+    the ONE global <Toaster>, replacing the deleted KraiosToastContainer.jsx
+
+src/lib/dashboard/workflow/step-3/boqDemoData.js
+    the single BoQ demonstration fixture, read by Step 3's mock generation and
+    available to Step 4; replaces the byte-identical copies that were declared
+    separately in boqAssistantConfig.js and outputConfig.js
+
+src/lib/dashboard/workflow/step-3/boqDocuments.js
+    the supporting-document record (createBoqDocument), its blob-URL release
+    helpers, and canPreviewDocument — mirroring step-1/floorPlanSource.js
+
+src/pages/dashboard/projects/RequireProject.jsx
+    the one project-existence guard, used by the workspace route and both
+    assistant routes
+
+No broad folder rewrite is currently recommended.
+
+22. Duplication / maintainability targets
+
+Design Assistant and BoQ Assistant intentionally share visual patterns.
+
+Current duplicated families include:
+
+Assistant header / BoQ Assistant header
+
+Render Style dropdown / Document Type dropdown
+
+Design composer / BoQ composer
+
+result header controls
+
+message/timestamp structure
+
+Reviewed during the cleanup pass — NOTHING EXTRACTED, deliberately.
+
+The genuinely shared pieces are already shared: formatMessageTimestamp / toISOTimestamp in lib/date.js are used by both AssistantMessage and BoQMessage, and both composers/conversations already reuse ASSISTANT_GRID / ASSISTANT_GUTTER from step-2/assistant/assistantGrid.js.
+
+What is left duplicated (the two headers, the two dropdown shells, the two composers, the two result-header controls) differs in real ways: the Step 2 composer has a cancel action and a paper-plane/sparkle affordance, the Step 3 one has a ruler affordance and no cancel; the two result-header controls differ by an Edit button. A shared shell would need a prop and a conditional for each of those. Per the rule above, some duplication is better than a generic component with a switchboard of feature props.
+
+Keep:
+
+Step 2 3D behavior separate
+
+Step 3 BoQ behavior separate
+
+Do not build one giant assistant component with feature conditionals.
+
+23. ProjectsProvider performance target
+
+Current provider value includes:
+
+project list
+
+Step 1 state
+
+Step 2 assistant state
+
+Step 3 assistant state
+
+Long assistant conversations can cause broad context updates.
+
+Reviewed during the cleanup pass and DEFERRED. Splitting the provider means changing what every hook in projectsContext.js subscribes to, which touches every stage and both assistants — real risk of behaviour or route-persistence changes, against a benefit nobody has measured. Correctness work was prioritized instead. The provider grew one small addition in this pass: a boqStatesRef mirror, so supporting-document object URLs can be released on delete and unmount without adding dependencies to those callbacks.
+
+This remains a future performance optimization target.
+
+Do not introduce Redux/Zustand automatically.
+
+Preferred first direction:
+
+narrower providers
+
+narrower feature subscriptions
+
+preserve current external behavior
+
+24. Artificial delays
+
+Reviewed and classified during the cleanup pass.
+
+REDUCED:
+
+Step 1 local floor-plan upload: 3500ms to 400ms. Nothing is uploaded — the browser already holds the picked file and createUploadSource only wraps it — so the wait was slowing the fastest action in the product for no reason. A short beat is kept because the panel has a real uploading state and flashing through it reads as a glitch. When a real endpoint exists, the wait becomes the request.
+
+KEPT, deliberately, as mock-backend / loading-state demonstrations:
+
+auth demo delays (900ms, Login / Signup / ForgotPassword)
+
+project creation (700ms, behind the brand PageLoader)
+
+BoQ mock generation (1400ms — it stands in for a backend call, and the pending/cancel states must stay observable)
+
+Design Canvas opening (2200ms, behind the brand PageLoader)
+
+25. Dead / unused source candidates
+
+REMOVED after verification (each re-checked for any remaining reference, including dynamic use, before deletion):
+
+src/hooks/useSectionReveal.js
+src/components/ui/Figure.jsx
+src/components/dashboard/projects/workflow/step-2/StageIntro.jsx
+src/components/dashboard/projects/workflow/step-2/assistant/AssistantGeometryBackdrop.jsx
+src/components/dashboard/projects/workflow/step-2/assistant/ExpandResultModal.jsx
+src/components/dashboard/projects/workflow/step-2/assistant/ComposerContextStrip.jsx
+
+Unused public assets REMOVED:
+
+public/assets/hero-poster.svg — content.js references only hero-poster-768.jpg / hero-poster-1600.jpg
+public/assets/plan-2d-detail.svg — no reference anywhere
+public/assets/plan-3d-primary.svg — no reference anywhere
+public/assets/team-placeholder-02.svg — content.js builds these paths dynamically via teamPlaceholder(slot), and the only slots used are 01, 03 and 04
+
+Assets deliberately KEPT because they are live demo fixtures: plan-2d-primary.svg and plan-3d-light.svg (Step 4 demo assets and the Step 2 mock model result), plan-2d-light.svg, and team-placeholder-01/03/04.svg.
+
+26. Import / dependency graph audit
+
+Re-run after the cleanup pass, over 139 source files:
+
+0 unresolved local imports (the only non-JS specifier is main.jsx's stylesheet import)
+
+0 circular JS/JSX module dependencies
+
+No obvious unused runtime npm dependency was identified.
+
+Dependency change in the notification migration: react-toastify removed,
+react-hot-toast ^2.6.0 added. Nothing else was added or removed.
+
+27. Lint status
+
+Current source IS lint-clean.
+
+Verified by running:
+
+npm run lint
+
+Result: 0 errors, 0 warnings (exit 0). The previous 22 errors / 5 warnings were all fixed at the source — no eslint-disable, no dummy references, no blanket underscore renames:
+
+AssistantComposer.jsx — dropped baseResult / isExplicitSelection / onClearEditing, left over from the removed ComposerContextStrip, and the props they were passed with
+
+AssistantConversation.jsx — dropped the unused onViewAngleSelect prop
+
+AssistantResult.jsx — dropped onEdit (the message header owns Edit) and its call site
+
+ResultHeaderControls.jsx / BoQResultHeaderControls.jsx — dropped the unused result prop; also removed a dead PrimaryButton import
+
+BoQMessage.jsx — react-markdown passes the mdast node to custom components, so it is stripped once by a small domProps helper instead of being destructured away ten times
+
+BoQResult.jsx — dropped the unused approved prop
+
+OutputStage.jsx — removed the unused summaryText
+
+UploadedDocumentsSection.jsx / CurrentPlanCard.jsx — removed unused cn imports
+
+boqGeneration.js — dropped the documentTypeId parameter and its plumbing; the mock does not analyse documents and accepting it implied an influence it does not have
+
+KraiosToastContainer.jsx — the five Fast Refresh warnings were gone once the helpers moved to src/lib/toast.js. That file has since been replaced by KraiosToaster.jsx, which keeps the same component-only rule
+
+Re-verified after the React Hot Toast migration:
+
+npm run lint — 0 errors, 0 warnings (exit 0), confirmed with
+`npx eslint . --max-warnings=0`.
+
+Note: lint parses every source file, so a clean run is also a syntax check.
+No production build was run and there is still no automated test suite. The
+migrated modules were additionally smoke-checked by serving them through the
+Vite dev server (main.jsx, KraiosToaster.jsx, lib/toast.js, the migrated pages
+and the rewritten stylesheet all transform and resolve), which is a module
+resolution check — NOT a browser QA pass of the toast at every breakpoint.
+
+28. Dropdown interaction issue
+
+Double-fire — FIXED
+
+Render Style, View Angle and Document Type each ran selection from BOTH onMouseDown and onClick, so one mouse press could select twice. Selection is now bound to onClick only. No flag, timer or duplicate-suppression hack was used — the second binding was removed. This mattered most for View Angle, which now starts a generation.
+
+Focus behaviour — IMPROVED
+
+Escape closes the menu and returns focus to the trigger, and choosing an option returns focus there too (also applied to the Uploaded Documents dropdown). Nothing visible changed.
+
+Keyboard navigation — STILL NOT IMPLEMENTED, and no longer claimed
+
+The triggers are real buttons and are fully keyboard operable. The option rows are plain list items: there is no arrow-key roving focus and no Enter/Space activation on an option, in any of the three menus. Comments in RenderStyleDropdown and ViewAngleMenu that advertised "keyboard navigation" were corrected to say what the controls actually do. Adding roving focus needs an active-option highlight, which is a visual decision and was out of scope for a UI-freeze pass; it remains a real accessibility gap.
+
+29. Invalid project route issue
+
+FIXED. src/pages/dashboard/projects/RequireProject.jsx is one shared guard at the route boundary, wrapping the ProjectWorkspace route and both assistant routes. An unknown :projectId redirects (replace) to /dashboard/projects, so a typed or stale URL can no longer enter workflow UI and write state against a project that does not exist.
+
+No per-stage `if (!project)` checks were added and no new error page was designed. The per-project hooks still return a shared frozen default for a project that exists but is untouched — that remains their only job.
+
+Consequence worth stating: because projects are session-memory, refreshing the browser while inside a project workspace now lands on the empty Projects library rather than an orphaned workspace. That is the honest result of having no persistence, and it becomes moot when a backend exists.
+
+30. Current top engineering priorities
+
+Completed in the engineering cleanup pass (details in the sections above):
+
+View Angle generation wiring
+
+dropdown double-fire
+
+BoQ approval invalidation after row edits
+
+Output consumes approved BoQ only
+
+optional-BoQ Output behaviour normalized (BoQ stays optional; Output represents "no finalized BoQ")
+
+misleading document-upload copy corrected
+
+Step 3 document data contract aligned with Step 4, with object-URL release
+
+invalid-project route guard
+
+lint: 0 errors, 0 warnings
+
+verified dead code and unused assets removed
+
+canvas history capped, advertised shortcuts wired
+
+React Hot Toast migration: React-Toastify removed, one global Toaster, one
+centralized helper API, inline transient form errors converted to toasts
+
+ZIP fetch/response.ok and filename hardening
+
+BoQ demo fixture deduplicated into one module
+
+Remaining, in rough priority order:
+
+Wire supporting-document upload end to end. Needs a visible attachment control in the BoQ composer, which is a design decision.
+
+Arrow-key navigation for the three custom dropdowns. Needs an active-option highlight, which is a design decision.
+
+Reduce broad ProjectsProvider rerenders, if profiling justifies it.
+
+Implement Lasso / Cutout as a real selection tool, or retire the tool.
+
+Connect real backends: 2D generation, 3D generation, BoQ calculation, document analysis, auth, billing, persistence.
+
+Real browser/device QA at the documented breakpoints.
+
+31. What is intentionally NOT claimed
+
+The current archive is not documented as:
+
+backend complete
+
+persistent across refresh
+
+production auth ready
+
+production billing ready
+
+real 2D AI generation connected
+
+real 3D generation connected
+
+real BoQ calculation connected
+
+real document analysis connected
+
+live market pricing connected
+
+backend PDF/XLSX export connected
+
+fully browser-tested at every breakpoint
+
+covered by an automated test suite
+
+verified by a production build or runtime smoke test in the most recent cleanup pass (source-level work plus lint only)
+
+32. Documentation state
+
+Section 19 and CLAUDE.md section 26 now describe React Hot Toast as the
+notification system. Every statement saying React-Toastify is current has been
+removed rather than annotated.
+
+This replacement PROGRESS.md removes the old contradictions that said:
+
+Step 3 was not implemented
+
+Step 4 was not implemented
+
+hasBoQ always remained false
+
+lint passed with 0 errors/warnings
+
+Current truth:
+
+Step 1 UI implemented
+
+Step 2 UI implemented
+
+Design Assistant UI implemented
+
+Step 3 UI implemented
+
+BoQ Assistant UI implemented
+
+Step 4 UI implemented
+
+backend-dependent functionality is still mock/pending in multiple areas
+
+lint is clean (0 errors, 0 warnings) as of the engineering cleanup pass
+
+The cleanup pass was engineering-only: no colors, type, spacing, radius, sizing, icons, composition, responsive behaviour or motion were changed. The only user-visible differences are ones correctness demanded — Output's not-finalized BoQ state, the honest BoQ chip and ZIP caption in the Output header, the corrected Uploaded Documents empty copy, and a view-angle choice now producing a render.

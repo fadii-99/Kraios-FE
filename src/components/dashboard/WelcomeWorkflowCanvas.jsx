@@ -23,8 +23,11 @@ export default function WelcomeWorkflowCanvas({ onCreateProject }) {
             <span className="label-ui text-[0.625rem] font-bold tracking-[0.18em] text-[var(--tone-ink)] sm:text-[0.6875rem]">
               ARCHITECTURAL AI ENGINE
             </span>
-            <span className="h-3 w-px bg-[var(--tone-line)]" aria-hidden="true" />
-            <span className="label-ui text-[0.625rem] font-semibold tracking-[0.14em] text-[var(--color-brand-deep)] sm:text-[0.6875rem]">
+            {/* Both labels plus the divider measure ~310px against 294px of
+                content width at 360, and the badge cannot wrap. The secondary
+                label is context, not information, so it waits for the room. */}
+            <span className="hidden h-3 w-px bg-[var(--tone-line)] sm:block" aria-hidden="true" />
+            <span className="label-ui hidden text-[0.625rem] font-semibold tracking-[0.14em] text-[var(--color-brand-deep)] sm:inline sm:text-[0.6875rem]">
               2D TO 3D &amp; BoQ
             </span>
           </div>
@@ -42,7 +45,7 @@ export default function WelcomeWorkflowCanvas({ onCreateProject }) {
               aria-hidden="true"
               className="hidden h-px w-16 origin-right bg-gradient-to-r from-transparent to-[var(--color-brand-deep)]/40 sm:block"
             />
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-[var(--color-brand-deep)]/15 bg-white/95 p-3.5 shadow-[0_10px_28px_rgba(22,119,255,0.1)] transition-transform duration-300 hover:scale-105 sm:h-24 sm:w-24 sm:p-4">
+            <div className="flex h-20 w-20 items-center justify-center rounded-md border border-[var(--color-brand-deep)]/15 bg-white/95 p-3.5 shadow-[0_10px_28px_rgba(22,119,255,0.1)] transition-transform duration-300 hover:scale-105 sm:h-24 sm:w-24 sm:p-4">
               <Logo size="hero" className="h-full w-full object-contain" />
             </div>
             <span

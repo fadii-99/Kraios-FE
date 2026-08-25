@@ -18,7 +18,7 @@ import { site } from '@/lib/content'
  * marker, same Log out band, all from the same components and the same config.
  * It is one navigation system rendered at two widths, not a second one.
  */
-export default function DashboardMobileNav() {
+export default function DashboardMobileNav({ onNavigate }) {
   const [open, setOpen] = useState(false)
   const location = useLocation()
   const closeRef = useRef(null)
@@ -30,6 +30,18 @@ export default function DashboardMobileNav() {
       ? location.pathname === item.path
       : location.pathname.startsWith(item.path),
   )
+
+  const handleMobileNav = (path, e) => {
+    if (onNavigate) {
+      const allowed = onNavigate(path, e)
+      if (allowed === false) {
+        setOpen(false)
+        return false
+      }
+    }
+    setOpen(false)
+    return true
+  }
 
   // Body scroll lock & Escape listener
   useEffect(() => {
@@ -61,6 +73,7 @@ export default function DashboardMobileNav() {
       <header className="tone-light flex h-14 shrink-0 items-center justify-between border-b border-[var(--tone-line)] bg-white px-4 lg:hidden">
         <Link
           to="/dashboard"
+          onClick={(e) => handleMobileNav('/dashboard', e)}
           className="flex items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]"
           aria-label={`${site.name} — dashboard home`}
         >
@@ -103,7 +116,7 @@ export default function DashboardMobileNav() {
           <aside className="tone-light relative flex h-full w-[17rem] max-w-[85vw] flex-col border-r border-[var(--tone-line)] bg-white">
             {/* Same head as the rail, with the close control beside it. */}
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--tone-line)] pt-5 pr-2 pb-5 pl-4">
-              <DashboardBrand onNavigate={() => setOpen(false)} />
+              <DashboardBrand onNavigate={(e) => handleMobileNav('/dashboard', e)} />
 
               <button
                 ref={closeRef}
@@ -125,6 +138,7 @@ export default function DashboardMobileNav() {
                   key={item.id}
                   item={item}
                   onClick={() => setOpen(false)}
+                  onNavigate={onNavigate}
                 />
               ))}
             </nav>
@@ -133,6 +147,7 @@ export default function DashboardMobileNav() {
               <DashboardNavItem
                 item={DASHBOARD_SIGN_OUT}
                 onClick={() => setOpen(false)}
+                onNavigate={onNavigate}
               />
             </div>
           </aside>

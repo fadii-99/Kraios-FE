@@ -4,15 +4,19 @@ import { Link, useNavigate } from 'react-router-dom'
 import AuthShell from '@/components/ui/AuthShell'
 import FormInput from '@/components/ui/FormInput'
 import PrimaryButton from '@/components/ui/PrimaryButton'
+import { showErrorToast } from '@/lib/toast'
 import { isEmail } from '@/lib/validate'
 
 const EMPTY = { email: '', password: '' }
 
+/** Submit order — also the order the one validation toast picks from. */
+const FIELD_ORDER = ['email', 'password']
+
 function validate(values) {
   const errors = {}
 
-  if (!values.email.trim()) errors.email = 'Enter the email address on your account.'
-  else if (!isEmail(values.email)) errors.email = 'That address looks incomplete — check for a missing @ or domain.'
+  if (!values.email.trim()) errors.email = 'Enter your email address.'
+  else if (!isEmail(values.email)) errors.email = 'Enter a valid email address.'
 
   if (!values.password) errors.password = 'Enter your password.'
 
@@ -47,9 +51,17 @@ export default function Login() {
     setErrors(next)
     setTouched({ email: true, password: true })
 
-    const firstInvalid = ['email', 'password'].find((k) => next[k])
+    /*
+     * ONE toast per invalid submit, for the first field in reading order — the
+     * field keeps the red border and `aria-invalid` that says which one it is,
+     * so three simultaneous notifications would only bury each other. The next
+     * issue surfaces on the next submit. Validation runs on change and blur as
+     * before; it just never speaks until the user asks to submit.
+     */
+    const firstInvalid = FIELD_ORDER.find((k) => next[k])
     if (firstInvalid) {
       formRef.current?.querySelector(`#${firstInvalid}`)?.focus()
+      showErrorToast(next[firstInvalid], { id: 'login-validation' })
       return
     }
 
@@ -66,6 +78,17 @@ export default function Login() {
       title="Login"
       description="Sign in to your Kraios account to pick up a project, refine your 3D model and export your BoQ."
     >
+      {/* Sign-in is frontend-only: there is no credential check to pass or fail,
+          so the page says so rather than letting the button imply an account.
+          Remove this note when a real auth backend is connected. */}
+      <div className="mb-8 rounded-sm border-l-2 border-[var(--tone-accent)] bg-[var(--tone-accent)]/[0.06] px-4 py-3">
+        <p className="label-ui text-[var(--tone-accent)]">Demo Access</p>
+        <p className="mt-1 text-[0.8125rem] leading-relaxed text-[var(--tone-muted)]">
+          Enter any dummy email and password to explore the dashboard UI.
+          Credentials are not checked yet.
+        </p>
+      </div>
+
       <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-8">
         <FormInput
           id="email"

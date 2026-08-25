@@ -3,6 +3,9 @@
 /* ONE typeface ships. See the token block below for why. */
 @import '@fontsource-variable/inter';
 
+/* Kraios Toast Notification Theme */
+@import './toast.css';
+
 /* ---------------------------------------------------------------------------
    Design tokens — premium dark-blue architectural theme.
    Never hardcode a hex in a component.
@@ -42,6 +45,7 @@
      --------------------------------------------------------------------- */
   --color-success: #0a6c48;
   --color-danger: #b42318;
+  --color-warning: #b54708;
 
   /* ---------------------------------------------------------------------
      TYPOGRAPHY — two roles, ONE typeface. Do not add a third.
@@ -68,6 +72,35 @@
   --font-mono: initial;
 
   
+  /* ---------------------------------------------------------------------
+     SHAPE — the KRAIOS radius scale.
+
+     KRAIOS is an architectural product, not a consumer app: the corners are
+     softened, never rounded. The whole scale lives between 3px and 8px, and
+     these four keys are the ONLY radii in the system — do not hardcode a
+     `rounded-[7px]` next to them.
+
+       --radius-xs  3px  chips, pills-that-aren't, tiny toggles, hairline marks
+       --radius-sm  4px  buttons, inputs, icon frames, menu items, small controls
+       --radius-md  6px  cards, panels, framed sections, dropdown surfaces
+       --radius-lg  8px  modals and the largest page surfaces — the ceiling
+
+     Tailwind's `xl` / `2xl` / `3xl` / `4xl` radius utilities are deliberately
+     REMOVED (`initial` deletes a v4 theme key, and with it the utility). A
+     `rounded-xl` in a KRAIOS file is a mistake, and now it simply does not
+     compile. Genuinely circular things — avatars, status dots, spinners, the
+     stepper nodes — keep `rounded-full`, which is a static utility and is not
+     affected by this scale.
+     --------------------------------------------------------------------- */
+  --radius-xs: 0.1875rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: initial;
+  --radius-2xl: initial;
+  --radius-3xl: initial;
+  --radius-4xl: initial;
+
   --spacing-section: clamp(6rem, 13vw, 12rem);
   --spacing-gutter: clamp(1.25rem, 4vw, 4.5rem);
 
@@ -183,11 +216,15 @@
     overflow-x: hidden;
   }
 
+  /* Every native control picks up the standard KRAIOS control radius here, so
+     a button or a field is lightly softened by default and only opts out
+     (`rounded-full` for a circular icon button, `rounded-md` for a large
+     panel-sized control) when it has a reason to. */
   button,
   input,
   textarea,
   select {
-    border-radius: 0;
+    border-radius: var(--radius-sm);
     font: inherit;
   }
 
@@ -220,7 +257,8 @@
          `.tone-deep` publish a light thumb, `.tone-light` a dark one; the
          dashboard is one big `.tone-light`, so it inherits the light-band bar
          with no dashboard-specific CSS. Never restyle a scrollbar per page.
-       - radius 0, like everything else.
+       - radius: the smallest step of the shape scale, matching the lightly
+         softened corners the rest of the product now uses.
        - the track stays transparent so the bar sits on the band's own
          background instead of cutting a grey channel through it.
 
@@ -263,7 +301,7 @@
     background-color: var(--scrollbar-thumb);
     background-clip: content-box;
     border: 2px solid transparent;
-    border-radius: 0;
+    border-radius: var(--radius-xs);
   }
 
   ::-webkit-scrollbar-thumb:hover {
@@ -452,6 +490,33 @@
     letter-spacing: -0.03em;
     line-height: 1.05;
     font-size: clamp(1.875rem, 3.6vw, 3rem);
+  }
+
+  /* The workspace-stage tier — a heading INSIDE a dashboard page, one step
+     under `.display-product`.
+
+     It exists because no tier fitted. `.display-sm` tops out at 2.75rem, which
+     is the right size for a landing-page sub-heading in a full-width band but
+     is oversized in a 5-of-12 workspace rail that also has to hold guidance and
+     a work surface between a fixed stepper and fixed navigation — it pushed
+     Step 1 into an internal scrollbar on a 1080p laptop.
+
+     Same About-heading voice as the rest of the scale (Inter 700, uppercase,
+     negative tracking, authored line breaks, tight leading), capped by the
+     narrowest rail it has to survive in: "2D FLOOR PLAN" measures ~0.62em per
+     character in Inter 700, so 2.25rem clears the ~390px left column at 1440
+     with room to spare, and the 1.375rem floor keeps a two-line heading short
+     when the columns stack below `lg`. It WRAPS — the stage supplies its own
+     line breaks, but a longer future heading must never run past the rail. */
+  .display-stage {
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    line-height: 1.03;
+    white-space: normal;
+    overflow-wrap: break-word;
+    font-size: clamp(1.875rem, 3.5vw, 3rem);
   }
 
   /* Wrapper for line-by-line masked reveals */

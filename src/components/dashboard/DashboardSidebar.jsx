@@ -23,7 +23,7 @@ import { cn } from '@/lib/cn'
  * Structure comes from whitespace and one hairline — no cards, no radius, no
  * shadow. The rail is part of the shell, not a panel floating on it.
  */
-export default function DashboardSidebar({ className }) {
+export default function DashboardSidebar({ className, onNavigate }) {
   return (
     <aside
       aria-label="Dashboard sidebar"
@@ -33,7 +33,10 @@ export default function DashboardSidebar({ className }) {
       )}
     >
       {/* Brand header: Centred mark with balanced vertical breathing room */}
-      <DashboardBrand className="shrink-0 justify-center border-b border-[var(--tone-line)] px-4 pt-5 pb-5" />
+      <DashboardBrand
+        onNavigate={(e) => onNavigate?.('/dashboard', e)}
+        className="shrink-0 justify-center border-b border-[var(--tone-line)] px-4 pt-5 pb-5"
+      />
 
       {/* The register. `pt-4` is the intentional gap under the rule; `gap-0.5`
           holds the four rows as one group rather than a spread list.
@@ -44,13 +47,20 @@ export default function DashboardSidebar({ className }) {
         className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pt-4"
       >
         {DASHBOARD_NAV_ITEMS.map((item) => (
-          <DashboardNavItem key={item.id} item={item} />
+          <DashboardNavItem
+            key={item.id}
+            item={item}
+            onNavigate={onNavigate}
+          />
         ))}
       </nav>
 
       {/* The way out, separated by the hairline with generous bottom padding */}
       <div className="shrink-0 border-t border-[var(--tone-line)] pt-3 pb-7">
-        <DashboardNavItem item={DASHBOARD_SIGN_OUT} />
+        <DashboardNavItem
+          item={DASHBOARD_SIGN_OUT}
+          onNavigate={onNavigate}
+        />
       </div>
     </aside>
   )

@@ -5,6 +5,7 @@ import gsap from 'gsap'
 import { X } from '@phosphor-icons/react'
 
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { cn } from '@/lib/cn'
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -16,7 +17,26 @@ const FOCUSABLE =
  * viewport (including the sidebar and header) without being trapped in child
  * stacking contexts.
  */
-export default function Modal({ open, onClose, title, children, labelledBy = 'modal-title' }) {
+/**
+ * Panel widths. `default` is what every existing dialog gets and is unchanged;
+ * `wide` exists for the Design Assistant's expanded render, which has to fill
+ * most of the viewport to be inspectable. The prop only swaps a max-width, so
+ * the escape handling, focus trap, focus restore and scroll lock are shared
+ * rather than re-implemented for a viewer.
+ */
+const PANEL_SIZES = {
+  default: 'max-w-lg p-8 sm:p-10',
+  wide: 'max-w-6xl p-5 sm:p-6',
+}
+
+export default function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  size = 'default',
+  labelledBy = 'modal-title',
+}) {
   const scope = useRef(null)
   const panelRef = useRef(null)
   const closeRef = useRef(null)
@@ -117,14 +137,17 @@ export default function Modal({ open, onClose, title, children, labelledBy = 'mo
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
-        className="tone-light relative max-h-full w-full max-w-lg overflow-y-auto border border-[var(--tone-line-strong)] bg-white p-8 shadow-[0_30px_80px_-40px_rgba(7,20,38,0.5)] sm:p-10"
+        className={cn(
+          'tone-light relative flex max-h-full w-full flex-col overflow-y-auto rounded-lg border border-[var(--tone-line-strong)] bg-white shadow-[0_30px_80px_-40px_rgba(7,20,38,0.5)]',
+          PANEL_SIZES[size] || PANEL_SIZES.default,
+        )}
       >
         <button
           ref={closeRef}
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 flex h-11 w-11 cursor-pointer items-center justify-center text-[var(--tone-muted)] transition-colors duration-300 hover:text-[var(--tone-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tone-accent)]"
+          className="absolute right-4 top-4 flex h-11 w-11 cursor-pointer items-center justify-center rounded-sm text-[var(--tone-muted)] transition-colors duration-300 hover:text-[var(--tone-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tone-accent)]"
         >
           <X size={20} weight="light" aria-hidden="true" />
         </button>

@@ -53,7 +53,7 @@ export default function CalendarPicker({ value, onSelect, minDate, id = 'calenda
 
   return (
     <div
-      className="border border-[var(--tone-line-strong)] bg-[var(--field-bg)] p-4 sm:p-5"
+      className="rounded-md border border-[var(--tone-line-strong)] bg-[var(--field-bg)] p-4 sm:p-5"
       role="group"
       aria-label="Choose a date"
     >

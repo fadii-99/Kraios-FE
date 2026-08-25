@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import CreateProjectModal from '@/components/dashboard/projects/CreateProjectModal'
+import CreateProjectModal from '@/components/dashboard/projects/library/CreateProjectModal'
 import WelcomeWorkflowCanvas from '@/components/dashboard/WelcomeWorkflowCanvas'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'

@@ -7,9 +7,11 @@ import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader'
 import PricingPlanCard from '@/components/dashboard/subscription/PricingPlanCard'
 import Modal from '@/components/ui/Modal'
 import PrimaryButton from '@/components/ui/PrimaryButton'
+import { DASHBOARD_GUTTER } from '@/lib/dashboard/layout'
 import { SUBSCRIPTION_PLANS, currentSubscription } from '@/lib/dashboard/subscriptionPlans'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { cn } from '@/lib/cn'
 
 /**
  * Billing (/dashboard/subscription) — the account's plan, and what it could be
@@ -88,7 +90,12 @@ export default function Subscription() {
         </p>
       </DashboardPageHeader>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-6 sm:px-7 sm:py-8 lg:px-10 lg:py-10 xl:px-12 xl:py-12">
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col overflow-y-auto py-6 sm:py-8 lg:py-10 xl:py-12',
+          DASHBOARD_GUTTER,
+        )}
+      >
         <div className="w-full">
           <div data-sub-current>
             <CurrentPlanCard
@@ -126,7 +133,7 @@ export default function Subscription() {
           </div>
 
           {/* Same column rhythm as the project library */}
-          <div className="mt-10 grid grid-cols-1 gap-5 sm:mt-12 sm:grid-cols-2 sm:gap-6 lg:mt-14 xl:grid-cols-3 xl:gap-8">
+          <div className="mt-8 grid grid-cols-1 gap-5 sm:mt-10 sm:grid-cols-2 sm:gap-6 lg:mt-12 xl:grid-cols-3 xl:gap-7">
             {SUBSCRIPTION_PLANS.map((plan) => (
               <div key={plan.id} data-sub-plan-card className="flex">
                 <PricingPlanCard
@@ -143,7 +150,7 @@ export default function Subscription() {
             ))}
           </div>
 
-          <p className="mt-8 text-[0.75rem] leading-relaxed text-[var(--tone-muted)] sm:mt-10">
+          <p className="mt-8 text-center text-[0.75rem] leading-relaxed text-[var(--tone-muted)] sm:mt-10">
             Prices shown are placeholders while billing is being set up.
           </p>
         </div>
@@ -155,21 +162,24 @@ export default function Subscription() {
         title={notice?.title ?? ''}
         labelledBy="subscription-notice-title"
       >
-        <p className="mt-5 text-[0.9375rem] leading-relaxed text-[var(--tone-muted)]">
+        <p className="mt-4 text-[0.875rem] leading-relaxed text-[var(--tone-muted-dark)]">
           {notice?.body}
         </p>
 
-        <PrimaryButton
-          type="button"
-          size="compact"
-          align="center"
-          withArrow={false}
-          onClick={() => setNotice(null)}
-          className="mt-7 w-full sm:w-[12rem]"
-        >
-          Close
-        </PrimaryButton>
+        <div className="mt-6 flex justify-end">
+          <PrimaryButton
+            type="button"
+            size="compact"
+            align="center"
+            withArrow={false}
+            onClick={() => setNotice(null)}
+            className="w-full sm:w-auto min-w-28"
+          >
+            Close
+          </PrimaryButton>
+        </div>
       </Modal>
     </div>
   )
 }
+

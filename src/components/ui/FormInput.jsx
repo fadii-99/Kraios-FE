@@ -2,11 +2,18 @@ import { cn } from '@/lib/cn'
 
 /**
  * The one input used by every form on the site (Login, Forgot Password,
- * Signup). Boxed, sharp corners, tone-aware surface.
+ * Signup). Boxed, lightly softened corners (--radius-sm), tone-aware surface.
  *
  * The label is always a real `<label for>` — a placeholder is a hint, never a
- * label. Errors are wired through `aria-describedby` + `role="alert"` and are
- * prefixed "Error —" so the state never depends on colour alone.
+ * label.
+ *
+ * `error` marks the field invalid; it does NOT print a line of red text under
+ * it any more. Transient validation copy is a toast now (see `@/lib/toast`),
+ * raised once per submit by the form that owns the rules. What stays here is
+ * everything that says WHERE the problem is and survives the toast closing:
+ * the red border, `aria-invalid`, and the message itself carried in a
+ * screen-reader-only node that `aria-describedby` points at — so the field is
+ * never identified by colour alone, and the id is never left dangling.
  *
  * `size="compact"` is the in-application density (dashboard forms): the same
  * border, focus, radius and transition, but a 44px field and a quieter label —
@@ -77,7 +84,7 @@ export default function FormInput({
         aria-describedby={error ? errorId : undefined}
         className={cn(
           // min-h-12 keeps the touch target at 48px; compact holds 44px, the floor
-          'block w-full border bg-[var(--field-bg)]',
+          'block w-full rounded-sm border bg-[var(--field-bg)]',
           compact
             ? 'mt-2 min-h-11 px-3.5 py-2.5 text-[0.9375rem]'
             : 'mt-3 min-h-12 px-4 py-3.5 text-[1rem]',
@@ -98,7 +105,7 @@ export default function FormInput({
       />
 
       {error && (
-        <p id={errorId} role="alert" className="label-ui mt-2.5 text-[#E5484D]">
+        <p id={errorId} className="sr-only">
           Error — {error}
         </p>
       )}

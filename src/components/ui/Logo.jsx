@@ -17,6 +17,9 @@ import { cn } from '@/lib/cn'
 
 // Static classes, not interpolated: Tailwind only emits what it can see.
 const SIZES = {
+  xs: { cls: 'h-5 w-5', px: 20 },
+  sm: { cls: 'h-6 w-6', px: 24 },
+  compact: { cls: 'h-7 w-7', px: 28 },
   nav: { cls: 'h-10 w-10', px: 40 },
   sidebar: { cls: 'h-9 w-9 sm:h-10 sm:w-10', px: 40 },
   footer: { cls: 'h-14 w-14', px: 56 },
@@ -26,7 +29,7 @@ const SIZES = {
   hero: { cls: 'h-[4.5rem] w-[4.5rem] sm:h-20 sm:w-20 lg:h-24 lg:w-24', px: 96 },
 }
 
-export default function Logo({ className, onClick, size = 'nav' }) {
+export default function Logo({ className, imageClassName, onClick, size = 'nav' }) {
   const Tag = onClick ? 'button' : 'span'
   const { cls, px } = SIZES[size] ?? SIZES.nav
 
@@ -49,7 +52,7 @@ export default function Logo({ className, onClick, size = 'nav' }) {
         width={px}
         height={px}
         decoding="async"
-        className={cn('shrink-0 object-contain', cls)}
+        className={cn('shrink-0 object-contain', cls, imageClassName)}
       />
     </Tag>
   )

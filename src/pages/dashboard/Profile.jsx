@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import { Check } from '@phosphor-icons/react'
 
 import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader'
 import ProfileIdentityPanel from '@/components/dashboard/ProfileIdentityPanel'
 import FormInput from '@/components/ui/FormInput'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import { currentUser } from '@/lib/dashboard/currentUser'
+import { DASHBOARD_GUTTER } from '@/lib/dashboard/layout'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { showErrorToast, showSuccessToast } from '@/lib/toast'
+import { isEmail } from '@/lib/validate'
+import { cn } from '@/lib/cn'
 
 const INITIAL_PROFILE = {
   name: currentUser.name || 'User',
@@ -17,6 +20,23 @@ const INITIAL_PROFILE = {
   company: 'Studio Kraios Architecture',
   jobTitle: 'Lead Architect',
   phone: '+1 (555) 234-5678',
+}
+
+/** Submit order — also the order the one validation toast picks from. */
+const REQUIRED_FIELDS = [
+  { key: 'name', id: 'profile-name' },
+  { key: 'email', id: 'profile-email' },
+]
+
+function validateProfile(values) {
+  const errors = {}
+
+  if (!values.name.trim()) errors.name = 'Enter your full name.'
+
+  if (!values.email.trim()) errors.email = 'Enter your email address.'
+  else if (!isEmail(values.email)) errors.email = 'Enter a valid email address.'
+
+  return errors
 }
 
 /**
@@ -27,35 +47,46 @@ const INITIAL_PROFILE = {
  */
 export default function Profile() {
   const scope = useRef(null)
+  const formRef = useRef(null)
   const reduced = usePrefersReducedMotion()
   const [formData, setFormData] = useState(INITIAL_PROFILE)
   const [savedData, setSavedData] = useState(INITIAL_PROFILE)
-  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [errors, setErrors] = useState({})
 
   const isDirty = JSON.stringify(formData) !== JSON.stringify(savedData)
-
-  useEffect(() => {
-    if (!saveSuccess) return undefined
-
-    const timer = window.setTimeout(() => setSaveSuccess(false), 3000)
-    return () => window.clearTimeout(timer)
-  }, [saveSuccess])
 
   const handleChange = (event) => {
     const { name, value } = event.target
     setFormData((current) => ({ ...current, [name]: value }))
-    setSaveSuccess(false)
+    // Clears the field's invalid state as it is corrected. Silently: a toast
+    // per keystroke is exactly what this migration must not produce.
+    if (errors[name]) setErrors((current) => ({ ...current, [name]: undefined }))
   }
 
   const handleSubmit = (event) => {
     event.preventDefault()
+
+    const next = validateProfile(formData)
+    setErrors(next)
+
+    // One toast for the first problem; the field keeps the border that says
+    // which one. The next issue surfaces on the next submit.
+    const firstInvalid = REQUIRED_FIELDS.find(({ key }) => next[key])
+    if (firstInvalid) {
+      formRef.current?.querySelector(`#${firstInvalid.id}`)?.focus()
+      showErrorToast(next[firstInvalid.key], { id: 'profile-validation' })
+      return
+    }
+
+    // Session-memory only — there is no profile backend to fail yet, so this
+    // reports the save that actually happened and claims nothing more.
     setSavedData(formData)
-    setSaveSuccess(true)
+    showSuccessToast('Profile updated.', { id: 'profile-saved' })
   }
 
   const handleReset = () => {
     setFormData(savedData)
-    setSaveSuccess(false)
+    setErrors({})
   }
 
   useGSAP(
@@ -118,23 +149,28 @@ export default function Profile() {
       </DashboardPageHeader>
 
       {/* The page body — spacious layout with generous breathing room */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10 xl:px-14 xl:py-12">
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col overflow-y-auto py-6 sm:py-8 lg:py-10 xl:py-12',
+          DASHBOARD_GUTTER,
+        )}
+      >
         <div
           data-profile-sheet
-          className="relative mx-auto w-full max-w-[78rem] border border-[var(--tone-line-strong)] bg-white shadow-[0_28px_70px_-40px_rgba(7,20,38,0.35)]"
+          className="relative mx-auto w-full max-w-[62rem] rounded-lg border border-[var(--tone-line-strong)] bg-white shadow-[0_28px_70px_-40px_rgba(7,20,38,0.35)]"
         >
           {/* The setting-out mark that opens every Kraios band: one short blue
               segment sitting on the sheet's top datum. The sheet's only accent. */}
           <span
             data-profile-datum
             aria-hidden="true"
-            className="absolute -top-px left-0 h-[3.5px] w-24 origin-left bg-[var(--color-brand-deep)] shadow-[0_0_8px_rgba(11,94,215,0.35)]"
+            className="absolute -top-px left-0 h-[3.5px] w-24 origin-left rounded-tl-lg bg-[var(--color-brand-deep)] shadow-[0_0_8px_rgba(11,94,215,0.35)]"
           />
 
           <div className="grid lg:grid-cols-12">
             {/* -- identity zone (balanced left-side spacing) ------------- */}
             <div className="flex items-center justify-center p-6 sm:p-8 lg:col-span-5 lg:p-8 xl:p-10">
-              <ProfileIdentityPanel />
+              <ProfileIdentityPanel profile={formData} />
             </div>
 
             {/* -- working area (clean spacious rhythm) ------ */}
@@ -152,6 +188,7 @@ export default function Profile() {
 
               <form
                 id="profile-form"
+                ref={formRef}
                 onSubmit={handleSubmit}
                 noValidate
                 className="grid gap-x-8 gap-y-5 sm:grid-cols-2 sm:gap-x-8 xl:gap-x-10"
@@ -163,6 +200,7 @@ export default function Profile() {
                     label="Full Name"
                     value={formData.name}
                     onChange={handleChange}
+                    error={errors.name}
                     required
                     autoComplete="name"
                   />
@@ -176,6 +214,7 @@ export default function Profile() {
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
+                    error={errors.email}
                     required
                     autoComplete="email"
                   />
@@ -239,18 +278,6 @@ export default function Profile() {
                       Discard changes
                     </button>
                   )}
-
-                  <p
-                    aria-live="polite"
-                    className="text-[0.8125rem] font-medium text-[var(--color-brand-deep)] empty:hidden"
-                  >
-                    {saveSuccess && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Check size={14} weight="bold" aria-hidden="true" />
-                        Changes saved
-                      </span>
-                    )}
-                  </p>
                 </div>
               </div>
             </section>

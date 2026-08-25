@@ -1,3 +1,4 @@
+import { DASHBOARD_GUTTER } from '@/lib/dashboard/layout'
 import { cn } from '@/lib/cn'
 
 /**
@@ -21,8 +22,9 @@ export default function DashboardPageHeader({
   return (
     <header
       className={cn(
-        'flex shrink-0 flex-col gap-4 border-b border-[var(--tone-line)] px-5 py-5',
-        'sm:flex-row sm:items-end sm:justify-between sm:gap-8 sm:px-7 sm:py-6 lg:px-10 lg:py-7 xl:px-12',
+        'flex shrink-0 flex-col gap-4 border-b border-[var(--tone-line)] py-5',
+        DASHBOARD_GUTTER,
+        'sm:flex-row sm:items-end sm:justify-between sm:gap-8 sm:py-6 lg:py-7',
         className,
       )}
       {...rest}

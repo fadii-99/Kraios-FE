@@ -58,7 +58,7 @@ export default function AuthShell({ eyebrow, title, description, children, width
       <div
         data-auth-card
         className={cn(
-          'relative mx-auto w-full border border-[var(--tone-line-strong)] bg-white',
+          'relative mx-auto w-full rounded-lg border border-[var(--tone-line-strong)] bg-white',
           'p-7 shadow-[0_28px_70px_-50px_rgba(7,20,38,0.45)] sm:p-10 lg:p-12',
           width,
         )}

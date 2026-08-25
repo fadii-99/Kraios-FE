@@ -6,7 +6,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import AppLayout from '@/layouts/AppLayout'
 import DashboardLayout from '@/layouts/DashboardLayout'
-import { DEFAULT_WORKFLOW_SEGMENT } from '@/lib/dashboard/projectWorkflow'
+import { DEFAULT_WORKFLOW_SEGMENT } from '@/lib/dashboard/workflow/projectWorkflow'
 
 /**
  * Route-level code splitting. Only whole pages are lazy — reusable components
@@ -21,8 +21,6 @@ const Signup = lazy(() => import('@/pages/Signup'))
 // Dashboard pages
 const DashboardHome = lazy(() => import('@/pages/dashboard/DashboardHome'))
 const Projects = lazy(() => import('@/pages/dashboard/Projects'))
-const Models = lazy(() => import('@/pages/dashboard/Models'))
-const Estimates = lazy(() => import('@/pages/dashboard/Estimates'))
 const Profile = lazy(() => import('@/pages/dashboard/Profile'))
 const Subscription = lazy(() => import('@/pages/dashboard/Subscription'))
 
@@ -32,6 +30,20 @@ const UploadStep = lazy(() => import('@/pages/dashboard/projects/UploadStep'))
 const RenderingStep = lazy(() => import('@/pages/dashboard/projects/RenderingStep'))
 const BoQStep = lazy(() => import('@/pages/dashboard/projects/BoQStep'))
 const OutputStep = lazy(() => import('@/pages/dashboard/projects/OutputStep'))
+
+// The project-existence guard. Not lazy: it is tiny, and every project route
+// renders it before anything else.
+import RequireProject from '@/pages/dashboard/projects/RequireProject'
+
+// Step 2's full-screen workspace. A page, not a stage — see the route below.
+const DesignAssistantPage = lazy(
+  () => import('@/pages/dashboard/projects/DesignAssistantPage'),
+)
+
+// Step 3's full-screen workspace.
+const BoQAssistantPage = lazy(
+  () => import('@/pages/dashboard/projects/BoQAssistantPage'),
+)
 
 export const router = createBrowserRouter([
   // Public website & authentication routes
@@ -52,8 +64,6 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardHome /> },
       { path: 'projects', element: <Projects /> },
-      { path: 'models', element: <Models /> },
-      { path: 'estimates', element: <Estimates /> },
       { path: 'profile', element: <Profile /> },
       { path: 'subscription', element: <Subscription /> },
 
@@ -62,7 +72,11 @@ export const router = createBrowserRouter([
       // under BoQ, because BoQ will be optional and skippable.
       {
         path: 'projects/:projectId',
-        element: <ProjectWorkspace />,
+        element: (
+          <RequireProject>
+            <ProjectWorkspace />
+          </RequireProject>
+        ),
         children: [
           { index: true, element: <Navigate to={DEFAULT_WORKFLOW_SEGMENT} replace /> },
           { path: 'upload', element: <UploadStep /> },
@@ -71,7 +85,35 @@ export const router = createBrowserRouter([
           { path: 'output', element: <OutputStep /> },
         ],
       },
+
+      // Step 2's Design Assistant — a SIBLING of the workspace, not a child of
+      // it. It is still inside `dashboard`, so it shares `ProjectsProvider` and
+      // therefore the same Step 2 state; but it is outside `ProjectWorkspace`,
+      // so it does not inherit the stepper and the Previous/Next bar it is
+      // meant to replace for the duration of the task. The dashboard shell —
+      // sidebar, mobile nav and page surface — stays: "full screen" here means
+      // the full right-hand workspace, not a second shell or a modal.
+      {
+        path: 'projects/:projectId/rendering/assistant',
+        element: (
+          <RequireProject>
+            <DesignAssistantPage />
+          </RequireProject>
+        ),
+      },
+
+      // Step 3's BoQ Assistant — a SIBLING of the workspace, sharing the full
+      // right-hand workspace.
+      {
+        path: 'projects/:projectId/boq/assistant',
+        element: (
+          <RequireProject>
+            <BoQAssistantPage />
+          </RequireProject>
+        ),
+      },
     ],
   },
 ])
+
 

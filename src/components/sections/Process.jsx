@@ -179,7 +179,7 @@ export default function Process() {
             {/* sticky visual (desktop only) */}
             <div className="hidden lg:col-span-6 lg:block">
               <div className="sticky top-28">
-                <div className="relative aspect-4/3 w-full overflow-hidden bg-elevated">
+                <div className="relative aspect-4/3 w-full overflow-hidden rounded-md bg-elevated">
                   {process.steps.map((step, i) => (
                     <div
                       key={step.number}
@@ -221,7 +221,7 @@ export default function Process() {
                     >
                       {process.steps[active].number}
                     </span>
-                    <span className="label-ui rounded-none bg-navy/70 px-3 py-2 text-white/85 backdrop-blur-sm">
+                    <span className="label-ui rounded-xs bg-navy/70 px-3 py-2 text-white/85 backdrop-blur-sm">
                       {process.steps[active].meta}
                     </span>
                   </div>
@@ -266,7 +266,7 @@ export default function Process() {
                     <span
                       aria-hidden="true"
                       className={cn(
-                        'absolute left-0 top-2 h-3.5 w-3.5 border transition-colors duration-500 lg:hidden',
+                        'absolute left-0 top-2 h-3.5 w-3.5 rounded-xs border transition-colors duration-500 lg:hidden',
                         i === active
                           ? 'border-[var(--tone-accent)] bg-[var(--tone-accent)]'
                           : 'border-[var(--tone-line-strong)] bg-[var(--tone-bg)]',
@@ -305,7 +305,7 @@ export default function Process() {
                     {/* inline visual for tablet / mobile */}
                     <div
                       data-step-media
-                      className="relative mt-8 aspect-4/3 w-full overflow-hidden bg-elevated lg:hidden"
+                      className="relative mt-8 aspect-4/3 w-full overflow-hidden rounded-md bg-elevated lg:hidden"
                     >
                       <img
                         src={step.image.src}
