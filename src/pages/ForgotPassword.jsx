@@ -11,6 +11,7 @@ import { isEmail } from '@/lib/validate'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
+
   const [error, setError] = useState()
   const [touched, setTouched] = useState(false)
   const [status, setStatus] = useState('idle')
@@ -25,6 +26,9 @@ export default function ForgotPassword() {
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    console.log('[ForgotPassword Page] 📝 Form submitted for password reset')
+    console.log('[ForgotPassword Page] 📋 Email entered:', email)
+
     const next = check(email)
     setError(next)
     setTouched(true)
@@ -34,17 +38,20 @@ export default function ForgotPassword() {
      * toast, raised only here — never while the user types.
      */
     if (next) {
+      console.warn('[ForgotPassword Page] ⚠️ Validation failed for email:', email, next)
       inputRef.current?.querySelector('#email')?.focus()
       showErrorToast(next, { id: 'forgot-password-validation' })
       return
     }
 
     setStatus('submitting')
-    // Frontend only — simulated. See PROGRESS.md.
-    await new Promise((r) => setTimeout(r, 900))
+    // Frontend only simulation: No backend forgot-password endpoint exists in the API contract.
+    await new Promise((r) => setTimeout(r, 600))
     setStatus('idle')
     setOpen(true)
   }
+
+
 
   return (
     <>

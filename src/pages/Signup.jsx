@@ -4,15 +4,17 @@ import { CalendarCheck } from '@phosphor-icons/react'
 
 import AuthShell from '@/components/ui/AuthShell'
 import FormInput from '@/components/ui/FormInput'
+import CountryDropdown from '@/components/ui/CountryDropdown'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import Modal from '@/components/ui/Modal'
 import CalendarPicker from '@/components/ui/CalendarPicker'
+import { useAuth } from '@/contexts/AuthContext'
 import { booking } from '@/lib/content'
 import { showErrorToast } from '@/lib/toast'
 import { isEmail } from '@/lib/validate'
 import { cn } from '@/lib/cn'
 
-const formatDate = (d) =>
+const formatDisplayDate = (d) =>
   d?.toLocaleDateString(undefined, {
     weekday: 'long',
     day: 'numeric',
@@ -20,12 +22,20 @@ const formatDate = (d) =>
     year: 'numeric',
   })
 
+const formatDateToBackend = (d) => {
+  if (!d) return ''
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 /**
  * Account signup + session booking in one step: firm details plus a preferred
- * date and time for the platform walkthrough. No password fields by design —
- * credentials are issued once the session is confirmed.
+ * date and time for the platform walkthrough.
  */
 export default function Signup() {
+  const { signup } = useAuth()
   const [values, setValues] = useState({ name: '', firm: '', email: '', country: '' })
   const [date, setDate] = useState(null)
   const [time, setTime] = useState(null)
@@ -41,11 +51,12 @@ export default function Signup() {
     if (!v.firm.trim()) next.firm = 'Enter the name of your firm.'
     if (!v.email.trim()) next.email = 'Enter your email address.'
     else if (!isEmail(v.email)) next.email = 'Enter a valid email address.'
-    if (!v.country.trim()) next.country = 'Enter the country your firm operates from.'
+    if (!v.country.trim()) next.country = 'Select the country your firm operates from.'
     if (!d) next.date = 'Choose a preferred date.'
     if (!t) next.time = 'Choose a preferred time.'
     return next
   }
+
 
   const setField = (key) => (e) => {
     const { value } = e.target
@@ -62,35 +73,71 @@ export default function Signup() {
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    if (status === 'submitting') return
+
+    console.log('[Signup Page] 📝 Signup form submit triggered')
+    console.log('[Signup Page] 📋 Form data:', {
+      ...values,
+      date: date ? formatDateToBackend(date) : null,
+      time,
+    })
+
     const next = validate()
     setErrors(next)
     setTouched({ name: true, firm: true, email: true, country: true, date: true, time: true })
 
     /*
      * Text fields first, then the pickers — and exactly ONE toast, for the
-     * first issue in that order. An empty form has six problems; six
-     * notifications would only bury each other. The next one surfaces on the
-     * next submit, and the invalid fields keep their own border and
-     * `aria-invalid` in the meantime.
+     * first issue in that order.
      */
     const firstField = ['name', 'firm', 'email', 'country'].find((k) => next[k])
     if (firstField) {
+      console.warn('[Signup Page] ⚠️ Validation error on field:', firstField, next[firstField])
       formRef.current?.querySelector(`#${firstField}`)?.focus()
       showErrorToast(next[firstField], { id: 'signup-validation' })
       return
     }
     if (next.date || next.time) {
+      console.warn('[Signup Page] ⚠️ Date/time scheduling incomplete:', next.date || next.time)
       formRef.current?.querySelector('[data-scheduling]')?.scrollIntoView({ block: 'center' })
       showErrorToast(next.date ?? next.time, { id: 'signup-validation' })
       return
     }
 
-    setStatus('submitting')
-    // Frontend only — no backend yet. See PROGRESS.md.
-    await new Promise((r) => setTimeout(r, 900))
-    setStatus('idle')
-    setOpen(true)
+    console.log('[Signup Page] 🚀 Form valid. Dispatching signup API call...')
+    try {
+      setStatus('submitting')
+      const payload = {
+        name: values.name.trim(),
+        firm: values.firm.trim(),
+        email: values.email.trim(),
+        country: values.country.trim(),
+        date: formatDateToBackend(date),
+        time,
+      }
+
+      console.log('[Signup Page] 🌐 Calling AuthContext signup with payload:', payload)
+      const response = await signup(payload)
+      console.log('[Signup Page] ✅ Signup successfully completed! Response:', response)
+
+      setStatus('idle')
+      setOpen(true)
+    } catch (err) {
+      console.error('[Signup Page] ❌ Signup submission failed:', {
+        message: err.message,
+        status: err.status,
+        data: err.data,
+        error: err,
+      })
+      setStatus('idle')
+      showErrorToast(
+        err.message || 'Unable to complete signup request. Please try again.',
+        { id: 'signup-api-error' },
+      )
+    }
   }
+
+
 
   const reset = () => {
     setOpen(false)
@@ -149,11 +196,11 @@ export default function Signup() {
               error={touched.email ? errors.email : undefined}
             />
 
-            <FormInput
+            <CountryDropdown
               id="country"
+              name="country"
               label="Country"
-              autoComplete="country-name"
-              placeholder="United Arab Emirates"
+              placeholder="Select country"
               required
               value={values.country}
               onChange={setField('country')}
@@ -161,6 +208,7 @@ export default function Signup() {
               error={touched.country ? errors.country : undefined}
             />
           </div>
+
 
           <div data-scheduling className="grid gap-10 lg:grid-cols-2 lg:gap-8">
             {/* ---- date ---- */}
@@ -256,7 +304,7 @@ export default function Signup() {
                   <>
                     <span className="label-ui block text-[var(--tone-muted)]">Selected</span>
                     <span className="mt-2 block font-semibold text-[var(--tone-ink)]">
-                      {date ? formatDate(date) : 'No date yet'}
+                      {date ? formatDisplayDate(date) : 'No date yet'}
                       {time ? ` · ${time}` : ''}
                     </span>
                   </>
@@ -306,12 +354,13 @@ export default function Signup() {
               <p className="mt-4 border-t border-[var(--tone-line)] pt-4">
                 <span className="label-ui block text-[var(--tone-muted)]">Booked slot</span>
                 <span className="mt-2 block font-semibold text-[var(--tone-ink)]">
-                  {formatDate(date)} · {time}
+                  {formatDisplayDate(date)} · {time}
                 </span>
               </p>
             )}
           </div>
         </div>
+
 
         <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Link

@@ -1,15 +1,24 @@
+import { tokenStorage } from '@/lib/api/tokenStorage'
+
 /**
- * The signed-in user — the ONE place the dashboard reads identity from.
- *
- * There is no authentication backend yet, so this is a deliberate placeholder:
- * a generic name rather than an invented person, for the same reason
- * `site.email` is `hello@example.com` and not a plausible-looking address.
- *
- * When real auth lands, replace this module's export with the session user and
- * nothing in the UI has to change — no component hardcodes a name.
+ * The signed-in user — identity helper reading from session storage or fallback.
  */
-export const currentUser = {
-  name: 'Usama',
-  role: 'Architect Account',
+function getCurrentUser() {
+  const user = tokenStorage.getUser()
+  if (user) {
+    return {
+      name: user.name || user.full_name || user.email?.split('@')[0] || 'Usama',
+      role: user.role || user.jobTitle || 'Architect Account',
+      email: user.email || '',
+    }
+  }
+  return {
+    name: 'Usama',
+    role: 'Architect Account',
+  }
 }
+
+export const currentUser = getCurrentUser()
+
+
 

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 
@@ -6,21 +7,13 @@ import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader'
 import ProfileIdentityPanel from '@/components/dashboard/ProfileIdentityPanel'
 import FormInput from '@/components/ui/FormInput'
 import PrimaryButton from '@/components/ui/PrimaryButton'
-import { currentUser } from '@/lib/dashboard/currentUser'
+import { useProfile } from '@/contexts/ProfileContext'
 import { DASHBOARD_GUTTER } from '@/lib/dashboard/layout'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { showErrorToast, showSuccessToast } from '@/lib/toast'
 import { isEmail } from '@/lib/validate'
 import { cn } from '@/lib/cn'
-
-const INITIAL_PROFILE = {
-  name: currentUser.name || 'User',
-  email: 'user@kraios.ai',
-  company: 'Studio Kraios Architecture',
-  jobTitle: 'Lead Architect',
-  phone: '+1 (555) 234-5678',
-}
 
 /** Submit order — also the order the one validation toast picks from. */
 const REQUIRED_FIELDS = [
@@ -31,9 +24,9 @@ const REQUIRED_FIELDS = [
 function validateProfile(values) {
   const errors = {}
 
-  if (!values.name.trim()) errors.name = 'Enter your full name.'
+  if (!values.name?.trim()) errors.name = 'Enter your full name.'
 
-  if (!values.email.trim()) errors.email = 'Enter your email address.'
+  if (!values.email?.trim()) errors.email = 'Enter your email address.'
   else if (!isEmail(values.email)) errors.email = 'Enter a valid email address.'
 
   return errors
@@ -49,45 +42,61 @@ export default function Profile() {
   const scope = useRef(null)
   const formRef = useRef(null)
   const reduced = usePrefersReducedMotion()
-  const [formData, setFormData] = useState(INITIAL_PROFILE)
-  const [savedData, setSavedData] = useState(INITIAL_PROFILE)
+
+  const { profile, savedProfile, updateProfile, isSaving } = useProfile()
+  const [formData, setFormData] = useState(profile)
   const [errors, setErrors] = useState({})
 
-  const isDirty = JSON.stringify(formData) !== JSON.stringify(savedData)
+  const isDirty = JSON.stringify(formData) !== JSON.stringify(savedProfile)
+
 
   const handleChange = (event) => {
     const { name, value } = event.target
     setFormData((current) => ({ ...current, [name]: value }))
-    // Clears the field's invalid state as it is corrected. Silently: a toast
-    // per keystroke is exactly what this migration must not produce.
+    // Clears the field's invalid state as it is corrected.
     if (errors[name]) setErrors((current) => ({ ...current, [name]: undefined }))
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
+    console.log('[Profile Page] 📝 Profile form submit triggered')
+    console.log('[Profile Page] 📋 Form data to save:', formData)
 
     const next = validateProfile(formData)
     setErrors(next)
 
-    // One toast for the first problem; the field keeps the border that says
-    // which one. The next issue surfaces on the next submit.
+    // One toast for the first problem
     const firstInvalid = REQUIRED_FIELDS.find(({ key }) => next[key])
     if (firstInvalid) {
+      console.warn('[Profile Page] ⚠️ Validation failed on field:', firstInvalid.key, next[firstInvalid.key])
       formRef.current?.querySelector(`#${firstInvalid.id}`)?.focus()
       showErrorToast(next[firstInvalid.key], { id: 'profile-validation' })
       return
     }
 
-    // Session-memory only — there is no profile backend to fail yet, so this
-    // reports the save that actually happened and claims nothing more.
-    setSavedData(formData)
-    showSuccessToast('Profile updated.', { id: 'profile-saved' })
+    console.log('[Profile Page] 🚀 Form valid. Calling updateProfile from ProfileContext...')
+
+    try {
+      const result = await updateProfile(formData)
+      console.log('[Profile Page] ✅ Profile update completed successfully! Result:', result)
+      showSuccessToast('Profile updated successfully.', { id: 'profile-saved' })
+    } catch (err) {
+      console.error('[Profile Page] ❌ Profile update failed:', {
+        message: err.message,
+        error: err,
+      })
+      showErrorToast(err.message || 'Unable to update profile. Please try again.', {
+        id: 'profile-error',
+      })
+    }
   }
 
   const handleReset = () => {
-    setFormData(savedData)
+    console.log('[Profile Page] ↩️ Discarding changes, restoring saved state.')
+    setFormData(savedProfile)
     setErrors({})
   }
+
 
   useGSAP(
     () => {
@@ -263,6 +272,8 @@ export default function Profile() {
                     form="profile-form"
                     size="default"
                     align="center"
+                    loading={isSaving}
+                    loadingLabel="Saving..."
                     withArrow={false}
                     className="w-full whitespace-nowrap shadow-[0_4px_16px_rgba(11,94,215,0.22)] sm:w-64"
                   >

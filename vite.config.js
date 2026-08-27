@@ -11,4 +11,14 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://bdf7-182-182-224-98.ngrok-free.app',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
 })
+

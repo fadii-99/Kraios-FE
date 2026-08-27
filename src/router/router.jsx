@@ -16,6 +16,7 @@ import { DEFAULT_WORKFLOW_SEGMENT } from '@/lib/dashboard/workflow/projectWorkfl
 const Home = lazy(() => import('@/pages/Home'))
 const Login = lazy(() => import('@/pages/Login'))
 const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'))
+const ResetPassword = lazy(() => import('@/pages/ResetPassword'))
 const Signup = lazy(() => import('@/pages/Signup'))
 
 // Dashboard pages
@@ -53,9 +54,11 @@ export const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'login', element: <Login /> },
       { path: 'forgot-password', element: <ForgotPassword /> },
+      { path: 'reset-password', element: <ResetPassword /> },
       { path: 'signup', element: <Signup /> },
     ],
   },
+
 
   // Logged-in Kraios dashboard routes
   {

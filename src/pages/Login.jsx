@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import AuthShell from '@/components/ui/AuthShell'
 import FormInput from '@/components/ui/FormInput'
 import PrimaryButton from '@/components/ui/PrimaryButton'
+import { useAuth } from '@/contexts/AuthContext'
 import { showErrorToast } from '@/lib/toast'
 import { isEmail } from '@/lib/validate'
 
@@ -25,6 +26,7 @@ function validate(values) {
 
 export default function Login() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [values, setValues] = useState(EMPTY)
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
@@ -47,6 +49,15 @@ export default function Login() {
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    if (status === 'submitting') return
+
+    console.log('[Login Page] 📝 Login form submit triggered')
+
+    console.log('[Login Page] 📋 Form Values (Sanitized):', {
+      email: values.email,
+      password: values.password ? '••••••••' : '(empty)',
+    })
+
     const next = validate(values)
     setErrors(next)
     setTouched({ email: true, password: true })
@@ -54,23 +65,44 @@ export default function Login() {
     /*
      * ONE toast per invalid submit, for the first field in reading order — the
      * field keeps the red border and `aria-invalid` that says which one it is,
-     * so three simultaneous notifications would only bury each other. The next
-     * issue surfaces on the next submit. Validation runs on change and blur as
-     * before; it just never speaks until the user asks to submit.
+     * so three simultaneous notifications would only bury each other.
      */
     const firstInvalid = FIELD_ORDER.find((k) => next[k])
     if (firstInvalid) {
+      console.warn('[Login Page] ⚠️ Validation failed on field:', firstInvalid, next[firstInvalid])
       formRef.current?.querySelector(`#${firstInvalid}`)?.focus()
       showErrorToast(next[firstInvalid], { id: 'login-validation' })
       return
     }
 
+    console.log('[Login Page] 🚀 Validation passed. Dispatching login request to AuthContext...')
     setStatus('submitting')
-    // Frontend only — simulated login. Navigates to dashboard workspace.
-    await new Promise((r) => setTimeout(r, 900))
-    setStatus('idle')
-    navigate('/dashboard')
+
+    try {
+      const result = await login({
+        email: values.email.trim(),
+        password: values.password,
+      })
+
+      console.log('[Login Page] 🎉 Login successful! Payload:', result)
+      console.log('[Login Page] 🧭 Navigating to /dashboard...')
+      setStatus('idle')
+      navigate('/dashboard')
+    } catch (err) {
+      console.error('[Login Page] ❌ Login failed with error:', {
+        message: err.message,
+        status: err.status,
+        data: err.data,
+        error: err,
+      })
+      setStatus('idle')
+      showErrorToast(
+        err.message || 'Unable to log in. Please check your credentials or backend server.',
+        { id: 'login-api-error' },
+      )
+    }
   }
+
 
   return (
     <AuthShell
@@ -78,18 +110,8 @@ export default function Login() {
       title="Login"
       description="Sign in to your Kraios account to pick up a project, refine your 3D model and export your BoQ."
     >
-      {/* Sign-in is frontend-only: there is no credential check to pass or fail,
-          so the page says so rather than letting the button imply an account.
-          Remove this note when a real auth backend is connected. */}
-      <div className="mb-8 rounded-sm border-l-2 border-[var(--tone-accent)] bg-[var(--tone-accent)]/[0.06] px-4 py-3">
-        <p className="label-ui text-[var(--tone-accent)]">Demo Access</p>
-        <p className="mt-1 text-[0.8125rem] leading-relaxed text-[var(--tone-muted)]">
-          Enter any dummy email and password to explore the dashboard UI.
-          Credentials are not checked yet.
-        </p>
-      </div>
-
       <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-8">
+
         <FormInput
           id="email"
           label="Email"
