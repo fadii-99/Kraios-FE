@@ -86,22 +86,22 @@ export default function Login() {
 
       console.log('[Login Page] 🎉 Login successful! Payload:', result)
       console.log('[Login Page] 🧭 Navigating to /dashboard...')
-      setStatus('idle')
       navigate('/dashboard')
     } catch (err) {
       console.error('[Login Page] ❌ Login failed with error:', {
         message: err.message,
         status: err.status,
         data: err.data,
-        error: err,
       })
-      setStatus('idle')
       showErrorToast(
-        err.message || 'Unable to log in. Please check your credentials or backend server.',
-        { id: 'login-api-error' },
+        err.message || 'Unable to sign in. Please try again.',
+        { id: 'login-error' },
       )
+    } finally {
+      setStatus('idle')
     }
   }
+
 
 
   return (

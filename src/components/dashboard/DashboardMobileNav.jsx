@@ -8,6 +8,7 @@ import {
   DASHBOARD_NAV_ITEMS,
   DASHBOARD_SIGN_OUT,
 } from '@/lib/dashboard/dashboardNavigation'
+import { useAuth } from '@/contexts/AuthContext'
 import { site } from '@/lib/content'
 
 /**
@@ -20,6 +21,7 @@ import { site } from '@/lib/content'
  */
 export default function DashboardMobileNav({ onNavigate }) {
   const [open, setOpen] = useState(false)
+  const { logout } = useAuth()
   const location = useLocation()
   const closeRef = useRef(null)
   const toggleRef = useRef(null)
@@ -146,7 +148,10 @@ export default function DashboardMobileNav({ onNavigate }) {
             <div className="shrink-0 border-t border-[var(--tone-line)] pt-2 pb-3">
               <DashboardNavItem
                 item={DASHBOARD_SIGN_OUT}
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false)
+                  logout()
+                }}
                 onNavigate={onNavigate}
               />
             </div>
@@ -156,3 +161,4 @@ export default function DashboardMobileNav({ onNavigate }) {
     </>
   )
 }
+

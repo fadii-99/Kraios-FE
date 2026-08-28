@@ -137,6 +137,7 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await submitSignupRequest(signupData)
+      console.log('MEssage is    .........', response)
       setIsLoading(false)
       return { success: true, data: response }
     } catch (err) {

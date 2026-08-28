@@ -4,6 +4,7 @@ import {
   DASHBOARD_NAV_ITEMS,
   DASHBOARD_SIGN_OUT,
 } from '@/lib/dashboard/dashboardNavigation'
+import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/cn'
 
 /**
@@ -24,6 +25,8 @@ import { cn } from '@/lib/cn'
  * shadow. The rail is part of the shell, not a panel floating on it.
  */
 export default function DashboardSidebar({ className, onNavigate }) {
+  const { logout } = useAuth()
+
   return (
     <aside
       aria-label="Dashboard sidebar"
@@ -59,9 +62,11 @@ export default function DashboardSidebar({ className, onNavigate }) {
       <div className="shrink-0 border-t border-[var(--tone-line)] pt-3 pb-7">
         <DashboardNavItem
           item={DASHBOARD_SIGN_OUT}
+          onClick={logout}
           onNavigate={onNavigate}
         />
       </div>
     </aside>
   )
 }
+

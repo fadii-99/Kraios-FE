@@ -105,8 +105,9 @@ export default function Signup() {
     }
 
     console.log('[Signup Page] 🚀 Form valid. Dispatching signup API call...')
+    setStatus('submitting')
+
     try {
-      setStatus('submitting')
       const payload = {
         name: values.name.trim(),
         firm: values.firm.trim(),
@@ -120,22 +121,22 @@ export default function Signup() {
       const response = await signup(payload)
       console.log('[Signup Page] ✅ Signup successfully completed! Response:', response)
 
-      setStatus('idle')
       setOpen(true)
     } catch (err) {
       console.error('[Signup Page] ❌ Signup submission failed:', {
         message: err.message,
         status: err.status,
         data: err.data,
-        error: err,
       })
-      setStatus('idle')
       showErrorToast(
-        err.message || 'Unable to complete signup request. Please try again.',
-        { id: 'signup-api-error' },
+        err.message || 'Unable to submit your request. Please try again.',
+        { id: 'signup-error' },
       )
+    } finally {
+      setStatus('idle')
     }
   }
+
 
 
 

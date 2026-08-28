@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { apiRequest, API_BASE_URL, AUTH_ENDPOINTS } from '@/lib/api'
+import { apiRequest, API_BASE_URL, AUTH_ENDPOINTS, tokenStorage } from '@/lib/api'
 
 export const ProfileContext = createContext(null)
 
@@ -17,16 +17,15 @@ function getInitialProfile() {
     const saved = localStorage.getItem('kraios_profile')
     if (saved) return JSON.parse(saved)
 
-    const user = localStorage.getItem('kraios_user')
+    const user = tokenStorage.getUser()
     if (user) {
-      const parsedUser = JSON.parse(user)
       return {
         ...DEFAULT_PROFILE,
-        name: parsedUser.name || parsedUser.full_name || DEFAULT_PROFILE.name,
-        email: parsedUser.email || DEFAULT_PROFILE.email,
-        company: parsedUser.company || parsedUser.firm || parsedUser.firm_name || DEFAULT_PROFILE.company,
-        jobTitle: parsedUser.jobTitle || parsedUser.role || DEFAULT_PROFILE.jobTitle,
-        phone: parsedUser.phone || parsedUser.phone_number || DEFAULT_PROFILE.phone,
+        name: user.name || user.full_name || DEFAULT_PROFILE.name,
+        email: user.email || DEFAULT_PROFILE.email,
+        company: user.company || user.firm || user.firm_name || DEFAULT_PROFILE.company,
+        jobTitle: user.jobTitle || user.role || DEFAULT_PROFILE.jobTitle,
+        phone: user.phone || user.phone_number || DEFAULT_PROFILE.phone,
       }
     }
   } catch {
@@ -48,11 +47,12 @@ export function ProfileProvider({ children }) {
    * Fetch current user profile from GET /api/v1/auth/me/
    */
   const fetchProfile = useCallback(async () => {
-    const token = localStorage.getItem('kraios_token')
+    const token = tokenStorage.getAccessToken()
     if (!token) {
       console.log('[ProfileContext] ℹ️ No token found, skipping GET /auth/me/ request')
       return profile
     }
+
 
     setIsLoading(true)
     setError(null)
@@ -93,18 +93,11 @@ export function ProfileProvider({ children }) {
       localStorage.setItem('kraios_profile', JSON.stringify(merged))
 
       // Keep kraios_user in sync
-      try {
-        localStorage.setItem(
-          'kraios_user',
-          JSON.stringify({
-            name: merged.name,
-            email: merged.email,
-            role: merged.jobTitle || 'Architect',
-          }),
-        )
-      } catch {
-        // ignore
-      }
+      tokenStorage.setUser({
+        name: merged.name,
+        email: merged.email,
+        role: merged.jobTitle || 'Architect',
+      })
 
       setIsLoading(false)
       return merged
@@ -128,7 +121,7 @@ export function ProfileProvider({ children }) {
       meEndpoint: AUTH_ENDPOINTS.profile,
     })
 
-    const token = localStorage.getItem('kraios_token')
+    const token = tokenStorage.getAccessToken()
     if (token) {
       apiRequest(AUTH_ENDPOINTS.profile, { method: 'GET' })
         .then((data) => {
@@ -205,17 +198,13 @@ export function ProfileProvider({ children }) {
       // Persist to local storage
       localStorage.setItem('kraios_profile', JSON.stringify(next))
 
-      // Keep user name in sync in kraios_user
-      try {
-        const rawUser = localStorage.getItem('kraios_user')
-        const userObj = rawUser ? JSON.parse(rawUser) : {}
-        userObj.name = next.name
-        userObj.email = next.email
-        userObj.role = next.jobTitle || 'Architect'
-        localStorage.setItem('kraios_user', JSON.stringify(userObj))
-      } catch {
-        // ignore
-      }
+      // Keep user in sync in tokenStorage
+      const userObj = tokenStorage.getUser() || {}
+      userObj.name = next.name
+      userObj.email = next.email
+      userObj.role = next.jobTitle || 'Architect'
+      tokenStorage.setUser(userObj)
+
 
       setIsSaving(false)
       console.log('[ProfileContext] 💾 Profile state and storage updated successfully.')

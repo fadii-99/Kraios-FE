@@ -45,7 +45,7 @@ export default function PrimaryButton({
   as: Tag = 'button',
   children,
   loading = false,
-  loadingLabel = 'Sending',
+  loadingLabel,
   withArrow = true,
   arrowDirection = 'right',
   align = 'between',
@@ -58,12 +58,19 @@ export default function PrimaryButton({
   const isLeftArrow = withArrow && arrowDirection === 'left'
   const isRightArrow = withArrow && arrowDirection === 'right'
 
+  // Accessible label for screen readers during loading state
+  const accessibleLabel =
+    typeof children === 'string'
+      ? children
+      : loadingLabel || 'Loading'
+
   return (
     <Tag
       disabled={Tag === 'button' ? disabled || loading : undefined}
-      aria-busy={loading || undefined}
+      aria-busy={loading ? 'true' : undefined}
+      aria-label={loading ? accessibleLabel : undefined}
       className={cn(
-        'group label-ui inline-flex cursor-pointer items-center rounded-sm',
+        'group label-ui relative inline-flex cursor-pointer items-center rounded-sm',
         SIZES[size] || SIZES.default,
         VARIANTS[variant] || VARIANTS.solid,
         'transition-[background-color,border-color,color,transform] duration-300 ease-[var(--ease-out-expo)]',
@@ -75,29 +82,50 @@ export default function PrimaryButton({
       )}
       {...rest}
     >
-      {isLeftArrow && !loading && (
-        <ArrowLeft
-          size={17}
-          weight="bold"
-          aria-hidden="true"
-          className="transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:-translate-x-1.5"
-        />
-      )}
+      {/* Content wrapper: keeps exact width/height in layout while hidden during loading */}
+      <span
+        className={cn(
+          'inline-flex w-full items-center',
+          align === 'between' ? 'justify-between' : 'justify-center',
+          loading && 'invisible opacity-0 select-none',
+        )}
+        aria-hidden={loading ? 'true' : undefined}
+      >
+        {isLeftArrow && (
+          <ArrowLeft
+            size={17}
+            weight="bold"
+            aria-hidden="true"
+            className="transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:-translate-x-1.5"
+          />
+        )}
 
-      <span>{loading ? loadingLabel : children}</span>
+        <span>{children}</span>
 
-      {loading ? (
-        <CircleNotch size={17} weight="bold" aria-hidden="true" className="animate-spin" />
-      ) : (
-        isRightArrow && (
+        {isRightArrow && (
           <ArrowRight
             size={17}
             weight="bold"
             aria-hidden="true"
             className="transition-transform duration-500 ease-[var(--ease-out-expo)] group-hover:translate-x-1.5"
           />
-        )
+        )}
+      </span>
+
+      {/* Centered clean circular spinner during loading */}
+      {loading && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+        >
+          <CircleNotch
+            size={18}
+            weight="bold"
+            className="animate-spin text-current shrink-0"
+          />
+        </span>
       )}
     </Tag>
   )
 }
+

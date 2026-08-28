@@ -1,8 +1,53 @@
 import { useEffect, useId, useRef, useState, useMemo } from 'react'
 import { CaretDown, Check, MagnifyingGlass, X } from '@phosphor-icons/react'
 
-import { countries } from '@/lib/countries'
+import { countries, filterCountries, normalizeCountrySearchText } from '@/lib/countries'
 import { cn } from '@/lib/cn'
+
+/**
+ * Subtle text highlighter that emphasizes matching query characters.
+ */
+function HighlightMatch({ text, query }) {
+  if (!query || !query.trim()) return text
+  const normText = normalizeCountrySearchText(text)
+  const normQuery = normalizeCountrySearchText(query)
+  if (!normQuery) return text
+
+  const index = normText.indexOf(normQuery)
+  if (index !== -1) {
+    const start = index
+    const end = start + normQuery.length
+    return (
+      <>
+        {text.slice(0, start)}
+        <span className="font-bold text-[var(--tone-ink)] underline decoration-[var(--tone-accent)]/35 underline-offset-2">
+          {text.slice(start, end)}
+        </span>
+        {text.slice(end)}
+      </>
+    )
+  }
+
+  const firstToken = normQuery.split(' ')[0]
+  if (firstToken && firstToken.length > 1) {
+    const tokenIdx = normText.indexOf(firstToken)
+    if (tokenIdx !== -1) {
+      const start = tokenIdx
+      const end = start + firstToken.length
+      return (
+        <>
+          {text.slice(0, start)}
+          <span className="font-bold text-[var(--tone-ink)] underline decoration-[var(--tone-accent)]/35 underline-offset-2">
+            {text.slice(start, end)}
+          </span>
+          {text.slice(end)}
+        </>
+      )
+    }
+  }
+
+  return text
+}
 
 /**
  * Professional KRAIOS Country Dropdown Form Control.
@@ -10,8 +55,9 @@ import { cn } from '@/lib/cn'
  * Adheres strictly to the KRAIOS design system:
  * - Same field height, border, radius (--radius-sm), focus ring, and typography as FormInput
  * - Same popover surface, item hover, checkmark, and shadow language as Dashboard controls
- * - Built-in search filtering for fast alphabetical keyboard/pointer selection
- * - Click-outside dismiss, Escape key handling, and aria accessibility
+ * - Built-in fast, forgiving, normalized search filtering with intelligent ranking and alias support
+ * - Full keyboard navigation (ArrowUp, ArrowDown, Enter, Escape)
+ * - Click-outside dismiss and aria accessibility
  */
 export default function CountryDropdown({
   id: customId,
@@ -33,17 +79,28 @@ export default function CountryDropdown({
 
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [activeIndex, setActiveIndex] = useState(0)
 
   const containerRef = useRef(null)
   const triggerRef = useRef(null)
   const searchInputRef = useRef(null)
+  const listboxRef = useRef(null)
 
-  // Filter countries alphabetically based on user query
+  // Filter and rank countries using normalized matching algorithm
   const filteredCountries = useMemo(() => {
-    if (!search.trim()) return countries
-    const q = search.toLowerCase()
-    return countries.filter((c) => c.toLowerCase().includes(q))
+    return filterCountries(countries, search)
   }, [search])
+
+  const safeActiveIndex = Math.min(activeIndex, Math.max(0, filteredCountries.length - 1))
+
+  // Scroll active item into view during keyboard navigation
+  useEffect(() => {
+    if (!isOpen || !listboxRef.current) return
+    const activeEl = listboxRef.current.children[safeActiveIndex]
+    if (activeEl && typeof activeEl.scrollIntoView === 'function') {
+      activeEl.scrollIntoView({ block: 'nearest' })
+    }
+  }, [safeActiveIndex, isOpen])
 
   // Handle click-outside and keyboard escape
   useEffect(() => {
@@ -57,20 +114,9 @@ export default function CountryDropdown({
       }
     }
 
-    function handleKeyDown(event) {
-      if (event.key === 'Escape') {
-        setIsOpen(false)
-        setSearch('')
-        triggerRef.current?.focus()
-        onBlur?.()
-      }
-    }
-
     document.addEventListener('pointerdown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
     }
   }, [isOpen, onBlur])
 
@@ -80,6 +126,31 @@ export default function CountryDropdown({
       searchInputRef.current?.focus()
     }
   }, [isOpen])
+
+  function handleOpenToggle() {
+    if (disabled) return
+    setIsOpen((prev) => {
+      const next = !prev
+      if (next) {
+        setSearch('')
+        if (value) {
+          const valIdx = countries.indexOf(value)
+          setActiveIndex(valIdx !== -1 ? valIdx : 0)
+        } else {
+          setActiveIndex(0)
+        }
+      } else {
+        setSearch('')
+      }
+      return next
+    })
+  }
+
+  function handleSearchChange(e) {
+    setSearch(e.target.value)
+    setActiveIndex(0)
+  }
+
 
   function handleSelect(country) {
     // Provide a synthetic change event shape compatible with standard form handlers
@@ -97,6 +168,27 @@ export default function CountryDropdown({
       onChange({ target: { name, value: '' } })
     }
     setSearch('')
+  }
+
+  function handleSearchKeyDown(e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex((prev) => (prev < filteredCountries.length - 1 ? prev + 1 : prev))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex((prev) => (prev > 0 ? prev - 1 : 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (filteredCountries.length > 0 && filteredCountries[safeActiveIndex]) {
+        handleSelect(filteredCountries[safeActiveIndex])
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setIsOpen(false)
+      setSearch('')
+      triggerRef.current?.focus()
+      onBlur?.()
+    }
   }
 
   return (
@@ -119,11 +211,7 @@ export default function CountryDropdown({
         id={id}
         type="button"
         disabled={disabled}
-        onClick={() => {
-          if (!disabled) {
-            setIsOpen((prev) => !prev)
-          }
-        }}
+        onClick={handleOpenToggle}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={listboxId}
@@ -196,7 +284,8 @@ export default function CountryDropdown({
               ref={searchInputRef}
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={handleSearchChange}
+              onKeyDown={handleSearchKeyDown}
               placeholder="Search country..."
               className={cn(
                 'w-full rounded-xs border border-[var(--tone-line)] bg-slate-50/80 py-1.5 pl-8 pr-3 text-[0.875rem] text-[var(--tone-ink)]',
@@ -207,6 +296,7 @@ export default function CountryDropdown({
 
           {/* Listbox */}
           <ul
+            ref={listboxRef}
             id={listboxId}
             role="listbox"
             tabIndex={-1}
@@ -214,22 +304,26 @@ export default function CountryDropdown({
             className="max-h-60 overflow-y-auto overscroll-contain py-1"
           >
             {filteredCountries.length > 0 ? (
-              filteredCountries.map((country) => {
+              filteredCountries.map((country, index) => {
                 const isSelected = country === value
+                const isActive = index === safeActiveIndex
                 return (
                   <li
                     key={country}
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => handleSelect(country)}
+                    onMouseEnter={() => setActiveIndex(index)}
                     className={cn(
                       'flex cursor-pointer select-none items-center justify-between rounded-xs px-3.5 py-2.5 text-[0.9375rem] transition-colors',
-                      isSelected
-                        ? 'bg-[var(--tone-accent)]/10 font-bold text-[var(--tone-accent)]'
-                        : 'text-[var(--tone-ink)] hover:bg-[var(--color-light)]',
+                      isSelected && 'bg-[var(--tone-accent)]/10 font-bold text-[var(--tone-accent)]',
+                      isActive && !isSelected && 'bg-[var(--color-light)] text-[var(--tone-ink)]',
+                      !isActive && !isSelected && 'text-[var(--tone-ink)]',
                     )}
                   >
-                    <span className="truncate pr-2">{country}</span>
+                    <span className="truncate pr-2">
+                      <HighlightMatch text={country} query={search} />
+                    </span>
                     {isSelected && (
                       <Check
                         size={15}
@@ -241,8 +335,13 @@ export default function CountryDropdown({
                 )
               })
             ) : (
-              <li className="px-3.5 py-4 text-center text-[0.875rem] text-[var(--tone-muted)]">
-                No country found
+              <li className="px-3.5 py-6 text-center select-none">
+                <p className="text-[0.875rem] font-medium text-[var(--tone-muted)]">
+                  No countries found
+                </p>
+                <p className="mt-1 text-[0.8125rem] text-[var(--tone-muted)]/70">
+                  Try another country name.
+                </p>
               </li>
             )}
           </ul>
@@ -257,3 +356,5 @@ export default function CountryDropdown({
     </div>
   )
 }
+
+
