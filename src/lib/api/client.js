@@ -4,7 +4,7 @@
 import { tokenStorage } from './tokenStorage'
 
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'https://bdf7-182-182-224-98.ngrok-free.app/api/v1'
+  import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
 /**
  * Normalizes Django / DRF / FastAPI error responses into human-readable user messages.
@@ -102,7 +102,6 @@ export async function apiClient(endpoint, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-    'ngrok-skip-browser-warning': 'true',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {}),
   }
