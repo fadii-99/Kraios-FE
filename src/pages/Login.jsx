@@ -51,12 +51,12 @@ export default function Login() {
     e.preventDefault()
     if (status === 'submitting') return
 
-    console.log('[Login Page] 📝 Login form submit triggered')
+    // console.log('[Login Page] 📝 Login form submit triggered')
 
-    console.log('[Login Page] 📋 Form Values (Sanitized):', {
-      email: values.email,
-      password: values.password ? '••••••••' : '(empty)',
-    })
+    // console.log('[Login Page] 📋 Form Values (Sanitized):', {
+    //   email: values.email,
+    //   password: values.password ? '••••••••' : '(empty)',
+    // })
 
     const next = validate(values)
     setErrors(next)
@@ -69,13 +69,13 @@ export default function Login() {
      */
     const firstInvalid = FIELD_ORDER.find((k) => next[k])
     if (firstInvalid) {
-      console.warn('[Login Page] ⚠️ Validation failed on field:', firstInvalid, next[firstInvalid])
+      // console.warn('[Login Page] ⚠️ Validation failed on field:', firstInvalid, next[firstInvalid])
       formRef.current?.querySelector(`#${firstInvalid}`)?.focus()
       showErrorToast(next[firstInvalid], { id: 'login-validation' })
       return
     }
 
-    console.log('[Login Page] 🚀 Validation passed. Dispatching login request to AuthContext...')
+    // console.log('[Login Page] 🚀 Validation passed. Dispatching login request to AuthContext...')
     setStatus('submitting')
 
     try {
@@ -84,15 +84,15 @@ export default function Login() {
         password: values.password,
       })
 
-      console.log('[Login Page] 🎉 Login successful! Payload:', result)
-      console.log('[Login Page] 🧭 Navigating to /dashboard...')
+      // console.log('[Login Page] 🎉 Login successful! Payload:', result)
+      // console.log('[Login Page] 🧭 Navigating to /dashboard...')
       navigate('/dashboard')
     } catch (err) {
-      console.error('[Login Page] ❌ Login failed with error:', {
-        message: err.message,
-        status: err.status,
-        data: err.data,
-      })
+      // console.error('[Login Page] ❌ Login failed with error:', {
+      //   message: err.message,
+      //   status: err.status,
+      //   data: err.data,
+      // })
       showErrorToast(
         err.message || 'Unable to sign in. Please try again.',
         { id: 'login-error' },

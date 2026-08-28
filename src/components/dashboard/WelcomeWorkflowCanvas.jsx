@@ -3,12 +3,19 @@ import { FolderSimple, Plus } from '@phosphor-icons/react'
 
 import Logo from '@/components/ui/Logo'
 import PrimaryButton from '@/components/ui/PrimaryButton'
-import { currentUser } from '@/lib/dashboard/currentUser'
+import { useProfile } from '@/contexts/ProfileContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 /**
  * Clean, Centered, Minimalist Welcome Experience with Rich Architectural Backdrop
  */
 export default function WelcomeWorkflowCanvas({ onCreateProject }) {
+  const { profile } = useProfile()
+  const { user } = useAuth()
+
+  const displayName =
+    profile?.name || user?.name || user?.full_name || user?.email?.split('@')[0] || 'Architect'
+
   return (
     <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto overflow-x-hidden px-6 py-16 sm:px-12 sm:py-24 lg:py-28 xl:py-32">
       {/* Main Centered Content Stack */}
@@ -61,7 +68,7 @@ export default function WelcomeWorkflowCanvas({ onCreateProject }) {
           <h1 data-welcome-heading className="display-app text-center text-[var(--tone-ink)]">
             Welcome,{' '}
             <span className="bg-gradient-to-r from-[var(--color-brand-deep)] to-[var(--color-brand)] bg-clip-text text-transparent">
-              {currentUser.name}
+              {displayName}
             </span>
           </h1>
 

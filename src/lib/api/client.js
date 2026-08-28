@@ -1,10 +1,145 @@
 /**
  * Centralized HTTP client for KRAIOS Backend API requests.
+ * Uses secure HttpOnly cookie authentication and CSRF protection.
  */
-import { tokenStorage } from './tokenStorage'
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || '/api/v1'
+
+let inMemoryCsrfToken = null
+
+/**
+ * Reads the non-HttpOnly CSRF token cookie set by the backend.
+ * @returns {string | null}
+ */
+export function getCsrfToken() {
+  if (typeof document !== 'undefined' && document.cookie) {
+    const cookies = document.cookie.split(';')
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim()
+      if (cookie.startsWith('csrftoken=')) {
+        return decodeURIComponent(cookie.substring('csrftoken='.length))
+      }
+      if (cookie.startsWith('csrf_token=')) {
+        return decodeURIComponent(cookie.substring('csrf_token='.length))
+      }
+      if (cookie.startsWith('XSRF-TOKEN=')) {
+        return decodeURIComponent(cookie.substring('XSRF-TOKEN='.length))
+      }
+    }
+  }
+  return inMemoryCsrfToken
+}
+
+let csrfPromise = null
+
+/**
+ * Ensures a valid CSRF token is present in cookies by calling GET /auth/csrf/.
+ * @param {boolean} [force=false] - Force a fresh CSRF cookie retrieval
+ * @returns {Promise<string | null>}
+ */
+export async function ensureCsrfToken(force = false) {
+  if (!force) {
+    const existing = getCsrfToken()
+    if (existing) return existing
+  }
+
+  if (!csrfPromise) {
+    csrfPromise = (async () => {
+      try {
+        const base = API_BASE_URL.replace(/\/+$/, '')
+        const res = await fetch(`${base}/auth/csrf/`, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+          },
+        })
+
+        if (res.ok) {
+          try {
+            const data = await res.json()
+            if (data && typeof data === 'object') {
+              const token =
+                data.csrfToken ||
+                data.csrf_token ||
+                data.csrf ||
+                data.token ||
+                data.data?.csrfToken ||
+                data.data?.csrf_token
+              if (token && typeof token === 'string') {
+                inMemoryCsrfToken = token
+              }
+            }
+          } catch {
+            // response was not JSON, cookies are still set via Set-Cookie header
+          }
+        }
+      } catch (err) {
+        // network or server error fetching CSRF
+      } finally {
+        csrfPromise = null
+      }
+      return getCsrfToken()
+    })()
+  }
+
+  return csrfPromise
+}
+
+let refreshPromise = null
+
+/**
+ * Attempts to refresh the user session via POST /auth/refresh/.
+ * The backend verifies the HttpOnly refresh token cookie and issues a new access cookie.
+ * @returns {Promise<boolean>}
+ */
+async function refreshSession() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const base = API_BASE_URL.replace(/\/+$/, '')
+      let csrfToken = getCsrfToken()
+      if (!csrfToken) {
+        csrfToken = await ensureCsrfToken(true)
+      }
+
+      const headers = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      }
+      if (csrfToken) {
+        headers['X-CSRFToken'] = csrfToken
+      }
+
+      const response = await fetch(`${base}/auth/refresh/`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers,
+      })
+
+      if (!response.ok) {
+        const err = new Error('Session refresh failed')
+        err.status = response.status
+        throw err
+      }
+
+      return true
+    })().finally(() => {
+      refreshPromise = null
+    })
+  }
+
+  return refreshPromise
+}
+
+/**
+ * Notifies the application that the session has expired and refresh failed.
+ */
+function dispatchAuthExpired() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('kraios:auth-expired'))
+  }
+}
 
 /**
  * Normalizes Django / DRF / FastAPI error responses into human-readable user messages.
@@ -68,7 +203,7 @@ export function parseApiError(response, data) {
     case 401:
       return 'Email or password is incorrect.'
     case 403:
-      return 'You do not have permission to access this resource.'
+      return 'CSRF verification failed or you do not have permission to perform this action.'
     case 404:
       return 'Requested resource not found.'
     case 500:
@@ -82,50 +217,92 @@ export function parseApiError(response, data) {
 }
 
 /**
- * Standard API request wrapper.
+ * Standard API request wrapper with HttpOnly cookie credentials, CSRF protection,
+ * and automatic 401 token refresh retry.
  *
  * @param {string} endpoint - Path relative to API_BASE_URL (e.g. '/auth/login/') or full URL
  * @param {Object} [options]
  * @param {string} [options.method='GET']
  * @param {any} [options.body] - Request body object or string
  * @param {Object} [options.headers] - Additional custom headers
- * @param {boolean} [options.auth=true] - Whether to send Authorization Bearer header if token exists
+ * @param {boolean} [options.skipRefresh=false] - If true, do not attempt token refresh on 401
+ * @param {boolean} [options._retry=false] - Internal flag to prevent infinite refresh loops
  * @returns {Promise<any>}
  */
 export async function apiClient(endpoint, options = {}) {
   const base = API_BASE_URL.replace(/\/+$/, '')
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
   const url = endpoint.startsWith('http') ? endpoint : `${base}${path}`
-
-  const token = options.auth !== false ? tokenStorage.getAccessToken() : null
+  const method = (options.method || 'GET').toUpperCase()
 
   const headers = {
-    'Content-Type': 'application/json',
     Accept: 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {}),
   }
 
+  // Attach Content-Type for JSON payloads if not already set or FormData
+  if (options.body !== undefined && !(options.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  // Attach CSRF token on unsafe/mutating requests (POST, PUT, PATCH, DELETE)
+  const isMutatingMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+  if (isMutatingMethod && !path.includes('/auth/csrf/')) {
+    let csrfToken = getCsrfToken()
+    if (!csrfToken) {
+      csrfToken = await ensureCsrfToken(true)
+    }
+    if (csrfToken && !headers['X-CSRFToken']) {
+      headers['X-CSRFToken'] = csrfToken
+    }
+  }
+
   const fetchOptions = {
-    method: options.method || 'GET',
+    method,
     headers,
+    credentials: 'same-origin',
   }
 
   if (options.body !== undefined) {
     fetchOptions.body =
-      typeof options.body === 'string' ? options.body : JSON.stringify(options.body)
+      typeof options.body === 'string' || options.body instanceof FormData
+        ? options.body
+        : JSON.stringify(options.body)
   }
-
-  console.log(`[API Request] 🚀 ${fetchOptions.method} ${url}`)
 
   let response
   try {
     response = await fetch(url, fetchOptions)
   } catch (netErr) {
-    console.error(`[API Network Error] ❌ ${fetchOptions.method} ${url}:`, netErr)
     const err = new Error('Unable to connect to the server. Please try again.')
     err.isNetworkError = true
     throw err
+  }
+
+  // Automatic 401 Refresh Handling:
+  // Refresh is ONLY attempted when:
+  // 1. Status is 401 (never 403 or other codes)
+  // 2. options.skipRefresh is not true (e.g. not startup /auth/me/ or public checks)
+  // 3. Request is not already a retry
+  // 4. Endpoint is not an auth endpoint (login, refresh, csrf, signup-request)
+  if (response.status === 401) {
+    const isAuthEndpoint =
+      path.includes('/auth/login/') ||
+      path.includes('/auth/refresh/') ||
+      path.includes('/auth/csrf/') ||
+      path.includes('/auth/signup-request/')
+
+    if (!options._retry && !options.skipRefresh && !isAuthEndpoint) {
+      try {
+        await refreshSession()
+        return await apiClient(endpoint, {
+          ...options,
+          _retry: true,
+        })
+      } catch (refreshErr) {
+        dispatchAuthExpired()
+      }
+    }
   }
 
   let data
@@ -144,11 +321,8 @@ export async function apiClient(endpoint, options = {}) {
     }
   }
 
-  console.log(`[API Response] 📥 ${response.status} ${response.statusText} from:`, url)
-
   if (!response.ok) {
     const message = parseApiError(response, data)
-    console.warn(`[API Error] ⚠️ ${response.status} - Normalized Message:`, message)
 
     const error = new Error(message)
     error.status = response.status

@@ -59,8 +59,8 @@ export default function Profile() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    console.log('[Profile Page] 📝 Profile form submit triggered')
-    console.log('[Profile Page] 📋 Form data to save:', formData)
+    // console.log('[Profile Page] 📝 Profile form submit triggered')
+    // console.log('[Profile Page] 📋 Form data to save:', formData)
 
     const next = validateProfile(formData)
     setErrors(next)
@@ -68,23 +68,23 @@ export default function Profile() {
     // One toast for the first problem
     const firstInvalid = REQUIRED_FIELDS.find(({ key }) => next[key])
     if (firstInvalid) {
-      console.warn('[Profile Page] ⚠️ Validation failed on field:', firstInvalid.key, next[firstInvalid.key])
+      // console.warn('[Profile Page] ⚠️ Validation failed on field:', firstInvalid.key, next[firstInvalid.key])
       formRef.current?.querySelector(`#${firstInvalid.id}`)?.focus()
       showErrorToast(next[firstInvalid.key], { id: 'profile-validation' })
       return
     }
 
-    console.log('[Profile Page] 🚀 Form valid. Calling updateProfile from ProfileContext...')
+    // console.log('[Profile Page] 🚀 Form valid. Calling updateProfile from ProfileContext...')
 
     try {
       const result = await updateProfile(formData)
-      console.log('[Profile Page] ✅ Profile update completed successfully! Result:', result)
+      // console.log('[Profile Page] ✅ Profile update completed successfully! Result:', result)
       showSuccessToast('Profile updated successfully.', { id: 'profile-saved' })
     } catch (err) {
-      console.error('[Profile Page] ❌ Profile update failed:', {
-        message: err.message,
-        error: err,
-      })
+      // console.error('[Profile Page] ❌ Profile update failed:', {
+      //   message: err.message,
+      //   error: err,
+      // })
       showErrorToast(err.message || 'Unable to update profile. Please try again.', {
         id: 'profile-error',
       })
@@ -92,7 +92,7 @@ export default function Profile() {
   }
 
   const handleReset = () => {
-    console.log('[Profile Page] ↩️ Discarding changes, restoring saved state.')
+    // console.log('[Profile Page] ↩️ Discarding changes, restoring saved state.')
     setFormData(savedProfile)
     setErrors({})
   }

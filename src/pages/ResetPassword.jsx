@@ -40,8 +40,8 @@ export default function ResetPassword() {
 
   const onSubmit = async (e) => {
     e.preventDefault()
-    console.log('[ResetPassword Page] 📝 Form submitted for password reset')
-    console.log('[ResetPassword Page] 📋 Token:', token ? '[PRESENT]' : '[NONE]')
+    // console.log('[ResetPassword Page] 📝 Form submitted for password reset')
+    // console.log('[ResetPassword Page] 📋 Token:', token ? '[PRESENT]' : '[NONE]')
 
     const next = validate()
     setErrors(next)
@@ -49,13 +49,13 @@ export default function ResetPassword() {
 
     const firstInvalid = ['password', 'confirmPassword'].find((k) => next[k])
     if (firstInvalid) {
-      console.warn('[ResetPassword Page] ⚠️ Validation failed on field:', firstInvalid, next[firstInvalid])
+      // console.warn('[ResetPassword Page] ⚠️ Validation failed on field:', firstInvalid, next[firstInvalid])
       formRef.current?.querySelector(`#${firstInvalid}`)?.focus()
       showErrorToast(next[firstInvalid], { id: 'reset-password-validation' })
       return
     }
 
-    console.log('[ResetPassword Page] 🚀 Form valid. Sending reset request to API...')
+    // console.log('[ResetPassword Page] 🚀 Form valid. Sending reset request to API...')
     setStatus('submitting')
 
     try {
@@ -64,17 +64,17 @@ export default function ResetPassword() {
         body: JSON.stringify({ token, password }),
       })
 
-      console.log('[ResetPassword Page] ✅ Password reset successful! Response:', response)
+      // console.log('[ResetPassword Page] ✅ Password reset successful! Response:', response)
       setStatus('idle')
       setOpen(true)
       showSuccessToast('Password reset successfully!')
     } catch (err) {
-      console.error('[ResetPassword Page] ❌ Password reset failed:', {
-        message: err.message,
-        status: err.status,
-        data: err.data,
-        error: err,
-      })
+      // console.error('[ResetPassword Page] ❌ Password reset failed:', {
+      //   message: err.message,
+      //   status: err.status,
+      //   data: err.data,
+      //   error: err,
+      // })
       setStatus('idle')
       showErrorToast(
         err.message || 'Unable to reset password. The link may have expired or backend is unreachable.',

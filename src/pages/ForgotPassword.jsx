@@ -26,8 +26,8 @@ export default function ForgotPassword() {
 
   const onSubmit = async (e) => {
     e.preventDefault()
-    console.log('[ForgotPassword Page] 📝 Form submitted for password reset')
-    console.log('[ForgotPassword Page] 📋 Email entered:', email)
+    // console.log('[ForgotPassword Page] 📝 Form submitted for password reset')
+    // console.log('[ForgotPassword Page] 📋 Email entered:', email)
 
     const next = check(email)
     setError(next)
@@ -38,7 +38,7 @@ export default function ForgotPassword() {
      * toast, raised only here — never while the user types.
      */
     if (next) {
-      console.warn('[ForgotPassword Page] ⚠️ Validation failed for email:', email, next)
+      // console.warn('[ForgotPassword Page] ⚠️ Validation failed for email:', email, next)
       inputRef.current?.querySelector('#email')?.focus()
       showErrorToast(next, { id: 'forgot-password-validation' })
       return

@@ -75,12 +75,12 @@ export default function Signup() {
     e.preventDefault()
     if (status === 'submitting') return
 
-    console.log('[Signup Page] 📝 Signup form submit triggered')
-    console.log('[Signup Page] 📋 Form data:', {
-      ...values,
-      date: date ? formatDateToBackend(date) : null,
-      time,
-    })
+    // console.log('[Signup Page] 📝 Signup form submit triggered')
+    // console.log('[Signup Page] 📋 Form data:', {
+    //   ...values,
+    //   date: date ? formatDateToBackend(date) : null,
+    //   time,
+    // })
 
     const next = validate()
     setErrors(next)
@@ -92,19 +92,19 @@ export default function Signup() {
      */
     const firstField = ['name', 'firm', 'email', 'country'].find((k) => next[k])
     if (firstField) {
-      console.warn('[Signup Page] ⚠️ Validation error on field:', firstField, next[firstField])
+      // console.warn('[Signup Page] ⚠️ Validation error on field:', firstField, next[firstField])
       formRef.current?.querySelector(`#${firstField}`)?.focus()
       showErrorToast(next[firstField], { id: 'signup-validation' })
       return
     }
     if (next.date || next.time) {
-      console.warn('[Signup Page] ⚠️ Date/time scheduling incomplete:', next.date || next.time)
+      // console.warn('[Signup Page] ⚠️ Date/time scheduling incomplete:', next.date || next.time)
       formRef.current?.querySelector('[data-scheduling]')?.scrollIntoView({ block: 'center' })
       showErrorToast(next.date ?? next.time, { id: 'signup-validation' })
       return
     }
 
-    console.log('[Signup Page] 🚀 Form valid. Dispatching signup API call...')
+    // console.log('[Signup Page] 🚀 Form valid. Dispatching signup API call...')
     setStatus('submitting')
 
     try {
@@ -117,17 +117,17 @@ export default function Signup() {
         time,
       }
 
-      console.log('[Signup Page] 🌐 Calling AuthContext signup with payload:', payload)
+      // console.log('[Signup Page] 🌐 Calling AuthContext signup with payload:', payload)
       const response = await signup(payload)
-      console.log('[Signup Page] ✅ Signup successfully completed! Response:', response)
+      // console.log('[Signup Page] ✅ Signup successfully completed! Response:', response)
 
       setOpen(true)
     } catch (err) {
-      console.error('[Signup Page] ❌ Signup submission failed:', {
-        message: err.message,
-        status: err.status,
-        data: err.data,
-      })
+      // console.error('[Signup Page] ❌ Signup submission failed:', {
+      //   message: err.message,
+      //   status: err.status,
+      //   data: err.data,
+      // })
       showErrorToast(
         err.message || 'Unable to submit your request. Please try again.',
         { id: 'signup-error' },

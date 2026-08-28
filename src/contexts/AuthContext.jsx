@@ -3,65 +3,57 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import {
   tokenStorage,
   loginUser,
+  logoutUser,
   submitSignupRequest,
   getCurrentUser,
-  API_BASE_URL,
+  ensureCsrfToken,
 } from '@/lib/api'
 import { showErrorToast } from '@/lib/toast'
 
 export const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => tokenStorage.getUser())
-  const [token, setToken] = useState(() => tokenStorage.getAccessToken())
+  const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isRestoring, setIsRestoring] = useState(() => Boolean(tokenStorage.getAccessToken()))
+  const [isRestoring, setIsRestoring] = useState(true)
   const [error, setError] = useState(null)
 
-  const isAuthenticated = Boolean(token)
+  const isAuthenticated = Boolean(user)
 
   /**
-   * Session bootstrap on initial application load:
-   * If a stored access token exists, verify it with GET /auth/me/
-   * If 401 Unauthorized, clear session immediately (no refresh endpoint exists).
+   * Session bootstrap on initial application startup:
+   * 1. Fetches CSRF token via GET /api/v1/auth/csrf/
+   * 2. Calls GET /auth/me/ with skipRefresh: true (does not trigger /auth/refresh/ on startup 401)
+   * 3. If response is 200, restores user in React state; if 401, sets user as logged out.
    */
   useEffect(() => {
     let isMounted = true
-    const currentToken = tokenStorage.getAccessToken()
 
-    console.log('[AuthContext] 🔄 Bootstrapping Auth State:', {
-      hasToken: Boolean(currentToken),
-      apiBaseUrl: API_BASE_URL,
-    })
+    async function bootstrap() {
+      // 1. Fetch and initialize CSRF token on app startup
+      try {
+        await ensureCsrfToken(true)
+      } catch (csrfErr) {
+        // ignore CSRF fetch failure on startup
+      }
 
-    if (!currentToken) {
-      return
+      // 2. Check for active session via GET /auth/me/ without attempting refresh
+      try {
+        const userData = await getCurrentUser({ skipRefresh: true })
+        if (!isMounted) return
+        setUser(userData)
+      } catch (err) {
+        if (!isMounted) return
+        setUser(null)
+        tokenStorage.clearAuthTokens()
+      } finally {
+        if (isMounted) {
+          setIsRestoring(false)
+        }
+      }
     }
 
-
-    getCurrentUser(currentToken)
-      .then((userData) => {
-        if (!isMounted) return
-        console.log('[AuthContext] ✅ Session restored successfully:', userData)
-        tokenStorage.setUser(userData)
-        setUser(userData)
-        setToken(currentToken)
-        setIsRestoring(false)
-      })
-      .catch((err) => {
-        if (!isMounted) return
-        console.warn('[AuthContext] ⚠️ Session restore error:', err.message)
-        // If 401 Unauthorized, token is expired or invalid
-        if (err.status === 401) {
-          tokenStorage.clearAuthTokens()
-          setUser(null)
-          setToken(null)
-          showErrorToast('Your session has expired. Please sign in again.', {
-            id: 'session-expired',
-          })
-        }
-        setIsRestoring(false)
-      })
+    bootstrap()
 
     return () => {
       isMounted = false
@@ -69,11 +61,28 @@ export function AuthProvider({ children }) {
   }, [])
 
   /**
+   * Listen for custom auth expiration events from apiClient when refresh fails.
+   */
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setUser(null)
+      tokenStorage.clearAuthTokens()
+      showErrorToast('Your session has expired. Please sign in again.', {
+        id: 'session-expired',
+      })
+    }
+
+    window.addEventListener('kraios:auth-expired', handleAuthExpired)
+    return () => {
+      window.removeEventListener('kraios:auth-expired', handleAuthExpired)
+    }
+  }, [])
+
+  /**
    * Log in user:
-   * 1. POST /auth/login/
-   * 2. Store access & refresh tokens centrally
-   * 3. GET /auth/me/ with Bearer access token
-   * 4. Save and return real user state
+   * 1. Calls GET /auth/csrf/ first, then POST /auth/login/ with email, password, and X-CSRFToken
+   * 2. Backend sets HttpOnly cookies
+   * 3. Calls GET /auth/me/ to load verified user profile into React state
    *
    * @param {Object} credentials - { email, password }
    * @returns {Promise<Object>}
@@ -83,41 +92,28 @@ export function AuthProvider({ children }) {
     setError(null)
 
     try {
-      // 1. Submit login credentials
+      // 1. Submit login credentials (calls CSRF first, sends X-CSRFToken, backend sets cookies)
       const authResult = await loginUser({ email, password })
-      const { accessToken, refreshToken } = authResult
 
-      if (!accessToken) {
-        throw new Error('No access token received from authentication server.')
-      }
-
-      // 2. Centrally persist tokens
-      tokenStorage.setAccessToken(accessToken)
-      if (refreshToken) {
-        tokenStorage.setRefreshToken(refreshToken)
-      }
-      setToken(accessToken)
-
-      // 3. Fetch verified user identity from GET /auth/me/
+      // 2. Fetch full verified user identity from GET /auth/me/
       let verifiedUser = authResult.user
       try {
-        verifiedUser = await getCurrentUser(accessToken)
-        console.log('[AuthContext] ✅ Current user loaded from /auth/me/:', verifiedUser)
+        const meUser = await getCurrentUser()
+        if (meUser) {
+          verifiedUser = meUser
+        }
       } catch (meErr) {
-        console.warn('[AuthContext] ⚠️ Failed to fetch /auth/me/ during login:', meErr.message)
         if (!verifiedUser) {
           verifiedUser = { email, name: email.split('@')[0] }
         }
       }
 
-      // 4. Save verified user in storage and context
-      tokenStorage.setUser(verifiedUser)
+      // 3. Save verified user in React state
       setUser(verifiedUser)
       setIsLoading(false)
 
-      return { success: true, user: verifiedUser, accessToken }
+      return { success: true, user: verifiedUser }
     } catch (err) {
-      console.error('[AuthContext] ❌ Login failed:', err.message)
       setError(err.message)
       setIsLoading(false)
       throw err
@@ -137,11 +133,9 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await submitSignupRequest(signupData)
-      console.log('MEssage is    .........', response)
       setIsLoading(false)
       return { success: true, data: response }
     } catch (err) {
-      console.error('[AuthContext] ❌ Signup request failed:', err.message)
       setError(err.message)
       setIsLoading(false)
       throw err
@@ -149,21 +143,26 @@ export function AuthProvider({ children }) {
   }, [])
 
   /**
-   * Local logout:
-   * Clears stored access token, refresh token, and user session.
-   * (No backend logout endpoint exists).
+   * Log out user:
+   * Calls POST /auth/logout/ to clear backend cookies and clears React auth state.
    */
-  const logout = useCallback(() => {
-    console.log('[AuthContext] 🚪 Performing local logout...')
-    tokenStorage.clearAuthTokens()
-    setUser(null)
-    setToken(null)
-    setError(null)
+  const logout = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      await logoutUser()
+    } catch (err) {
+      // ignore
+    } finally {
+      tokenStorage.clearAuthTokens()
+      setUser(null)
+      setError(null)
+      setIsLoading(false)
+    }
   }, [])
 
   const value = {
     user,
-    token,
+    token: null,
     isAuthenticated,
     isLoading,
     isRestoring,

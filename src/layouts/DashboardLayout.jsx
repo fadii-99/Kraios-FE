@@ -1,11 +1,12 @@
 import { Suspense, useCallback, useEffect, useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar'
 import DashboardMobileNav from '@/components/dashboard/DashboardMobileNav'
 import DashboardPageSurface from '@/components/dashboard/DashboardPageSurface'
 import DiscardProjectModal from '@/components/dashboard/projects/workflow/shared/DiscardProjectModal'
 import PageLoader from '@/components/ui/PageLoader'
 import ProjectsProvider from '@/lib/dashboard/projects/ProjectsProvider'
+import { useAuth } from '@/contexts/AuthContext'
 import { useScrollToTop } from '@/hooks/useScrollToTop'
 import { cn } from '@/lib/cn'
 
@@ -25,6 +26,7 @@ function RouteReady({ onChange }) {
  * Dedicated layout for the authenticated Kraios dashboard (Light Theme).
  *
  * Architecture:
+ * - Auth Guard: Requires active cookie-based session; redirects unauthenticated visitors to /login.
  * - Persistent Left Sidebar (Desktop >= 1024px)
  * - Mobile Navigation Header (< 1024px)
  * - Loading Phase: Centered loader in the right workspace area
@@ -33,6 +35,7 @@ function RouteReady({ onChange }) {
  * - Project Workflow Guard: Shows Discard Project Modal when navigating away from any active project step.
  */
 export default function DashboardLayout() {
+  const { isAuthenticated, isRestoring } = useAuth()
   const [ready, setReady] = useState(false)
   const [discardModalOpen, setDiscardModalOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState(null)
@@ -75,13 +78,20 @@ export default function DashboardLayout() {
   // Ensure route transitions land at top of view
   useScrollToTop()
 
-  /**
-   * EVERY dashboard route renders in this one shell — the Design Assistant
-   * included. Nothing below branches on the route. "Full screen" for that
-   * workspace means the full RIGHT-HAND workspace: the assistant is a sibling
-   * of `ProjectWorkspace` in the router, so it already arrives without the
-   * stepper and the Previous / Next bar, and that is all the room it needs.
-   */
+  // During session restore, display loader
+  if (isRestoring) {
+    return (
+      <div className="flex h-dvh w-full items-center justify-center bg-[var(--color-light)]">
+        <PageLoader label="Loading workspace" />
+      </div>
+    )
+  }
+
+  // If session is unauthenticated, redirect to login
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location }} />
+  }
+
   return (
     <ProjectsProvider>
       <div className="tone-light flex h-dvh max-h-dvh overflow-hidden bg-[var(--color-light)] text-[var(--tone-ink)] antialiased">
