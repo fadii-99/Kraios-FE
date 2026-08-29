@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/api/:path*", "destination": "https://bdf7-182-182-224-98.ngrok-free.app/api/:path*" }, { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }]
 }
