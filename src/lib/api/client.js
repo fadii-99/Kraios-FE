@@ -50,7 +50,7 @@ export async function ensureCsrfToken(force = false) {
         const base = API_BASE_URL.replace(/\/+$/, '')
         const res = await fetch(`${base}/auth/csrf/`, {
           method: 'GET',
-          credentials: 'same-origin',
+          credentials: 'include',
           headers: {
             Accept: 'application/json',
           },
@@ -113,7 +113,7 @@ async function refreshSession() {
 
       const response = await fetch(`${base}/auth/refresh/`, {
         method: 'POST',
-        credentials: 'same-origin',
+        credentials: 'include',
         headers,
       })
 
@@ -260,7 +260,7 @@ export async function apiClient(endpoint, options = {}) {
   const fetchOptions = {
     method,
     headers,
-    credentials: 'same-origin',
+    credentials: 'include',
   }
 
   if (options.body !== undefined) {
