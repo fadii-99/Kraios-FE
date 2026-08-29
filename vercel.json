@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://bdf7-182-182-224-98.ngrok-free.app/api/$1"
+      "destination": "/api/proxy?path=$1"
     },
     {
       "source": "/((?!api/|assets/).*)",
