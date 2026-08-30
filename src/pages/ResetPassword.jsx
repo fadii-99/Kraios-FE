@@ -59,7 +59,7 @@ export default function ResetPassword() {
     setStatus('submitting')
 
     try {
-      const response = await apiRequest(AUTH_ENDPOINTS.resetPassword, {
+      await apiRequest(AUTH_ENDPOINTS.resetPassword, {
         method: 'POST',
         body: JSON.stringify({ token, password }),
       })

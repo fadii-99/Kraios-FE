@@ -43,17 +43,27 @@ export default function AssistantConversation({
   onSelect,
   onApprove,
   onRetry,
+  onViewAngleChange,
   className,
 }) {
   const scrollRef = useRef(null)
   const endRef = useRef(null)
-  /**
-   * Whether to follow new turns. Renders are tall, so a user scrolled up
-   * comparing two of them would otherwise be yanked to the foot the moment a
-   * request settled. Starts true so the first paint lands at the bottom.
-   */
   const followRef = useRef(true)
   const count = state.messages.length
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    const el = scrollRef.current
+    if (el) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      })
+    }
+    endRef.current?.scrollIntoView({
+      block: 'end',
+      behavior: smooth ? 'smooth' : 'auto',
+    })
+  }, [])
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current
@@ -64,13 +74,19 @@ export default function AssistantConversation({
   }, [])
 
   /**
-   * Keyed on the message COUNT, not on the array, so a settings change or an
-   * approval never moves the view — only a new turn does.
+   * Automatically scroll down to the bottom as soon as a new message is posted
+   * or a generation run starts/updates.
    */
   useEffect(() => {
-    if (!followRef.current) return
-    endRef.current?.scrollIntoView({ block: 'end' })
-  }, [count])
+    followRef.current = true
+    scrollToBottom(true)
+
+    const timer = setTimeout(() => {
+      scrollToBottom(true)
+    }, 80)
+
+    return () => clearTimeout(timer)
+  }, [count, busy, scrollToBottom])
 
   if (count === 0) {
     return (
@@ -127,12 +143,13 @@ export default function AssistantConversation({
                 headerActions={
                   result && (
                     <ResultHeaderControls
+                      viewAngleId={result.viewAngleId || state.viewAngleId}
+                      onViewAngleChange={onViewAngleChange}
                       approved={approved}
                       busy={busy}
                       onApprove={() => onApprove(result)}
                       onEdit={() => onEdit(result)}
                     />
-
                   )
                 }
               >

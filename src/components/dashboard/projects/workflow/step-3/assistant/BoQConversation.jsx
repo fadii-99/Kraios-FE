@@ -37,6 +37,20 @@ export default function BoQConversation({
   const messages = state?.messages || []
   const count = messages.length
 
+  const scrollToBottom = useCallback((smooth = true) => {
+    const el = scrollRef.current
+    if (el) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      })
+    }
+    endRef.current?.scrollIntoView({
+      block: 'end',
+      behavior: smooth ? 'smooth' : 'auto',
+    })
+  }, [])
+
   const handleScroll = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
@@ -45,10 +59,20 @@ export default function BoQConversation({
     followRef.current = distanceFromFoot <= FOLLOW_THRESHOLD_PX
   }, [])
 
+  /**
+   * Automatically scroll down to the bottom as soon as a new message is posted
+   * or a generation run starts/updates.
+   */
   useEffect(() => {
-    if (!followRef.current) return
-    endRef.current?.scrollIntoView({ block: 'end' })
-  }, [count])
+    followRef.current = true
+    scrollToBottom(true)
+
+    const timer = setTimeout(() => {
+      scrollToBottom(true)
+    }, 80)
+
+    return () => clearTimeout(timer)
+  }, [count, busy, scrollToBottom])
 
   // Centered empty state when no message has been sent
   if (count === 0) {

@@ -36,3 +36,20 @@ export function toISOTimestamp(value) {
   const date = value instanceof Date ? value : new Date(value)
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
 }
+
+const PROJECT_DATE = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+})
+
+/**
+ * Format project creation date — e.g. "Aug 30, 2026".
+ * @param {number|Date} value epoch ms or Date
+ */
+export function formatProjectDate(value) {
+  if (!value) return ''
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return PROJECT_DATE.format(date)
+}

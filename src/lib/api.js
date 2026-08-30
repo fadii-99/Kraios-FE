@@ -20,3 +20,17 @@ export {
   getCurrentUser,
   fetchCsrfToken,
 } from './api/auth'
+
+export {
+  PROFILE_ENDPOINTS,
+  EDITABLE_PROFILE_FIELDS,
+  VERIFICATION_KEYS,
+  readVerificationId,
+  clearVerificationId,
+  fetchProfile,
+  updateProfile,
+  requestPasswordChange,
+  confirmPasswordChange,
+  requestAccountDeletion,
+  confirmAccountDeletion,
+} from './api/profile'

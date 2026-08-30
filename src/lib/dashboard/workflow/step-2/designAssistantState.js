@@ -114,6 +114,7 @@ export function designAssistantReducer(state, action) {
         role: MESSAGE_ROLES.user,
         kind: MESSAGE_KINDS.text,
         text: action.prompt,
+        canvasSnapshotUrl: action.canvasSnapshotUrl ?? null,
       })
 
       const withPending = withMessage(withUser, {

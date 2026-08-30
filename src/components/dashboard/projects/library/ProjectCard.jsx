@@ -1,19 +1,16 @@
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
-  CheckCircle,
-  ClipboardText,
-  Cube,
+  CalendarBlank,
   Trash,
-  XCircle,
 } from '@phosphor-icons/react'
 import TechnicalIconFrame from '@/components/dashboard/TechnicalIconFrame'
 import Logo from '@/components/ui/Logo'
+import { formatProjectDate } from '@/lib/date'
 import { cn } from '@/lib/cn'
 
-/**
- * High-clarity architectural stage status module with distinct icon color themes.
- */
+/*
+ * High-clarity architectural stage status module (Commented out for now)
 function StageStatusTile({
   icon: Icon,
   label,
@@ -46,7 +43,6 @@ function StageStatusTile({
         className,
       )}
     >
-      {/* Top row: Stage Icon & Title */}
       <div className="flex items-start gap-3">
         <div
           className={cn(
@@ -70,7 +66,6 @@ function StageStatusTile({
         </div>
       </div>
 
-      {/* Bottom: Status Badge */}
       <div className="mt-3.5 border-t border-[var(--tone-line)]/60 pt-2.5">
         {generated ? (
           <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-emerald-700 shadow-xs">
@@ -91,27 +86,28 @@ function StageStatusTile({
     </div>
   )
 }
+*/
 
 /**
  * A project card in the library grid — /dashboard/projects.
  *
  * Premium Architectural Card Layout:
  * - Dynamic setting-out accent line (emerald on complete, blue on active, subtle on initial)
- * - Upper identity: Technical Kraios Logo plate, project ID chip, bold project title, independent Delete action
- * - Middle status: 2-Column modular status tiles with clean generated / not-generated status pills
+ * - Upper identity: Technical Kraios Logo plate, project ID chip + Creation Date, bold project title, independent Delete action
  * - Lower footer: Full-width Open Workspace interactive action with animated arrow badge
  */
 export default function ProjectCard({ project, onDelete, className }) {
-  const { id, name, has3DRender = false, hasBoQ = false } = project
+  const { id, name, createdAt, has3DRender = false, hasBoQ = false } = project
 
   const rendered = Boolean(has3DRender)
   const priced = Boolean(hasBoQ)
   const isFullyReady = rendered && priced
+  const dateFormatted = formatProjectDate(createdAt)
 
   return (
     <article
       className={cn(
-        'group relative flex h-full w-full flex-col rounded-md bg-white',
+        'group relative flex h-full w-full flex-col justify-between rounded-md bg-white',
         'border border-[var(--tone-line)] shadow-[0_2px_14px_rgba(7,20,38,0.04)]',
         'transition-[border-color,transform,box-shadow] duration-300 ease-[var(--ease-out-expo)] motion-reduce:transition-none',
         'hover:-translate-y-1 hover:border-[var(--color-brand-deep)]/45 hover:shadow-[0_14px_36px_rgba(7,20,38,0.08)] motion-reduce:hover:translate-y-0',
@@ -137,17 +133,26 @@ export default function ProjectCard({ project, onDelete, className }) {
       <div className="flex items-start justify-between gap-4 px-6 pt-6 sm:px-8 sm:pt-7">
         <div className="flex items-start gap-4 sm:gap-5">
           <TechnicalIconFrame
-            size={58}
+            size={72}
             interactive
             accent={isFullyReady ? 'var(--color-success)' : 'var(--color-brand-deep)'}
           >
-            <Logo size="compact" imageClassName="h-7 w-7 object-contain" />
+            <Logo size="nav" imageClassName="h-10 w-10 sm:h-11 sm:w-11 object-contain" />
           </TechnicalIconFrame>
 
           <div className="min-w-0">
-            <span className="label-ui inline-flex items-center rounded-xs border border-slate-200 bg-slate-100/90 px-2 py-0.5 text-[0.625rem] font-semibold tracking-[0.14em] text-[var(--tone-muted-dark)]">
-              {id}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="label-ui inline-flex items-center rounded-xs border border-slate-200 bg-slate-100/90 px-2 py-0.5 text-[0.625rem] font-semibold tracking-[0.14em] text-[var(--tone-muted-dark)]">
+                {id}
+              </span>
+
+              {dateFormatted && (
+                <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium text-[var(--tone-muted-dark)]">
+                  <CalendarBlank size={12} weight="bold" className="text-slate-400" />
+                  <span>{dateFormatted}</span>
+                </span>
+              )}
+            </div>
 
             <h3
               className={cn(
@@ -179,7 +184,8 @@ export default function ProjectCard({ project, onDelete, className }) {
         </button>
       </div>
 
-      {/* ── Middle Status Zone: 2-Column High-Clarity Stage Status Modules ── */}
+      {/* ── Middle Status Zone (Commented out for now as requested) ── */}
+      {/*
       <div className="mx-6 mt-6 grid grid-cols-1 gap-3.5 sm:mx-8 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         <StageStatusTile
           icon={Cube}
@@ -196,9 +202,10 @@ export default function ProjectCard({ project, onDelete, className }) {
           generated={priced}
         />
       </div>
+      */}
 
       {/* ── Lower Action: Full-Width Open Project Link ── */}
-      <div className="mt-6 border-t border-[var(--tone-line)]">
+      <div className="mt-8 border-t border-[var(--tone-line)]">
         <Link
           to={`/dashboard/projects/${id}`}
           aria-label={`Open project ${name}`}

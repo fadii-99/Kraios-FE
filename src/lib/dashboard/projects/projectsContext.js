@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext } from 'react'
 
+import { createFloorPlanAssistantState } from '@/lib/dashboard/workflow/step-1/floorPlanAssistantState'
 import { createDesignAssistantState } from '@/lib/dashboard/workflow/step-2/designAssistantState'
 import { createBoqAssistantState } from '@/lib/dashboard/workflow/step-3/boqAssistantState'
 
@@ -48,6 +49,23 @@ export function useFloorPlanSource(projectId) {
   )
 
   return [source, setSource]
+}
+
+/**
+ * One project's 2D Floor Plan Assistant state, as a `[state, dispatch]` pair.
+ */
+export function useFloorPlanAssistant(projectId) {
+  const { floorPlanAssistantStates, dispatchFloorPlanAssistant } = useProjects()
+
+  const state =
+    (projectId && floorPlanAssistantStates?.[projectId]) || FALLBACK_FLOOR_PLAN_ASSISTANT_STATE
+
+  const dispatch = useCallback(
+    (action) => dispatchFloorPlanAssistant?.(projectId, action),
+    [projectId, dispatchFloorPlanAssistant],
+  )
+
+  return [state, dispatch]
 }
 
 /**
@@ -101,6 +119,7 @@ export function useBoqAssistant(projectId) {
  * hooks run, by `RequireProject` at the route boundary, so a made-up project id
  * cannot reach a stage and start writing state against it.
  */
+const FALLBACK_FLOOR_PLAN_ASSISTANT_STATE = Object.freeze(createFloorPlanAssistantState())
 const FALLBACK_ASSISTANT_STATE = Object.freeze(createDesignAssistantState())
 const FALLBACK_BOQ_ASSISTANT_STATE = Object.freeze(createBoqAssistantState())
 

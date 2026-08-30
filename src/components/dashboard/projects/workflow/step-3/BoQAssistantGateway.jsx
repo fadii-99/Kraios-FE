@@ -5,24 +5,25 @@ import {
   Calculator,
   CheckCircle,
   Coins,
+  Cube,
+  Eye,
   Info,
   Ruler,
   StackSimple,
   Table,
+  UploadSimple,
+  X,
 } from '@phosphor-icons/react'
-
-
-
-
 
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 
-import FloorPlanFullscreenModal from '@/components/dashboard/projects/workflow/shared/FloorPlanFullscreenModal'
 import FloorPlanWorkArea from '@/components/dashboard/projects/workflow/shared/FloorPlanWorkArea'
+import FloorPlanFullscreenModal from '@/components/dashboard/projects/workflow/shared/FloorPlanFullscreenModal'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import Logo from '@/components/ui/Logo'
 import { BOQ_COPY } from '@/lib/dashboard/workflow/step-3/boqAssistantConfig'
+import { showSuccessToast } from '@/lib/toast'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { cn } from '@/lib/cn'
 
@@ -45,9 +46,6 @@ const OUTPUT_THEMES = {
   },
 }
 
-
-
-
 /**
  * Step 3 BoQ Assistant Gateway — Redesigned specifically for Bill of Quantities (BoQ)
  *
@@ -55,43 +53,45 @@ const OUTPUT_THEMES = {
  * - Technical squared blueprint grid backdrop with crosshairs & dimension marks
  * - Prominent BoQ identity tile with calculator badge & micro-glitter sparkles
  * - 4 itemized BoQ capability highlight chips
- * - 2D & 3D full-screen lightbox preview buttons
+ * - 3D Floor Plan Upload & Full-page lightbox preview viewer
  * - Simple bottom strip allowing users to skip BoQ to Step 4 Output anytime
  */
 export default function BoQAssistantGateway({
-  source,
-  approvedRender,
   isBoqApproved = false,
   to,
   outputPath,
   className,
 }) {
-
-  const [activePreview, setActivePreview] = useState(null)
-  const [previewOpen, setPreviewOpen] = useState(false)
   const containerRef = useRef(null)
   const logoRef = useRef(null)
+  const fileInputRef = useRef(null)
   const reduced = usePrefersReducedMotion()
 
-  const handleOpen2D = () => {
-    setActivePreview({
-      previewUrl: source?.previewUrl || source?.imageUrl,
-      imageUrl: source?.imageUrl || source?.previewUrl,
-      name: source?.name || '2D Floor Plan Design',
-      extension: source?.extension || '2D Plan',
-    })
-    setPreviewOpen(true)
+  // Starts as null so user sees the dedicated "Upload 3D Plan" button initially
+  const [uploaded3DPlan, setUploaded3DPlan] = useState(null)
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const ext = (file.name.split('.').pop() || 'PNG').toUpperCase()
+    const planObj = {
+      name: file.name,
+      file,
+      imageUrl: URL.createObjectURL(file),
+      previewUrl: URL.createObjectURL(file),
+      extension: ext,
+      size: file.size,
+    }
+
+    setUploaded3DPlan(planObj)
+    showSuccessToast('3D Floor Plan attached successfully.', { id: '3d-plan-upload' })
+    e.target.value = ''
   }
 
-  const handleOpen3D = () => {
-    const imgUrl = approvedRender?.imageUrl || '/assets/plan-3d-light.svg'
-    setActivePreview({
-      previewUrl: imgUrl,
-      imageUrl: imgUrl,
-      name: approvedRender?.title || 'Approved 3D Floor Model',
-      extension: '3D Render',
-    })
-    setPreviewOpen(true)
+  const handleRemoveUploadedPlan = () => {
+    setUploaded3DPlan(null)
   }
 
 
@@ -145,7 +145,7 @@ export default function BoQAssistantGateway({
         },
       )
     },
-    { scope: containerRef, dependencies: [reduced, Boolean(approvedRender)] },
+    { scope: containerRef, dependencies: [reduced] },
   )
 
 
@@ -361,10 +361,10 @@ export default function BoQAssistantGateway({
 
 
 
-          {/* CTA Action Area */}
+          {/* CTA Action Area & 3D Floor Plan Upload Section */}
           <div
             data-gateway-item
-            className="flex w-full shrink-0 flex-col items-center gap-3.5 sm:w-auto md:items-stretch md:pl-2 md:pt-1"
+            className="flex w-full shrink-0 flex-col items-center sm:w-auto md:self-center md:pl-2 space-y-3.5"
           >
             <PrimaryButton
               as={Link}
@@ -381,43 +381,108 @@ export default function BoQAssistantGateway({
               </span>
             </PrimaryButton>
 
-            {/* Plans Section */}
-            <div className="flex w-full flex-col gap-2 pt-2 sm:pt-2.5 border-t border-[var(--tone-line)]/80">
-              <span
-                className="font-display text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-400 text-left px-0.5"
-                style={{ fontFamily: 'var(--font-display)' }}
-              >
-                Plans
-              </span>
+            {/* Hidden File Input for 3D Floor Plan */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileUpload}
+              accept="image/*,.pdf,.gltf,.obj,.fbx"
+              className="hidden"
+            />
 
-              {/* View your 2D design */}
-              <PrimaryButton
-                type="button"
-                onClick={handleOpen2D}
-                variant="outline"
-                size="default"
-                align="center"
-                withArrow={false}
-                className="w-full sm:w-68 whitespace-nowrap"
-              >
-                <span className="whitespace-nowrap">View your 2D design</span>
-              </PrimaryButton>
+            {/* 3D Plan Upload Button or Attached Preview Card */}
+            <div className="w-full sm:w-68">
+              {uploaded3DPlan ? (
+                /* Attached 3D Plan Card with Small Image Preview */
+                <div className="rounded-md border border-[var(--tone-line-strong)] bg-white/95 p-3 shadow-2xs transition-all hover:shadow-xs text-left animate-in fade-in-50 duration-200">
+                  <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Cube size={14} weight="bold" className="text-[var(--color-brand-deep)] shrink-0" />
+                      <span className="text-[0.6875rem] font-bold text-[var(--tone-ink)] truncate" title={uploaded3DPlan.name}>
+                        {uploaded3DPlan.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="inline-flex items-center gap-1 rounded-xs bg-emerald-50 px-1.5 py-0.5 text-[0.5625rem] font-bold text-emerald-700 uppercase tracking-wider border border-emerald-200/60">
+                        <CheckCircle size={10} weight="fill" className="text-emerald-600" />
+                        ATTACHED
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleRemoveUploadedPlan}
+                        title="Remove attached 3D plan"
+                        className="flex h-5 w-5 items-center justify-center rounded-xs text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer transition-colors"
+                      >
+                        <X size={11} weight="bold" />
+                      </button>
+                    </div>
+                  </div>
 
-              {/* Approved 3D plan */}
-              <PrimaryButton
-                type="button"
-                onClick={handleOpen3D}
-                variant="outline"
-                size="default"
-                align="center"
-                withArrow={false}
-                className="w-full sm:w-68 whitespace-nowrap"
-              >
-                <span className="whitespace-nowrap">Approved 3D plan</span>
-              </PrimaryButton>
+                  {/* Proper Small Image Preview Viewport */}
+                  <div
+                    onClick={() => setPreviewModalOpen(true)}
+                    className="relative flex h-24 sm:h-26 w-full cursor-pointer items-center justify-center overflow-hidden rounded-xs bg-slate-50 border border-slate-200/80 p-2 group"
+                  >
+                    <img
+                      src={uploaded3DPlan.previewUrl || uploaded3DPlan.imageUrl || '/assets/plan-3d-light.svg'}
+                      alt={uploaded3DPlan.name}
+                      className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center">
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 shadow-xs rounded-xs px-2.5 py-1 text-[0.6875rem] font-bold text-slate-800 flex items-center gap-1.5">
+                        <Eye size={12} weight="bold" />
+                        <span>View Full Page</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions Row */}
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewModalOpen(true)}
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1 rounded-xs border border-slate-200 bg-slate-50 px-2 py-1.5 text-[0.6875rem] font-bold text-slate-700 shadow-2xs hover:bg-blue-50 hover:border-blue-200 hover:text-[var(--color-brand-deep)] transition-colors cursor-pointer"
+                    >
+                      <Eye size={12} weight="bold" className="shrink-0 text-[var(--color-brand-deep)]" />
+                      <span className="truncate">Full Page View</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 min-w-0 flex items-center justify-center gap-1 rounded-xs border border-slate-200 bg-white px-2 py-1.5 text-[0.6875rem] font-bold text-slate-600 shadow-2xs hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
+                      <UploadSimple size={12} weight="bold" className="shrink-0" />
+                      <span className="truncate">Replace</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Dedicated Upload 3D Plan Button */
+                <div className="flex flex-col items-center gap-1.5 w-full">
+                  <PrimaryButton
+                    variant="outline"
+                    size="default"
+                    align="center"
+                    withArrow={false}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full bg-white hover:bg-blue-50/50 hover:border-[var(--color-brand-deep)] hover:text-[var(--color-brand-deep)] shadow-2xs"
+                  >
+                    <span className="flex items-center justify-center gap-2.5 whitespace-nowrap">
+                      <UploadSimple
+                        size={18}
+                        weight="bold"
+                        className="text-[var(--color-brand-deep)] transition-transform duration-300 ease-[var(--ease-out-expo)] group-hover:-translate-y-0.5 shrink-0"
+                      />
+                      <span>Upload 3D Plan</span>
+                    </span>
+                  </PrimaryButton>
+                  <span className="text-[0.625rem] font-medium text-slate-400">
+                    Supports PNG, JPG, PDF or 3D Model
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-
 
         </div>
 
@@ -467,12 +532,11 @@ export default function BoQAssistantGateway({
         </div>
       </FloorPlanWorkArea>
 
-
-      {/* Reusable Fullscreen Floor Plan / 3D Model Preview Lightbox */}
+      {/* Full Page Viewport Modal Lightbox */}
       <FloorPlanFullscreenModal
-        source={activePreview}
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
+        source={uploaded3DPlan}
+        open={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
       />
     </div>
   )

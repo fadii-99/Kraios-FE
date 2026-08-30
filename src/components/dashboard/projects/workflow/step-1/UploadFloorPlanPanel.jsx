@@ -1,6 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
-import { Blueprint } from '@phosphor-icons/react'
-import FloorPlanSourcePreview from '@/components/dashboard/projects/workflow/step-1/FloorPlanSourcePreview'
+import { useId, useRef, useState } from 'react'
 import FloorPlanWorkArea from '@/components/dashboard/projects/workflow/shared/FloorPlanWorkArea'
 import TechnicalIconFrame from '@/components/dashboard/TechnicalIconFrame'
 import PrimaryButton from '@/components/ui/PrimaryButton'
@@ -15,26 +13,19 @@ import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
 import { cn } from '@/lib/cn'
 
 /**
- * Upload mode's work surface: a drafted dropzone until a file exists, the
- * source preview after.
+ * Upload mode's work surface: a drafted dropzone ready for 2D architectural drawings.
  */
-export default function UploadFloorPlanPanel({ source, onSourceChange, className }) {
+export default function UploadFloorPlanPanel({
+  onSourceChange,
+  onUploadSuccess,
+  className,
+}) {
   const inputId = useId()
   const [dragging, setDragging] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
 
   // dragenter/dragleave fire for every child element the pointer crosses, so
   // the active state is refcounted rather than toggled.
   const dragDepth = useRef(0)
-  const uploadTimerRef = useRef(null)
-
-  useEffect(() => {
-    return () => {
-      if (uploadTimerRef.current) {
-        clearTimeout(uploadTimerRef.current)
-      }
-    }
-  }, [])
 
   const acceptFiles = (fileList) => {
     const files = Array.from(fileList || [])
@@ -52,24 +43,13 @@ export default function UploadFloorPlanPanel({ source, onSourceChange, className
       return
     }
 
-    setIsUploading(true)
-
-    /**
-     * A short beat, not a simulated upload.
-     *
-     * Nothing is uploaded: the browser already holds the file the moment it is
-     * picked, and `createUploadSource` only wraps it. This used to wait 3.5
-     * seconds pretending otherwise, which made the fastest action in the
-     * product the slowest one. The delay is kept — briefly — because the panel
-     * has a real uploading state and flashing through it reads as a glitch.
-     * When a real upload endpoint exists, the wait becomes the request.
-     */
-    if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current)
-    uploadTimerRef.current = setTimeout(() => {
-      setIsUploading(false)
-      onSourceChange(createUploadSource(file))
-      showSuccessToast('Floor plan uploaded.', { id: 'upload-success' })
-    }, 400)
+    const newSource = createUploadSource(file)
+    if (onUploadSuccess) {
+      onUploadSuccess(newSource)
+    } else {
+      onSourceChange?.(newSource)
+      showSuccessToast('Floor plan uploaded successfully.', { id: 'upload-success' })
+    }
   }
 
   const handleInputChange = (event) => {
@@ -98,84 +78,6 @@ export default function UploadFloorPlanPanel({ source, onSourceChange, className
     dragDepth.current = 0
     setDragging(false)
     acceptFiles(event.dataTransfer?.files)
-  }
-
-  const handleRemove = () => {
-    if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current)
-    setIsUploading(false)
-    onSourceChange(null)
-  }
-
-  if (isUploading) {
-    return (
-      <div className={cn('flex flex-1 flex-col', className)}>
-        <FloorPlanWorkArea className="flex min-h-[360px] flex-1 flex-col items-center justify-center p-8 text-center">
-          <div className="relative flex flex-col items-center justify-center gap-4">
-            {/* Website Refresh / Architectural Blueprint Loader (Compact Size: 56x56) */}
-            <svg
-              width="56"
-              height="56"
-              viewBox="0 0 76 76"
-              fill="none"
-              aria-hidden="true"
-              className="relative text-[var(--color-brand-deep)]"
-            >
-              <rect
-                x="6"
-                y="6"
-                width="64"
-                height="64"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                className="plan-draw"
-                style={{ strokeDasharray: 256, strokeDashoffset: 256 }}
-              />
-              <path
-                d="M6 44h20M40 44h30M40 6v38"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeOpacity="0.6"
-                className="plan-draw plan-draw--delay"
-                style={{ strokeDasharray: 120, strokeDashoffset: 120 }}
-              />
-              <path
-                d="M6 74h64"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeOpacity="0.4"
-                className="plan-draw plan-draw--delay2"
-                style={{ strokeDasharray: 64, strokeDashoffset: 64 }}
-              />
-            </svg>
-
-            <div className="flex flex-col items-center gap-1">
-              <p
-                className="text-[0.9375rem] font-bold uppercase tracking-wider text-[var(--tone-ink)]"
-                style={{ fontFamily: 'var(--font-display)' }}
-              >
-                Uploading...
-              </p>
-              <p className="text-[0.75rem] text-[var(--tone-muted-dark)]">
-                Processing 2D architectural drawing
-              </p>
-            </div>
-
-            {/* Micro Progress Bar */}
-            <div className="mt-2 h-1 w-44 overflow-hidden rounded-full bg-[var(--tone-line)]">
-              <div className="h-full w-full origin-left animate-pulse bg-[var(--color-brand-deep)]" />
-            </div>
-          </div>
-        </FloorPlanWorkArea>
-      </div>
-    )
-  }
-
-  if (source) {
-    return (
-      <div className={cn('flex flex-1 flex-col', className)}>
-        <FloorPlanSourcePreview source={source} onRemove={handleRemove} />
-      </div>
-    )
   }
 
   return (

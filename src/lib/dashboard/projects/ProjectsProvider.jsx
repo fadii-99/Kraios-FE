@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ProjectsContext, nextProjectId } from '@/lib/dashboard/projects/projectsContext'
 import { releaseFloorPlanSource } from '@/lib/dashboard/workflow/step-1/floorPlanSource'
 import {
+  createFloorPlanAssistantState,
+  floorPlanAssistantReducer,
+} from '@/lib/dashboard/workflow/step-1/floorPlanAssistantState'
+import {
   createDesignAssistantState,
   designAssistantReducer,
 } from '@/lib/dashboard/workflow/step-2/designAssistantState'
@@ -26,6 +30,11 @@ export default function ProjectsProvider({ children }) {
    */
   const [floorPlanSources, setFloorPlanSources] = useState({})
   const sourcesRef = useRef({})
+
+  /**
+   * Step 1's 2D Floor Plan Assistant state, keyed by project id.
+   */
+  const [floorPlanAssistantStates, setFloorPlanAssistantStates] = useState({})
 
   /**
    * Step 2's Design Assistant state, keyed by project id.
@@ -81,6 +90,19 @@ export default function ProjectsProvider({ children }) {
     (projectId) => (projectId ? floorPlanSources[projectId] ?? null : null),
     [floorPlanSources],
   )
+
+  /** Applies one Floor Plan Assistant action to one project's state. */
+  const dispatchFloorPlanAssistant = useCallback((projectId, action) => {
+    if (!projectId) return
+
+    setFloorPlanAssistantStates((prev) => {
+      const current = prev[projectId] ?? createFloorPlanAssistantState()
+      const next = floorPlanAssistantReducer(current, action)
+
+      if (next === current && prev[projectId]) return prev
+      return { ...prev, [projectId]: next }
+    })
+  }, [])
 
   /** Applies one Design Assistant action to one project's state. */
   const dispatchDesignAssistant = useCallback((projectId, action) => {
@@ -144,6 +166,12 @@ export default function ProjectsProvider({ children }) {
     (id) => {
       setProjects((prev) => prev.filter((p) => p.id !== id))
       setFloorPlanSource(id, null)
+      setFloorPlanAssistantStates((prev) => {
+        if (!prev[id]) return prev
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
       setDesignAssistantStates((prev) => {
         if (!prev[id]) return prev
         const next = { ...prev }
@@ -191,6 +219,8 @@ export default function ProjectsProvider({ children }) {
       floorPlanSources,
       setFloorPlanSource,
       getFloorPlanSource,
+      floorPlanAssistantStates,
+      dispatchFloorPlanAssistant,
       designAssistantStates,
       dispatchDesignAssistant,
       boqAssistantStates,
@@ -204,6 +234,8 @@ export default function ProjectsProvider({ children }) {
       floorPlanSources,
       setFloorPlanSource,
       getFloorPlanSource,
+      floorPlanAssistantStates,
+      dispatchFloorPlanAssistant,
       designAssistantStates,
       dispatchDesignAssistant,
       boqAssistantStates,

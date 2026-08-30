@@ -88,13 +88,12 @@ export default function FinalBoQSection({
           <PrimaryButton
             type="button"
             onClick={handleDownloadCsv}
-            loading={downloading}
-            loadingLabel="Exporting CSV…"
-            variant="outline"
-            size="xs"
+            disabled={downloading}
+            variant="solid"
+            size="sm"
             align="center"
             withArrow={false}
-            className="whitespace-nowrap shadow-2xs"
+            className="w-full sm:w-auto shadow-2xs"
           >
             <span className="flex items-center justify-center gap-1.5">
               <FileCsv size={15} weight="bold" className="text-emerald-600" />

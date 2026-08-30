@@ -20,8 +20,15 @@
  * No component changes.
  */
 
+import { MOCK_FLOOR_PLAN_IMAGE_URL } from '@/lib/dashboard/workflow/step-1/floorPlanAssistantConfig'
+
 /** Whether a generation service is wired up. False until an endpoint exists. */
 export const FLOOR_PLAN_GENERATION_ENABLED = false
+
+/**
+ * FRONTEND MOCK — on, deliberately, and only until the service above exists.
+ */
+export const FLOOR_PLAN_GENERATION_MOCK_ENABLED = true
 
 export const GENERATION_UNAVAILABLE_MESSAGE =
   'Floor plan generation is not connected yet. Your description stays here for this session and will be sent as soon as the Kraios generation service is available.'
@@ -38,18 +45,26 @@ export class FloorPlanGenerationUnavailableError extends Error {
 }
 
 /**
- * Requests one floor plan for `prompt`.
+ * Requests one floor plan generation.
  *
- * @param {string} prompt
- * @returns {Promise<{ previewUrl: string, ownsPreviewUrl?: boolean }>}
+ * @param {object|string} request
+ * @returns {Promise<{ imageUrl: string, previewUrl: string, ownsImageUrl?: boolean, ownsPreviewUrl?: boolean }>}
  */
-export async function requestFloorPlanGeneration(prompt) {
-  if (!FLOOR_PLAN_GENERATION_ENABLED) {
+export async function requestFloorPlanGeneration(request) {
+  if (FLOOR_PLAN_GENERATION_ENABLED) {
+    void request
     throw new FloorPlanGenerationUnavailableError()
   }
 
-  // Real request goes here once the endpoint exists. It must resolve to the
-  // shape above; `prompt` is the only input the composer collects.
-  void prompt
+  if (FLOOR_PLAN_GENERATION_MOCK_ENABLED) {
+    void request
+    return {
+      imageUrl: MOCK_FLOOR_PLAN_IMAGE_URL,
+      previewUrl: MOCK_FLOOR_PLAN_IMAGE_URL,
+      ownsImageUrl: false,
+      ownsPreviewUrl: false,
+    }
+  }
+
   throw new FloorPlanGenerationUnavailableError()
 }

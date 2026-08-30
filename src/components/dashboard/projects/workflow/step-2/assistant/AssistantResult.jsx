@@ -46,7 +46,9 @@ export default function AssistantResult({
 }) {
   const style = renderStyleById(result.renderStyleId)
   const angle = viewAngleById(result.viewAngleId)
-  const description = `${angle.label}, ${style.label}`
+  const angleLabel = angle?.label || 'Isometric 45°'
+  const styleLabel = style?.label || 'SketchUp'
+  const description = `${angleLabel}, ${styleLabel}`
 
   return (
     <figure

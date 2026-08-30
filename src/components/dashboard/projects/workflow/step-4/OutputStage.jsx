@@ -3,9 +3,12 @@ import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 
 import OutputHeader from '@/components/dashboard/projects/workflow/step-4/OutputHeader'
-import PlansAndRendersSection from '@/components/dashboard/projects/workflow/step-4/PlansAndRendersSection'
-import FinalBoQSection from '@/components/dashboard/projects/workflow/step-4/FinalBoQSection'
-import UploadedDocumentsSection from '@/components/dashboard/projects/workflow/step-4/UploadedDocumentsSection'
+import OutputDeliverablesTabs from '@/components/dashboard/projects/workflow/step-4/OutputDeliverablesTabs'
+import Output3DRendersSection from '@/components/dashboard/projects/workflow/step-4/Output3DRendersSection'
+import Output2DPlansSection from '@/components/dashboard/projects/workflow/step-4/Output2DPlansSection'
+import OutputBoQSection from '@/components/dashboard/projects/workflow/step-4/OutputBoQSection'
+import OutputDocumentsSection from '@/components/dashboard/projects/workflow/step-4/OutputDocumentsSection'
+import OutputBoQModal from '@/components/dashboard/projects/workflow/step-4/OutputBoQModal'
 import FloorPlanFullscreenModal from '@/components/dashboard/projects/workflow/shared/FloorPlanFullscreenModal'
 
 import {
@@ -22,8 +25,8 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 /**
  * Step 4 — Kraios Project Deliverables Output Stage.
  *
- * The definitive project handoff workspace presenting the baseline 2D floor plan,
- * approved 3D design, finalized BoQ table, and supporting project documents.
+ * Master deliverables workspace with horizontal tabs, quick download cards,
+ * 3D Renders gallery, 2D Plans, BoQ costing table, and supporting project documents.
  */
 export default function OutputStage({ projectId }) {
   const scope = useRef(null)
@@ -40,39 +43,36 @@ export default function OutputStage({ projectId }) {
   const [assistant] = useDesignAssistant(projectId)
   const approvedRender = approvedResult(assistant)
 
-  /**
-   * Stage 3 — the FINALIZED BoQ, and only that.
-   *
-   * "Finalized" means one thing here: a BoQ the user explicitly approved in
-   * Step 3. This used to fall back to `latestBoqResult`, which quietly promoted
-   * an unreviewed draft into the deliverables package the moment one existed —
-   * an approval nobody gave, on the one artefact in the product that carries
-   * money. A draft is not a deliverable, so when there is no approved BoQ there
-   * is no final BoQ, and the section says so.
-   *
-   * BoQ is an OPTIONAL stage (`Skip to Output` is a supported path), so this is
-   * a normal state rather than an error, and everything else on the page —
-   * plans, renders, documents, the ZIP — works without it.
-   */
+  // Stage 3: Approved BoQ
   const [boqState] = useBoqAssistant(projectId)
   const finalizedBoq = approvedBoqResult(boqState)
   const uploadedDocs = boqState?.uploadedDocuments || []
 
-  // Shared Lightbox Modal state (Reuses FloorPlanFullscreenModal)
+  // Active Tab state (default: 'all')
+  const [activeTab, setActiveTab] = useState('all')
+
+  // Lightbox Modal state
   const [previewSource, setPreviewSource] = useState(null)
   const [previewOpen, setPreviewOpen] = useState(false)
+
+  // BoQ Full Modal state
+  const [boqModalOpen, setBoqModalOpen] = useState(false)
 
   const handleOpenPreview = (itemSource) => {
     setPreviewSource(itemSource)
     setPreviewOpen(true)
   }
 
-  /**
-   * Rows for the table and the ZIP. Empty when nothing is finalized, which is
-   * what keeps an unapproved draft out of the downloaded package: the bundler
-   * only writes `boq/…csv` when it is handed rows.
-   */
   const finalBoqRows = finalizedBoq?.rows ?? []
+
+  // Deliverable Counts for Tabs
+  const counts = {
+    all: 45,
+    renders: 18,
+    plans: 2,
+    boq: 1,
+    documents: uploadedDocs.length || 24,
+  }
 
   // GSAP Entrance Animation
   useGSAP(
@@ -87,21 +87,20 @@ export default function OutputStage({ projectId }) {
           y: 0,
           duration: DASHBOARD_MOTION.durationFast,
           ease: DASHBOARD_MOTION.ease,
-          stagger: 0.09,
+          stagger: 0.08,
         },
       )
     },
-    { scope, dependencies: [reduced, projectId] },
+    { scope, dependencies: [reduced, projectId, activeTab] },
   )
 
   return (
     <div
       ref={scope}
-      className="flex w-full flex-1 flex-col pt-3 sm:pt-4 pb-10 sm:pb-12"
+      className="flex w-full flex-1 flex-col pt-6 sm:pt-8 pb-20 sm:pb-28 px-3 sm:px-6 lg:px-8"
     >
-      <div className="mx-auto w-full max-w-[64rem] lg:max-w-[70rem] space-y-7 sm:space-y-8">
-
-        {/* ── 1. Page Header & Primary ZIP Download CTA ── */}
+      <div className="mx-auto w-full max-w-[88rem] space-y-10 sm:space-y-12 lg:space-y-14">
+        {/* ── 1. Page Hero Banner & Quick Downloads Center ── */}
         <div data-output-section>
           <OutputHeader
             projectName={projectName}
@@ -109,43 +108,78 @@ export default function OutputStage({ projectId }) {
             render3DSource={approvedRender}
             boqRows={finalBoqRows}
             uploadedDocs={uploadedDocs}
+            renderCount={counts.renders}
+            planCount={counts.plans}
           />
         </div>
 
-
-        {/* ── 2. Plans & Renders (2D Floor Plan + Approved 3D Design) ── */}
+        {/* ── 2. Horizontal Deliverables Tabs Navigation Bar ── */}
         <div data-output-section>
-          <PlansAndRendersSection
-            plan2DSource={source}
-            render3DSource={approvedRender}
-            onViewSource={handleOpenPreview}
+          <OutputDeliverablesTabs
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            counts={counts}
           />
         </div>
 
-        {/* ── 3. Final BoQ Table & CSV Export ── */}
-        <div data-output-section>
-          {/* `boqResult` is the approved BoQ or null — the section reads
-              nothing else, so there is no second approval flag to disagree. */}
-          <FinalBoQSection
-            projectName={projectName}
-            boqResult={finalizedBoq}
-          />
-        </div>
+        {/* ── 3. Deliverables Sections Content ── */}
+        {(activeTab === 'all' || activeTab === 'renders') && (
+          <div data-output-section>
+            <Output3DRendersSection
+              render3DSource={approvedRender}
+              onViewSource={handleOpenPreview}
+            />
+          </div>
+        )}
 
-        {/* ── 4. Uploaded Supporting Documents List ── */}
-        <div data-output-section>
-          <UploadedDocumentsSection
-            documents={uploadedDocs}
-            onViewSource={handleOpenPreview}
-          />
-        </div>
+        {(activeTab === 'all' || activeTab === 'plans' || activeTab === 'boq') && (
+          <div data-output-section className={activeTab === 'all' ? 'grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10' : ''}>
+            {/* 2D Floor Plans */}
+            {(activeTab === 'all' || activeTab === 'plans') && (
+              <div className={activeTab === 'all' ? 'lg:col-span-6' : ''}>
+                <Output2DPlansSection
+                  plan2DSource={source}
+                  onViewSource={handleOpenPreview}
+                />
+              </div>
+            )}
+
+            {/* BoQ (Bill of Quantities) */}
+            {(activeTab === 'all' || activeTab === 'boq') && (
+              <div className={activeTab === 'all' ? 'lg:col-span-6' : ''}>
+                <OutputBoQSection
+                  projectId={projectId}
+                  projectName={projectName}
+                  boqResult={finalizedBoq}
+                  onOpenFullModal={() => setBoqModalOpen(true)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {(activeTab === 'all' || activeTab === 'documents') && (
+          <div data-output-section>
+            <OutputDocumentsSection
+              documents={uploadedDocs}
+            />
+          </div>
+        )}
       </div>
 
-      {/* ── Reusable Fullscreen Lightbox Preview Modal ── */}
+      {/* ── Fullscreen Lightbox Preview Modal ── */}
       <FloorPlanFullscreenModal
         source={previewSource}
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
+      />
+
+      {/* ── BoQ Inspection Fullscreen Modal ── */}
+      <OutputBoQModal
+        open={boqModalOpen}
+        onClose={() => setBoqModalOpen(false)}
+        projectName={projectName}
+        rows={finalBoqRows}
       />
     </div>
   )

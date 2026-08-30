@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 
@@ -28,7 +28,6 @@ import {
   requestModelGeneration,
 } from '@/lib/dashboard/workflow/step-2/modelGeneration'
 import { useDesignAssistant, useFloorPlanSource } from '@/lib/dashboard/projects/projectsContext'
-import { showInfoToast, showSuccessToast } from '@/lib/toast'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
@@ -37,6 +36,7 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
  */
 export default function DesignAssistantPage() {
   const { projectId } = useParams()
+  const navigate = useNavigate()
   const [source] = useFloorPlanSource(projectId)
   const [state, dispatch] = useDesignAssistant(projectId)
 
@@ -77,7 +77,7 @@ export default function DesignAssistantPage() {
    * same request, same conversation turns, same result handling.
    */
   const runGeneration = useCallback(
-    async ({ text, viewAngleId, pendingText }) => {
+    async ({ text, viewAngleId, pendingText, canvasSnapshotUrl }) => {
       const instruction = text.trim()
       if (!instruction || inFlightRef.current) return
 
@@ -91,7 +91,12 @@ export default function DesignAssistantPage() {
       const controller = MODEL_GENERATION_SUPPORTS_CANCEL ? new AbortController() : null
       abortRef.current = controller
 
-      dispatch({ type: 'startGeneration', prompt: instruction, pendingText })
+      dispatch({
+        type: 'startGeneration',
+        prompt: instruction,
+        pendingText,
+        canvasSnapshotUrl,
+      })
 
       try {
         const result = await requestModelGeneration({
@@ -110,7 +115,6 @@ export default function DesignAssistantPage() {
           viewAngleId: angleId,
           prompt: instruction,
         })
-        showSuccessToast('3D model generated.')
       } catch (thrown) {
         const message = generationErrorMessage(thrown)
 
@@ -125,12 +129,6 @@ export default function DesignAssistantPage() {
                 pendingText,
               },
         )
-        /*
-         * ONE notification per generation, raised here and only here: the
-         * conversation already carries the failure as a turn with Retry, and
-         * the id keeps a repeated retry from stacking copies of itself.
-         */
-        showInfoToast(message, { id: 'model-generation-notice' })
       } finally {
         inFlightRef.current = false
         abortRef.current = null
@@ -224,12 +222,12 @@ export default function DesignAssistantPage() {
   )
 
   const handleCanvasRegenerate = useCallback(
-    (promptText, targetResult) => {
+    (promptText, targetResult, canvasSnapshotUrl) => {
       setCanvasActive(false)
-      showInfoToast('Applying marked canvas edits to the 3D model.')
       runGeneration({
         text: promptText,
         viewAngleId: targetResult?.viewAngleId,
+        canvasSnapshotUrl,
       })
     },
     [runGeneration],
@@ -255,14 +253,12 @@ export default function DesignAssistantPage() {
     (result) => {
       if (state.approvedResultId === result.id) {
         dispatch({ type: 'disapproveResult' })
-        showInfoToast('3D design approval revoked.')
       } else {
         dispatch({ type: 'approveResult', resultId: result.id })
-        showSuccessToast('3D design approved. Ready for BoQ.')
+        navigate(projectStagePath(projectId, 'rendering'))
       }
-
     },
-    [dispatch, state.approvedResultId],
+    [dispatch, navigate, projectId, state.approvedResultId],
   )
 
 
@@ -323,16 +319,9 @@ export default function DesignAssistantPage() {
       <div data-assistant-header className="relative z-40 shrink-0">
         <AssistantHeader
           backTo={projectStagePath(projectId, 'rendering')}
-          renderStyleId={state.renderStyleId}
-          onRenderStyleChange={(renderStyleId) =>
-            dispatch({ type: 'setRenderStyle', renderStyleId })
-          }
-          viewAngleId={state.viewAngleId}
-          onViewAngleChange={handleViewAngleSelect}
           approved={isApproved(state)}
-          busy={busy}
+          source={source}
         />
-
       </div>
 
       <div data-assistant-body className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -346,6 +335,7 @@ export default function DesignAssistantPage() {
           onSelect={handleSelect}
           onApprove={handleApprove}
           onRetry={handleRetry}
+          onViewAngleChange={handleViewAngleSelect}
           baseResultId={base?.id ?? null}
         />
       </div>
@@ -358,6 +348,10 @@ export default function DesignAssistantPage() {
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           busy={busy}
+          renderStyleId={state.renderStyleId}
+          onRenderStyleChange={(renderStyleId) =>
+            dispatch({ type: 'setRenderStyle', renderStyleId })
+          }
         />
       </div>
 

@@ -2,24 +2,19 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft } from '@phosphor-icons/react'
 
 import ApprovalStatus from '@/components/dashboard/projects/workflow/step-2/ApprovalStatus'
-import RenderStyleDropdown from '@/components/dashboard/projects/workflow/step-2/assistant/RenderStyleDropdown'
-import ViewAngleMenu from '@/components/dashboard/projects/workflow/step-2/assistant/ViewAngleMenu'
+import FloorPlansDropdown from '@/components/dashboard/projects/workflow/step-2/assistant/FloorPlansDropdown'
 import Logo from '@/components/ui/Logo'
 import { RENDERING_COPY } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
 import { cn } from '@/lib/cn'
 
 /**
- * The workspace header: where the user came from, what this is, and the
- * settings the next request will carry.
+ * The workspace header: where the user came from, what this is, attached 2D
+ * floor plans dropdown, and the status of the active design approval.
  */
 export default function AssistantHeader({
   backTo,
-  renderStyleId,
-  onRenderStyleChange,
-  viewAngleId,
-  onViewAngleChange,
   approved,
-  busy,
+  source,
 }) {
   return (
     <header className="relative z-40 shrink-0 border-b border-[var(--tone-line)] bg-white/95 shadow-[0_1px_3px_rgba(7,20,38,0.03)] backdrop-blur-md">
@@ -88,55 +83,18 @@ export default function AssistantHeader({
           </div>
         </div>
 
-        {/* Right Cluster: View Angle Dropdown + Render Style Dropdown + Status Indicator */}
-        <div className="ml-auto flex shrink-0 items-center gap-3 sm:gap-4">
-          {/* View Angle Dropdown (Shifted to Left of Render Style) */}
-          <ViewAngleMenu
-            value={viewAngleId}
-            onSelect={onViewAngleChange}
-            disabled={busy}
-            showLabel
-            className="hidden sm:flex"
-          />
+        {/* Right Cluster: 2D Floor Plans Dropdown + Divider + Status Indicator */}
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3 lg:gap-4">
+          <FloorPlansDropdown source={source} />
 
           <span
             aria-hidden="true"
-            className="hidden h-5 w-px shrink-0 bg-[var(--tone-line)] sm:block"
-          />
-
-          {/* Render Style Dropdown */}
-          <RenderStyleDropdown
-            value={renderStyleId}
-            onChange={onRenderStyleChange}
-            disabled={busy}
-            className="hidden sm:flex"
-          />
-
-          <span
-            aria-hidden="true"
-            className="hidden h-5 w-px shrink-0 bg-[var(--tone-line)] sm:block"
+            className="h-4 w-px shrink-0 bg-[var(--tone-line)]"
           />
 
           <ApprovalStatus approved={approved} showLabel />
         </div>
 
-      </div>
-
-      {/* Second row, below sm: dropdowns on narrow mobile viewports */}
-      <div className="border-t border-[var(--tone-line)] bg-white/95 px-3.5 py-2 sm:hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          <ViewAngleMenu
-            value={viewAngleId}
-            onSelect={onViewAngleChange}
-            disabled={busy}
-            showLabel
-          />
-          <RenderStyleDropdown
-            value={renderStyleId}
-            onChange={onRenderStyleChange}
-            disabled={busy}
-          />
-        </div>
       </div>
     </header>
   )

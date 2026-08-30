@@ -1,11 +1,10 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle, CircleDashed, Sparkle } from '@phosphor-icons/react'
 
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 
-import FloorPlanFullscreenModal from '@/components/dashboard/projects/workflow/shared/FloorPlanFullscreenModal'
 import FloorPlanWorkArea from '@/components/dashboard/projects/workflow/shared/FloorPlanWorkArea'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import Logo from '@/components/ui/Logo'
@@ -16,16 +15,14 @@ import { cn } from '@/lib/cn'
 /**
  * Step 2 Gateway — Grand, high-aesthetic entry point to Kraios Design Assistant.
  * Features prominent Kraios branding, radiant background glows, large display typography,
- * smooth architectural micro-animations, full-screen 2D floor plan preview, and dynamic approved state.
+ * smooth architectural micro-animations, and dynamic approved state.
  */
 export default function DesignAssistantGateway({
-  source,
   to,
   note,
   approved = false,
   className,
 }) {
-  const [previewOpen, setPreviewOpen] = useState(false)
   const noteText = note?.text || RENDERING_COPY.statusPendingNote
   const containerRef = useRef(null)
   const logoRef = useRef(null)
@@ -200,8 +197,7 @@ export default function DesignAssistantGateway({
         />
 
         {/* Main Card Hero Area */}
-        <div className="relative z-10 flex flex-col items-center gap-8 px-6 py-9 text-center sm:px-10 sm:py-12 md:flex-row md:items-start md:gap-10 lg:gap-14 md:px-12 lg:px-14 md:py-12 md:text-left">
-
+        <div className="relative z-10 flex flex-col items-center gap-8 px-6 py-9 text-center sm:px-10 sm:py-12 md:flex-row md:items-center md:gap-10 lg:gap-14 md:px-12 lg:px-14 md:py-12 md:text-left">
 
           {/* Prominent Kraios Logo Tile with ambient glow & micro-glitter */}
           <div data-gateway-item className="relative shrink-0">
@@ -234,8 +230,6 @@ export default function DesignAssistantGateway({
               <Logo size="hero" className="h-full w-full object-contain" />
             </div>
           </div>
-
-
 
           {/* Copy Area */}
           <div data-gateway-item className="min-w-0 flex-1 md:pr-4 lg:pr-6">
@@ -279,8 +273,8 @@ export default function DesignAssistantGateway({
             </p>
           </div>
 
-          {/* CTA Action Stack */}
-          <div data-gateway-item className="flex w-full shrink-0 flex-col items-center gap-3.5 sm:w-auto md:items-stretch md:pl-2">
+          {/* CTA Action Area: Vertically Centered */}
+          <div data-gateway-item className="flex w-full shrink-0 flex-col items-center sm:w-auto md:self-center md:pl-2">
             <PrimaryButton
               as={Link}
               to={to}
@@ -294,32 +288,8 @@ export default function DesignAssistantGateway({
                 <ArrowRight size={17} weight="bold" />
               </span>
             </PrimaryButton>
-
-            {/* Plans Section */}
-            <div className="flex w-full flex-col gap-2 pt-2 sm:pt-2.5 border-t border-[var(--tone-line)]/80">
-              <span
-                className="font-display text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-400 text-left px-0.5"
-                style={{ fontFamily: 'var(--font-display)' }}
-              >
-                Plans
-              </span>
-
-              {/* Outlined Button: View your 2D design */}
-              <PrimaryButton
-                type="button"
-                onClick={() => setPreviewOpen(true)}
-                variant="outline"
-                size="default"
-                align="center"
-                withArrow={false}
-                className="w-full sm:w-68 whitespace-nowrap"
-              >
-                <span className="whitespace-nowrap">View your 2D design</span>
-              </PrimaryButton>
-            </div>
           </div>
         </div>
-
 
         {/* Bottom Status Notice Strip (Green light bg when approved, Red light bg when not approved) */}
         <div
@@ -361,13 +331,6 @@ export default function DesignAssistantGateway({
           </p>
         </div>
       </FloorPlanWorkArea>
-
-      {/* Reusable Fullscreen Floor Plan Preview Lightbox */}
-      <FloorPlanFullscreenModal
-        source={source}
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-      />
     </div>
   )
 }

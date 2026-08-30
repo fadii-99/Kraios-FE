@@ -52,22 +52,16 @@ export const VIEW_ANGLES = [
     description: 'Classic diagonal dollhouse angle',
     prompt: 'Generate an isometric 45° view of the 3D floor model.',
   },
-  {
-    id: 'birds-eye-45',
-    label: 'Bird’s Eye 45°',
-    description: 'High oblique whole-model view',
-    prompt: 'Generate a bird’s eye 45° view of the 3D floor model.',
-  },
 ]
 
-export const DEFAULT_VIEW_ANGLE_ID = VIEW_ANGLES[0].id
+export const DEFAULT_VIEW_ANGLE_ID = null
 
 export function renderStyleById(id) {
   return RENDER_STYLES.find((style) => style.id === id) ?? RENDER_STYLES[0]
 }
 
 export function viewAngleById(id) {
-  return VIEW_ANGLES.find((angle) => angle.id === id) ?? VIEW_ANGLES[0]
+  return VIEW_ANGLES.find((angle) => angle.id === id) || null
 }
 
 /* ---------------------------------------------------------------------------

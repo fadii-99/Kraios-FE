@@ -1,10 +1,13 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import FloorPlanBrief from '@/components/dashboard/projects/workflow/step-1/FloorPlanBrief'
 import FloorPlanModeToggle from '@/components/dashboard/projects/workflow/step-1/FloorPlanModeToggle'
 import GenerateFloorPlanPanel from '@/components/dashboard/projects/workflow/step-1/GenerateFloorPlanPanel'
 import UploadFloorPlanPanel from '@/components/dashboard/projects/workflow/step-1/UploadFloorPlanPanel'
+import PageLoader from '@/components/ui/PageLoader'
+import DashboardBlueprintField from '@/components/ui/DashboardBlueprintField'
 import {
   FLOOR_PLAN_MODES,
   GENERATE_BRIEF,
@@ -14,50 +17,45 @@ import {
   modeForSource,
 } from '@/lib/dashboard/workflow/step-1/floorPlanSource'
 import { useFloorPlanSource } from '@/lib/dashboard/projects/projectsContext'
-import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
+import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { showInfoToast } from '@/lib/toast'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
 /**
  * Step 1 — the 2D floor-plan input workspace.
  *
- * One workspace, two columns: the brief on the left, the live work surface on
- * the right, divided by a single hairline rather than split into two competing
- * cards. 5/12 · 7/12 (≈42% · 58%) from `lg`, stacked below it — at 1024 the
- * workspace has already given up the sidebar's width, and a narrower left rail
- * would start breaking the display heading badly.
- *
- * Everything about which mode is live, and which is unavailable, derives from
- * ONE value — the project's floor-plan source. There is no second boolean to
- * fall out of step with it:
- *
- *   source === null            → both modes open
- *   source.type === 'upload'   → Generate locked until the file is removed
- *   source.type === 'generated'→ Upload locked until the plan is cleared
- *
- * Clicking a locked mode never discards what the user has. It explains itself
- * and leaves the source alone; removal is always deliberate.
+ * Supports independent addressable routes (/upload vs /generate) and full-page
+ * processing loader on upload.
  */
-export default function FloorPlanInputStage({ projectId }) {
+export default function FloorPlanInputStage({ projectId, defaultMode }) {
   const [source, setSource] = useFloorPlanSource(projectId)
-
-  /**
-   * The mode is DERIVED, never mirrored into state: a source always shows in
-   * its own mode — including one restored from the store after stepping away to
-   * 3D Rendering and back — and `chosenMode` only decides which side the user
-   * lands on while nothing is active. Syncing these with an effect would mean a
-   * cascading render and two values that can disagree for one frame.
-   */
-  const [chosenMode, setChosenMode] = useState(FLOOR_PLAN_MODES.upload)
-
-  // The brief survives a trip through Upload mode and comes back with
-  // Regenerate, so it is held here rather than inside the composer.
-  const [prompt, setPrompt] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const processingTimerRef = useRef(null)
 
   const scope = useRef(null)
   const reduced = usePrefersReducedMotion()
 
-  const mode = source ? modeForSource(source) : chosenMode
+  const handleUploadSuccess = (newSource) => {
+    setSource(newSource)
+    setIsProcessing(true)
+
+    if (processingTimerRef.current) clearTimeout(processingTimerRef.current)
+    processingTimerRef.current = setTimeout(() => {
+      navigate(projectStagePath(projectId, 'rendering'))
+    }, 1400)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (processingTimerRef.current) clearTimeout(processingTimerRef.current)
+    }
+  }, [])
+
+  const isGenerateRoute = location.pathname.includes('/generate')
+  const routeMode = isGenerateRoute ? FLOOR_PLAN_MODES.generate : FLOOR_PLAN_MODES.upload
+  const mode = defaultMode || (source ? modeForSource(source) : routeMode)
   const lockedMode = lockedModeForSource(source)
   const isUpload = mode === FLOOR_PLAN_MODES.upload
 
@@ -70,10 +68,10 @@ export default function FloorPlanInputStage({ projectId }) {
       return
     }
 
-    setChosenMode(next)
+    navigate(projectStagePath(projectId, next))
   }
 
-  // Smooth buttery transition when switching mode or source
+  // Smooth transition when switching mode or source
   useGSAP(
     () => {
       if (reduced) return
@@ -103,10 +101,25 @@ export default function FloorPlanInputStage({ projectId }) {
     { scope, dependencies: [reduced, mode, source?.type ?? 'none', source?.addedAt ?? 0] },
   )
 
+  if (isProcessing) {
+    return (
+      <div className="relative flex h-full min-h-[500px] w-full flex-1 flex-col items-center justify-center overflow-hidden bg-white my-auto">
+        <DashboardBlueprintField />
+        <div className="relative z-10 my-auto flex flex-col items-center justify-center">
+          <PageLoader
+            variant="inline"
+            label="GOING TO 3D RENDERING STEP..."
+            className="my-auto"
+          />
+        </div>
+      </div>
+    )
+  }
+
   const brief = isUpload ? UPLOAD_BRIEF : GENERATE_BRIEF
 
   return (
-    <div ref={scope} className="my-auto flex w-full flex-1 flex-col justify-center py-1 sm:py-2">
+    <div ref={scope} className="relative my-auto flex w-full flex-1 flex-col justify-center py-1 sm:py-2">
       <FloorPlanModeToggle
         mode={mode}
         lockedMode={lockedMode}
@@ -131,12 +144,15 @@ export default function FloorPlanInputStage({ projectId }) {
 
         <div className="flex w-full min-w-0 flex-1 flex-col justify-center lg:col-span-7 xl:col-span-7">
           {isUpload ? (
-            <UploadFloorPlanPanel source={source} onSourceChange={setSource} />
+            <UploadFloorPlanPanel
+              source={source}
+              onSourceChange={setSource}
+              onUploadSuccess={handleUploadSuccess}
+            />
           ) : (
             <GenerateFloorPlanPanel
+              projectId={projectId}
               source={source}
-              prompt={prompt}
-              onPromptChange={setPrompt}
               onSourceChange={setSource}
             />
           )}

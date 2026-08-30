@@ -168,34 +168,46 @@ export default function AssistantMessage({ message, busy, onRetry, headerActions
               </div>
             </div>
           ) : (
-            message.text && (
-              <p
-                className={cn(
-                  'flex items-start gap-2 text-[0.8125rem] leading-[1.65] whitespace-pre-wrap',
-                  isUser && 'text-white',
-                  !isUser && isNotice && 'text-[var(--tone-muted-dark)]',
-                  !isUser && !isNotice && 'text-[var(--tone-ink)]',
-                )}
-              >
-                {isFailure && (
-                  <Warning
-                    size={14}
-                    weight="fill"
-                    aria-hidden="true"
-                    className="mt-0.5 shrink-0 text-[var(--color-danger)]"
+            <>
+              {isUser && message.canvasSnapshotUrl && (
+                <div className="mb-2 overflow-hidden rounded-xs border border-white/30 bg-black/20 p-1 shadow-2xs w-fit">
+                  <img
+                    src={message.canvasSnapshotUrl}
+                    alt="Marked plan annotations"
+                    className="h-16 w-24 sm:h-20 sm:w-28 object-contain rounded-xs bg-white/10"
                   />
-                )}
-                {isNotice && !isFailure && (
-                  <Info
-                    size={14}
-                    weight="fill"
-                    aria-hidden="true"
-                    className="mt-0.5 shrink-0 text-[var(--color-brand-deep)]"
-                  />
-                )}
-                <span className="min-w-0">{message.text}</span>
-              </p>
-            )
+                </div>
+              )}
+
+              {message.text && (
+                <p
+                  className={cn(
+                    'flex items-start gap-2 text-[0.8125rem] leading-[1.65] whitespace-pre-wrap',
+                    isUser && 'text-white',
+                    !isUser && isNotice && 'text-[var(--tone-muted-dark)]',
+                    !isUser && !isNotice && 'text-[var(--tone-ink)]',
+                  )}
+                >
+                  {isFailure && (
+                    <Warning
+                      size={14}
+                      weight="fill"
+                      aria-hidden="true"
+                      className="mt-0.5 shrink-0 text-[var(--color-danger)]"
+                    />
+                  )}
+                  {isNotice && !isFailure && (
+                    <Info
+                      size={14}
+                      weight="fill"
+                      aria-hidden="true"
+                      className="mt-0.5 shrink-0 text-[var(--color-brand-deep)]"
+                    />
+                  )}
+                  <span className="min-w-0">{message.text}</span>
+                </p>
+              )}
+            </>
           )}
 
           {retry && onRetry && (

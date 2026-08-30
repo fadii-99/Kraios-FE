@@ -75,7 +75,7 @@ export async function ensureCsrfToken(force = false) {
             // response was not JSON, cookies are still set via Set-Cookie header
           }
         }
-      } catch (err) {
+      } catch {
         // network or server error fetching CSRF
       } finally {
         csrfPromise = null
@@ -273,7 +273,7 @@ export async function apiClient(endpoint, options = {}) {
   let response
   try {
     response = await fetch(url, fetchOptions)
-  } catch (netErr) {
+  } catch {
     const err = new Error('Unable to connect to the server. Please try again.')
     err.isNetworkError = true
     throw err
@@ -299,7 +299,7 @@ export async function apiClient(endpoint, options = {}) {
           ...options,
           _retry: true,
         })
-      } catch (refreshErr) {
+      } catch {
         dispatchAuthExpired()
       }
     }

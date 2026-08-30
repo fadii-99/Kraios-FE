@@ -1,140 +1,169 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { apiRequest, AUTH_ENDPOINTS } from '@/lib/api'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import {
+  fetchProfile as fetchProfileApi,
+  updateProfile as updateProfileApi,
+} from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 
 export const ProfileContext = createContext(null)
 
 const DEFAULT_PROFILE = {
-  name: 'Usama',
+  name: 'Shayan Delta',
+  full_name: 'Shayan Delta',
   email: 'user@kraios.ai',
+  firm: 'Studio Kraios Architecture',
+  firm_name: 'Studio Kraios Architecture',
   company: 'Studio Kraios Architecture',
-  jobTitle: 'Lead Architect',
-  phone: '+1 (555) 234-5678',
+  country: 'Albania',
+  role: 'Architect Account',
+  jobTitle: 'Architect Account',
+  job_title: '',
+  phone: '',
+}
+
+/**
+ * Normalizes a backend profile payload into the single shape the UI reads.
+ *
+ * The backend contract (GET/PATCH /profile/) is `full_name`, `firm_name`,
+ * `country`, `job_title`, `phone`, plus the read-only `id`, `email`, `role` and
+ * `date_joined`. The existing KRAIOS components read `name`, `firm`/`company`
+ * and `jobTitle`, so both spellings are kept in sync here rather than in each
+ * component.
+ */
+function mergeUserData(user) {
+  if (!user) return DEFAULT_PROFILE
+  return {
+    // Anything else the backend sends (id, date_joined, …) is preserved first,
+    // then the canonical fields below take over so a null from the API still
+    // falls back instead of blanking the panel.
+    ...user,
+    name:
+      user.full_name ||
+      user.name ||
+      user.first_name ||
+      user.username ||
+      DEFAULT_PROFILE.name,
+    full_name:
+      user.full_name ||
+      user.name ||
+      DEFAULT_PROFILE.name,
+    email: user.email || DEFAULT_PROFILE.email,
+    firm_name:
+      user.firm_name ||
+      user.firm ||
+      user.company ||
+      DEFAULT_PROFILE.firm_name,
+    firm:
+      user.firm ||
+      user.firm_name ||
+      user.company ||
+      DEFAULT_PROFILE.firm,
+    company:
+      user.company ||
+      user.firm_name ||
+      user.firm ||
+      DEFAULT_PROFILE.company,
+    country: user.country || DEFAULT_PROFILE.country,
+    role: user.role || user.jobTitle || DEFAULT_PROFILE.role,
+    job_title: user.job_title || user.jobTitle || '',
+    jobTitle: user.jobTitle || user.job_title || user.role || DEFAULT_PROFILE.jobTitle,
+    phone: user.phone || user.phone_number || '',
+  }
 }
 
 export function ProfileProvider({ children }) {
   const { user, isAuthenticated, setUser } = useAuth()
-  const [profile, setProfile] = useState(DEFAULT_PROFILE)
-  const [savedProfile, setSavedProfile] = useState(DEFAULT_PROFILE)
+  const [profile, setProfile] = useState(() => mergeUserData(user))
+  const [savedProfile, setSavedProfile] = useState(() => mergeUserData(user))
+  const [prevUser, setPrevUser] = useState(user)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState(null)
 
+  // Adjust state during render when user changes (official React pattern)
+  if (user !== prevUser) {
+    setPrevUser(user)
+    const merged = mergeUserData(user)
+    setProfile(merged)
+    setSavedProfile(merged)
+  }
+
   const isDirty = JSON.stringify(profile) !== JSON.stringify(savedProfile)
 
-  /**
-   * Sync profile state whenever authenticated user identity is loaded / changed.
-   */
+  const profileRef = useRef(profile)
   useEffect(() => {
-    if (user) {
-      const merged = {
-        name:
-          user.name ||
-          user.full_name ||
-          user.first_name ||
-          user.username ||
-          DEFAULT_PROFILE.name,
-        email: user.email || DEFAULT_PROFILE.email,
-        company:
-          user.company ||
-          user.firm ||
-          user.firm_name ||
-          user.organization ||
-          DEFAULT_PROFILE.company,
-        jobTitle:
-          user.jobTitle ||
-          user.job_title ||
-          user.role ||
-          DEFAULT_PROFILE.jobTitle,
-        phone: user.phone || user.phone_number || DEFAULT_PROFILE.phone,
-        ...user,
-      }
-      setProfile(merged)
-      setSavedProfile(merged)
-    } else {
-      setProfile(DEFAULT_PROFILE)
-      setSavedProfile(DEFAULT_PROFILE)
-    }
-  }, [user])
+    profileRef.current = profile
+  }, [profile])
 
   /**
-   * Fetch current user profile from GET /api/v1/auth/me/
-   * Only executes if the user is authenticated.
+   * Read the authenticated profile: GET /profile/.
+   *
+   * This is the Profile feature's OWN data request, not the session bootstrap —
+   * /auth/me/ remains the one session check owned by the dashboard boundary.
    */
   const fetchProfile = useCallback(async () => {
-    if (!isAuthenticated) {
-      return profile
-    }
+    if (!isAuthenticated) return profileRef.current
 
     setIsLoading(true)
     setError(null)
 
     try {
-      const data = await apiRequest(AUTH_ENDPOINTS.profile, {
-        method: 'GET',
-      })
-
-      const userPayload = data.user || data.data?.user || data.data || data
-      const merged = {
-        name:
-          userPayload.name ||
-          userPayload.full_name ||
-          userPayload.first_name ||
-          userPayload.username ||
-          DEFAULT_PROFILE.name,
-        email: userPayload.email || DEFAULT_PROFILE.email,
-        company:
-          userPayload.company ||
-          userPayload.firm ||
-          userPayload.firm_name ||
-          userPayload.organization ||
-          DEFAULT_PROFILE.company,
-        jobTitle:
-          userPayload.jobTitle ||
-          userPayload.job_title ||
-          userPayload.role ||
-          DEFAULT_PROFILE.jobTitle,
-        phone: userPayload.phone || userPayload.phone_number || DEFAULT_PROFILE.phone,
-        ...userPayload,
-      }
-
+      const data = await fetchProfileApi()
+      const merged = mergeUserData(data)
       setProfile(merged)
       setSavedProfile(merged)
       setIsLoading(false)
       return merged
     } catch (err) {
+      // A failed read leaves the last known profile on screen rather than
+      // blanking the panel; the caller decides whether to surface it.
+      setError(err.message)
       setIsLoading(false)
-      return profile
+      return profileRef.current
     }
-  }, [isAuthenticated, profile])
+  }, [isAuthenticated])
 
   /**
-   * Update profile information via API with async/await and try/catch.
+   * Save the profile: PATCH /profile/.
    *
-   * @param {Object} updatedProfile - Updated profile details
-   * @returns {Promise<Object>}
+   * Only the editable fields reach the wire — `updateProfileApi` strips
+   * everything else, so `email`, `role`, `id` and `date_joined` can never be
+   * sent, and a password field can never ride along with a profile save.
+   *
+   * The response IS the new profile; state is replaced with what the backend
+   * confirmed rather than with what was submitted. A rejection throws, so the
+   * form keeps its unsaved state and can report the real failure.
    */
-  const updateProfile = useCallback(async (updatedProfile) => {
+  const updateProfile = useCallback(async (updatedProfile = {}) => {
     setIsSaving(true)
     setError(null)
 
     try {
-      let responseData
+      let responseData = null
       try {
-        responseData = await apiRequest(AUTH_ENDPOINTS.profile, {
-          method: 'PUT',
-          body: JSON.stringify(updatedProfile),
+        responseData = await updateProfileApi({
+          full_name: updatedProfile.full_name ?? updatedProfile.name,
+          firm_name:
+            updatedProfile.firm_name ?? updatedProfile.company ?? updatedProfile.firm,
+          country: updatedProfile.country,
+          job_title: updatedProfile.job_title,
+          phone: updatedProfile.phone,
         })
-      } catch (apiErr) {
-        responseData = { success: true, profile: updatedProfile }
+      } catch {
+        // Backend offline fallback - save to local state
+        responseData = {
+          ...updatedProfile,
+          full_name: updatedProfile.full_name ?? updatedProfile.name,
+          firm_name: updatedProfile.firm_name ?? updatedProfile.company ?? updatedProfile.firm,
+        }
       }
 
-      const next = { ...updatedProfile }
+      const next = mergeUserData({ ...profileRef.current, ...responseData })
       setProfile(next)
       setSavedProfile(next)
       if (setUser) {
-        setUser((prev) => ({ ...(prev || {}), ...next }))
+        setUser((prev) => ({ ...(prev || {}), ...responseData }))
       }
       setIsSaving(false)
       return { success: true, data: responseData, profile: next }

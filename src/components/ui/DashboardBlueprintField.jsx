@@ -28,27 +28,18 @@ export default function DashboardBlueprintField({ className }) {
         <defs>
           {/* Fine square drafting grid — matched to Step 2 Design Assistant opacity */}
           <pattern id="dbpSquareGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M40 0H0V40" stroke="#1677FF" strokeOpacity="0.14" strokeWidth="1" />
+            <path d="M40 0H0V40" stroke="#1677FF" strokeOpacity="0.12" strokeWidth="1" />
           </pattern>
 
           {/* Dot matrix intersections — matched to Step 2 Design Assistant opacity */}
           <pattern id="dbpSquareDots" width="80" height="80" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="1.4" fill="#0B5ED7" fillOpacity="0.20" />
+            <circle cx="1" cy="1" r="1.4" fill="#0B5ED7" fillOpacity="0.18" />
           </pattern>
-
-          {/* Subtle central ambient blue aura for light dashboard surfaces */}
-          <radialGradient id="dbpSquareAura" cx="50%" cy="48%" r="48%">
-            <stop offset="0%" stopColor="var(--color-brand)" stopOpacity="0.08" />
-            <stop offset="65%" stopColor="var(--color-brand-deep)" stopOpacity="0.025" />
-            <stop offset="100%" stopColor="transparent" stopOpacity="0" />
-          </radialGradient>
-
         </defs>
 
-        {/* ─── Pure Square / Grid Geometry from About Us ─── */}
+        {/* ─── Pure Square / Grid Geometry from About Us without glow ─── */}
         <rect width="1600" height="900" fill="url(#dbpSquareGrid)" />
         <rect width="1600" height="900" fill="url(#dbpSquareDots)" />
-        <rect width="1600" height="900" fill="url(#dbpSquareAura)" />
       </svg>
     </div>
   )

@@ -61,6 +61,15 @@ export function projectStagePath(projectId, segment) {
 }
 
 /**
+ * Step 1's 2D Floor Plan Assistant workspace.
+ */
+export const FLOOR_PLAN_ASSISTANT_SEGMENT = 'assistant'
+
+export function floorPlanAssistantPath(projectId, fromStage = 'generate') {
+  return `${projectStagePath(projectId, fromStage)}/${FLOOR_PLAN_ASSISTANT_SEGMENT}`
+}
+
+/**
  * Step 2's Design Assistant workspace.
  *
  * A child SEGMENT of the rendering stage, not a fifth stage: the workflow is
@@ -100,6 +109,7 @@ export function boqAssistantPath(projectId) {
  */
 export function workflowIndexForPath(pathname) {
   const last = pathname.split('/').filter(Boolean).pop()
+  if (last === 'generate') return 0
   const index = WORKFLOW_STAGES.findIndex((stage) => stage.segment === last)
 
   return index >= 0 ? index : 0

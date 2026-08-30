@@ -10,7 +10,6 @@ export const AUTH_ENDPOINTS = {
   logout: '/auth/logout/',
   refresh: '/auth/refresh/',
   me: '/auth/me/',
-  profile: '/auth/me/',
   csrf: '/auth/csrf/',
   resetPassword: '/auth/reset-password/',
 }
@@ -96,7 +95,7 @@ export async function logoutUser() {
       method: 'POST',
       skipRefresh: true,
     })
-  } catch (err) {
+  } catch {
     return null
   }
 }

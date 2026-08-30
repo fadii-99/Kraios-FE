@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import { CircleNotch, PaperPlaneRight, Ruler } from '@phosphor-icons/react'
 
+import DocumentTypeDropdown from '@/components/dashboard/projects/workflow/step-3/assistant/DocumentTypeDropdown'
 import {
   ASSISTANT_GRID,
   ASSISTANT_GUTTER,
@@ -10,7 +11,7 @@ import { cn } from '@/lib/cn'
 
 /**
  * The BoQ Prompt Composer — single-line input bar with high contrast, elevated footer,
- * measurement icon, and intuitive send triggers matching the BoQ visual language.
+ * measurement icon, integrated document type dropdown, and intuitive send triggers.
  */
 const BoQComposer = forwardRef(function BoQComposer(
   {
@@ -18,6 +19,8 @@ const BoQComposer = forwardRef(function BoQComposer(
     onChange,
     onSubmit,
     busy,
+    documentTypeId,
+    onDocumentTypeChange,
     className,
   },
   ref,
@@ -65,7 +68,6 @@ const BoQComposer = forwardRef(function BoQComposer(
               <Ruler size={18} weight="bold" />
             </div>
 
-
             {/* Text Input */}
             <input
               id="boq-assistant-prompt"
@@ -82,6 +84,19 @@ const BoQComposer = forwardRef(function BoQComposer(
               )}
             />
 
+            {/* Document Type Dropdown — integrated neatly on the right side of the prompt input */}
+            {onDocumentTypeChange && documentTypeId && (
+              <div className="shrink-0">
+                <DocumentTypeDropdown
+                  value={documentTypeId}
+                  onChange={onDocumentTypeChange}
+                  disabled={busy}
+                  placement="top"
+                  showLabel={false}
+                />
+              </div>
+            )}
+
             {/* Submit Action */}
             <button
               type="submit"
@@ -89,7 +104,7 @@ const BoQComposer = forwardRef(function BoQComposer(
               aria-label={busy ? 'Analyzing' : 'Send BoQ request'}
               title="Send (Enter)"
               className={cn(
-                'flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 cursor-pointer items-center justify-center rounded-sm',
+                'flex h-9 w-9 sm:h-9.5 sm:w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-xs',
                 'bg-[var(--color-brand-deep)] text-white shadow-2xs transition-all duration-200 ease-[var(--ease-out-expo)]',
                 'hover:bg-blue-700 active:scale-95',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
@@ -104,7 +119,7 @@ const BoQComposer = forwardRef(function BoQComposer(
                   className="animate-spin text-white"
                 />
               ) : (
-                <PaperPlaneRight size={18} weight="bold" />
+                <PaperPlaneRight size={16} weight="fill" className="translate-x-px" />
               )}
             </button>
           </div>

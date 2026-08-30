@@ -36,6 +36,21 @@ const OutputStep = lazy(() => import('@/pages/dashboard/projects/OutputStep'))
 // renders it before anything else.
 import RequireProject from '@/pages/dashboard/projects/RequireProject'
 
+// The catch-all page. Not lazy either, and for a harder reason: it is the only
+// route element that renders OUTSIDE AppLayout and DashboardLayout, so there is
+// no Suspense boundary above it to resolve a lazy chunk against.
+import NotFoundPage from '@/pages/NotFoundPage'
+
+// Step 1's Generate page.
+const GenerateStep = lazy(
+  () => import('@/pages/dashboard/projects/GenerateStep'),
+)
+
+// Step 1's full-screen workspace.
+const FloorPlanAssistantPage = lazy(
+  () => import('@/pages/dashboard/projects/FloorPlanAssistantPage'),
+)
+
 // Step 2's full-screen workspace. A page, not a stage — see the route below.
 const DesignAssistantPage = lazy(
   () => import('@/pages/dashboard/projects/DesignAssistantPage'),
@@ -83,10 +98,29 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to={DEFAULT_WORKFLOW_SEGMENT} replace /> },
           { path: 'upload', element: <UploadStep /> },
+          { path: 'generate', element: <GenerateStep /> },
           { path: 'rendering', element: <RenderingStep /> },
           { path: 'boq', element: <BoQStep /> },
           { path: 'output', element: <OutputStep /> },
         ],
+      },
+
+      // Step 1's 2D Floor Plan Assistant — a SIBLING of the workspace, sharing the full right-hand workspace.
+      {
+        path: 'projects/:projectId/upload/assistant',
+        element: (
+          <RequireProject>
+            <FloorPlanAssistantPage />
+          </RequireProject>
+        ),
+      },
+      {
+        path: 'projects/:projectId/generate/assistant',
+        element: (
+          <RequireProject>
+            <FloorPlanAssistantPage />
+          </RequireProject>
+        ),
       },
 
       // Step 2's Design Assistant — a SIBLING of the workspace, not a child of
@@ -116,6 +150,17 @@ export const router = createBrowserRouter([
         ),
       },
     ],
+  },
+
+  // Global catch-all for every address that matches nothing above — public,
+  // dashboard-shaped or nested. A dashboard branch only matches when one of its
+  // leaves matches the whole path, so /dashboard/banana and
+  // /dashboard/projects/1/banana never reach DashboardLayout: they land here
+  // and are answered as a page that does not exist, not as a login wall. Route
+  // precedence therefore lives in this table and nowhere else.
+  {
+    path: '*',
+    element: <NotFoundPage />,
   },
 ])
 

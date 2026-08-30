@@ -32,6 +32,10 @@ const VARIANTS = {
     'hover:border-[var(--tone-accent)] hover:bg-[color-mix(in_oklab,var(--tone-accent)_5%,transparent)]',
     'hover:text-[var(--tone-accent)]',
   ),
+  danger: cn(
+    'bg-[#B91C1C] text-white shadow-xs',
+    'hover:bg-[#991B1B] hover:text-white',
+  ),
 }
 
 const SIZES = {

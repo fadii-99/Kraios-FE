@@ -30,16 +30,20 @@ import { cn } from '@/lib/cn'
  * `NavLink` would stamp `aria-current="page"` on the lockup while on
  * `/dashboard`, and the Overview row already owns that.
  */
-export default function DashboardBrand({ className, onNavigate }) {
+export default function DashboardBrand({ className, onNavigate, collapsed = false }) {
   return (
-    <div className={cn('flex items-center justify-center', className)}>
+    <div className={cn('flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]', className)}>
       <Link
         to="/dashboard"
         onClick={onNavigate}
+        title={collapsed ? `${site.name} — Dashboard` : undefined}
         aria-label={`${site.name} — dashboard home`}
-        className="inline-flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-brand-deep)]"
+        className="inline-flex items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-brand-deep)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
       >
-        <Logo size="sidebar" />
+        <Logo
+          size={collapsed ? 'compact' : 'sidebar'}
+          imageClassName="transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        />
       </Link>
     </div>
   )

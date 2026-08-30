@@ -1,1216 +1,733 @@
-KRAIOS — PROGRESS.md
-
-Current implementation snapshot for the supplied KRAIOS frontend.
-
-This file describes what exists now, what is mock/frontend-only, what is known to be incomplete, and what currently needs cleanup.
-
-Do not use this as an append-only development diary.
-
-1. Overall status
-
-The current frontend contains UI for the complete KRAIOS application flow:
-
-public marketing website
-
-authentication pages
-
-authenticated dashboard
-
-Projects
-
-Profile
-
-Subscription
-
-Step 1 — Upload
-
-Step 2 — 3D Rendering
-
-Design Assistant
-
-Step 3 — BoQ
-
-BoQ Assistant
-
-Step 4 — Output / Project Deliverables
-
-Important correction from older documentation:
-
-Step 3 and Step 4 are fully designed/implemented as frontend UI in the current source. They are not empty placeholders.
-
-Their route files still use the shared StepPlaceholder wrapper, but the actual stage content is implemented inside BoQStage and OutputStage.
-
-2. Stack
-
-Current package stack:
-
-React 19.2.8
-
-React DOM 19.2.8
-
-Vite 8.2.1
-
-React Router DOM 7.18.2
-
-Tailwind CSS 4.3.3
-
-GSAP 3.15.0
-
-@gsap/react 2.1.2
-
-Phosphor Icons
-
-React Markdown
-
-remark-gfm
-
-React Hot Toast 2.6.0
-
-Inter Variable
-
-Current scripts:
-
-npm run dev
-npm run build
-npm run preview
-npm run lint
-
-No automated test script is configured in package.json.
-
-3. Public website
-
-Implemented frontend:
-
-Navbar
-
-Hero
-
-About
-
-How It Works
-
-Why Kraios
-
-Team
-
-FAQ
-
-Contact
-
-Footer
-
-mobile navigation
-
-Public content uses the current KRAIOS design language.
-
-4. Authentication
-
-Implemented frontend UI:
-
-Login
-
-Signup
-
-Forgot Password
-
-Current auth behavior remains frontend/mock-oriented.
-
-No production auth backend is documented as connected. Because there is no
-credential check, no "email or password is incorrect" or sign-in failure
-feedback exists — inventing one would claim an authentication that never ran.
-
-Login carries a "Demo Access" note above the form stating that any dummy email
-and password will open the dashboard UI and that credentials are not checked.
-It exists so the page does not imply an account it never verifies; remove it
-when a real auth backend is connected.
-
-Validation feedback is React Hot Toast (see section 19): one error toast per
-invalid submit, no inline red error line, field invalid styling and aria
-preserved.
-
-5. Dashboard shell
-
-Implemented:
-
-DashboardLayout
-
-desktop Sidebar
-
-mobile dashboard navigation
-
-shared Dashboard page surface
-
-dashboard provider layer
-
-route-level lazy loading
-
-Sidebar navigation:
-
-Overview
-
-Projects
-
-Subscription
-
-Profile
-
-Log out
-
-6. Dashboard pages
-
-Overview
-
-Implemented.
-
-Includes the current welcome/dashboard composition and project entry flow.
-
-Projects
-
-Implemented.
-
-Includes:
-
-real empty state
-
-create project
-
-project cards
-
-project grid
-
-open project workflow
-
-delete project
-
-project 3D/BoQ status derived from current session state
-
-Profile
-
-Implemented frontend.
-
-Form/data remains local/frontend-oriented — Save Changes writes to component
-state for the session and nothing else.
-
-No production profile backend persistence is documented.
-
-Name and email are validated on submit (email via the shared isEmail). Feedback
-is a toast; the inline "Changes saved" line was removed. Layout, fields and
-actions are unchanged.
-
-Subscription
-
-Implemented frontend/mock.
-
-Plan/current-plan UI exists.
-
-No billing/payment backend is documented as connected.
-
-7. Project state
-
-ProjectsProvider currently coordinates:
-
-projects
-
-Step 1 floor-plan source
-
-Step 2 Design Assistant state
-
-Step 3 BoQ Assistant state
-
-Project data is session-memory only.
-
-Refresh loses the dashboard project state.
-
-Derived status:
-
-has3DRender = Step 2 approved result exists
-
-hasBoQ = Step 3 approved BoQ result exists
-
-No separate persistent backend project store is currently connected.
-
-8. Workflow
-
-Current source of truth:
-
-src/lib/dashboard/workflow/projectWorkflow.js
-
-Stages:
-
-Upload
-
-3D Rendering
-
-BoQ
-
-Output
-
-BoQ is currently marked optional.
-
-Current routes:
-
-/dashboard/projects/:projectId/upload
-/dashboard/projects/:projectId/rendering
-/dashboard/projects/:projectId/rendering/assistant
-/dashboard/projects/:projectId/boq
-/dashboard/projects/:projectId/boq/assistant
-/dashboard/projects/:projectId/output
-
-Normal four-stage pages use ProjectWorkspace.
-
-Design Assistant and BoQ Assistant are focused sibling routes inside the same dashboard shell.
-
-9. Step 1 — Upload
-
-Status: UI IMPLEMENTED
-
-Current UI includes:
-
-Upload / Generate mode
-
-2D source selection
-
-image/PDF handling
-
-floor-plan preview
-
-source replacement/removal
-
-generated-source UI contract
-
-shared full-screen preview/work-area patterns
-
-Current real behavior:
-
-local file selection/preview works in frontend
-
-object URL cleanup exists
-
-Current mock/backend limitation:
-
-AI floor-plan generation backend is not connected
-
-Step 1 UI should not be described as placeholder.
-
-10. Step 2 — 3D Rendering gateway
-
-Status: UI IMPLEMENTED
-
-Current Step 2 normal route includes:
-
-RenderingStage
-
-Design Assistant gateway
-
-reference/source state
-
-approval status
-
-approved-design presentation
-
-current 3D status
-
-transition into Design Assistant
-
-Step 2 normal page is intentionally a gateway/status page.
-
-11. Design Assistant
-
-Status: UI + FRONTEND STATE IMPLEMENTED
-
-Route:
-
-/dashboard/projects/:projectId/rendering/assistant
-
-Current UI/functionality includes:
-
-same DashboardLayout / Sidebar
-
-assistant header
-
-Back to 3D Rendering
-
-Render Style dropdown
-
-SketchUp option
-
-Photo Realistic option
-
-approval status
-
-user/assistant conversation
-
-timestamps
-
-prompt composer
-
-quick prompts
-
-generation pending/error/retry UI
-
-generated 3D result
-
-selectable result context
-
-View Angle UI
-
-Isometric 45°
-
-Bird’s Eye 45°
-
-result approval
-
-Expand
-
-Edit/refine path
-
-Kraios Design Canvas
-
-DWG action only when a real URL exists
-
-Current generation status:
-
-real 3D backend not connected
-
-frontend mock generation is enabled
-
-mock uses a local result asset
-
-Approval behavior:
-
-generating a new result clears previous approval
-
-approved result drives project has3DRender
-
-View Angle flow — FIXED
-
-Selecting a view angle now sets the angle and then runs the SAME generation path a typed prompt runs (runGeneration in DesignAssistantPage), using the angle's declared prompt from designAssistantConfig and a "Generating <angle> view…" pending line.
-
-The new result is not auto-approved, the previous turns stay in the transcript, and approval remains explicit. No second generation implementation was added, and the existing frontend mock is still what answers the request.
-
-12. Kraios Design Canvas
-
-Status: UI IMPLEMENTED
-
-Current Design Assistant includes a full canvas editing workspace.
-
-History — FIXED
-
-History still stores full canvas snapshots (approach unchanged) but is now capped at MAX_HISTORY = 30. Past the cap the oldest snapshot is dropped and historyIndex is clamped to the newest slot, so Undo/Redo cannot walk off a trimmed stack. Toolbar, drawing behaviour, canvas sizing and button states are unchanged.
-
-Keyboard shortcuts — FIXED
-
-L / P / H / E and Ctrl+Z / Ctrl+Y (plus Ctrl+Shift+Z) are now bound by a window keydown handler that steps aside for editable targets. The toolbar tooltips advertising them were accurate as displayed, they simply had nothing listening. Nothing visible changed.
-
-Lasso / Cutout — STILL NOT A REAL TOOL
-
-It draws a freehand stroke exactly like the pen: no path closing, no selection, no cutout. The visible tool was deliberately left in place, and the code now says this plainly instead of implying a selection tool exists. Implementing it is a feature, not cleanup.
-
-13. Step 3 — BoQ gateway
-
-Status: UI IMPLEMENTED
-
-Route:
-
-/dashboard/projects/:projectId/boq
-
-Current UI includes:
-
-BoQStage
-
-BoQAssistantGateway
-
-KRAIOS BoQ Assistant entry
-
-project/floor-plan context
-
-approved 3D context
-
-BoQ approval state
-
-“what you’ll build”/BoQ information
-
-full-screen plan preview
-
-route into BoQ Assistant
-
-optional Skip to Output path
-
-Older documentation saying Step 3 is only StepPlaceholder is obsolete.
-
-The page wrapper uses StepPlaceholder, but the real Step 3 UI is implemented inside it.
-
-14. BoQ Assistant
-
-Status: UI + FRONTEND/MOCK STATE IMPLEMENTED
-
-Route:
-
-/dashboard/projects/:projectId/boq/assistant
-
-Current UI/functionality includes:
-
-same dashboard shell family as Design Assistant
-
-BoQ Assistant header
-
-Back to BoQ
-
-Document Type dropdown
-
-Uploaded Documents dropdown
-
-approval state
-
-conversation
-
-timestamps
-
-prompt composer
-
-mock BoQ generation
-
-light structured BoQ result table
-
-approve / revoke approval
-
-Add row
-
-Delete row
-
-retry/loading state
-
-Current document types:
-
-General Document
-
-MEP Drawing
-
-HVAC Drawing
-
-Door and Window Schedule
-
-Current generation status:
-
-BoQ generation is frontend/mock
-
-dummy BoQ tables are used for UI demonstration
-
-no real quantity-analysis/costing backend is connected
-
-Document data contract — FIXED (upload path still missing)
-
-Documents are now built by createBoqDocument in lib/dashboard/workflow/step-3/boqDocuments.js, mirroring step-1/floorPlanSource.js:
-
-{ id, name, size, mime, extension, kind, typeId, typeLabel, file, previewUrl, ownsPreviewUrl, addedAt }
-
-That is the contract Step 4 needs to list, preview, download and package a document. The reducer stays pure and takes a finished record; ProjectsProvider revokes previewUrl when a document leaves the list, when the project is deleted, and when the provider unmounts.
-
-Still NOT functional end to end:
-
-the BoQ composer exposes no attachment control, so nothing dispatches uploadDocument
-
-no visible upload control exists anywhere in Step 3, and adding one would mean putting a new element into the approved interface — deliberately out of scope for an engineering-only pass
-
-Because the flow does not exist, the Uploaded Documents empty copy no longer instructs the user to upload documents from the BoQ Assistant composer; it now states that none have been added. Supporting-document upload remains a real feature gap.
-
-BoQ approval invalidation — FIXED
-
-Generating a new BoQ clears approval (as before), and Add Row / Delete Row now clear approvedResultId when they touch the approved result. Both go through one write helper inside the reducer, so a future edit action cannot keep an approval it invalidated. There is still exactly one approval flag; no component-local isApproved was introduced, and no approval styling changed.
-
-15. Step 4 — Output / Project Deliverables
-
-Status: UI IMPLEMENTED
-
-Route:
-
-/dashboard/projects/:projectId/output
-
-Current Step 4 is a full deliverables workspace.
-
-Current UI includes:
-
-Output header
-
-PROJECT OUTPUT
-
-YOUR PROJECT DELIVERABLES
-
-package information
-
-DOWNLOAD PROJECT ZIP
-
-Plans & Renders
-
-Original 2D Floor Plan
-
-Approved 3D Design
-
-View
-
-Download
-
-shared FloorPlanFullscreenModal
-
-Final BoQ
-
-full structured light BoQ table
-
-item count
-
-approved/ready presentation
-
-DOWNLOAD BOQ
-
-client-side CSV generation
-
-Uploaded Documents
-
-supporting-document list UI
-
-document type metadata
-
-preview path for supported files
-
-download actions
-
-no-documents empty state
-
-Project package
-
-client-side ZIP generation
-
-package intended to include 2D, 3D, BoQ CSV, and supporting documents
-
-Older documentation saying Step 4 is only StepPlaceholder is obsolete.
-
-The page wrapper uses StepPlaceholder, but OutputStage is a real implemented feature.
-
-16. Step 4 current demo behavior
-
-Current Step 4 contains frontend demo fallbacks:
-
-demo 2D floor-plan asset
-
-demo 3D render asset
-
-demo BoQ rows
-
-These make the UI testable even when previous stages have no real data.
-
-Final BoQ selection — FIXED
-
-Output now reads approvedBoqResult(boqState) and nothing else. The `|| latestBoqResult(...)` fallback is gone, so an unapproved draft is never treated as the finalized BoQ.
-
-With no approved BoQ:
-
-the Final BoQ section shows a not-finalized state using Output's existing dashed empty presentation (the same pattern the no-documents state already used) — no new visual language was introduced
-
-the "BOQ APPROVED · N Items" badge and the Download BoQ CSV action are not rendered
-
-the header stat chip and the ZIP caption report what the package actually contains
-
-the ZIP omits the BoQ CSV entirely
-
-BoQ is optional, so this is a normal state: Skip to Output still works, and 2D / 3D / documents / ZIP are unaffected. Output gating was NOT added and Skip to Output was NOT removed.
-
-Demo 2D/3D assets are unchanged and still stand in when upstream data is missing — deliberate UI-demonstration behaviour, not an approval claim. The BoQ fixture is no longer among them.
-
-17. Output download status
-
-Current frontend download features include:
-
-individual 2D download
-
-individual 3D download
-
-BoQ CSV download
-
-client-side ZIP package generation
-
-Current BoQ CSV is client-generated.
-
-No backend PDF/XLSX export is documented as connected.
-
-Hardening — DONE
-
-response.ok is checked for every fetched package asset; a failed fetch is treated as unavailable rather than packaged, so an HTML 404 body can no longer land in the ZIP as the user's floor plan
-
-every user-supplied name passes through safeFileName before becoming a ZIP path — path separators, .., and illegal characters are neutralized and an empty name falls back
-
-projectSlug is one shared helper now, instead of an inline copy in FinalBoQSection
-
-document preview/download reads the Step 3 record's previewUrl / file
-
-Still outstanding:
-
-large production packages may be better generated on the backend
-
-18. BoQ product rule
-
-Current workflow code marks BoQ as optional.
-
-Therefore current product behavior allows:
-
-Step 2
-→ Step 3
-→ Skip BoQ
-→ Output
-
-This creates an important rule:
-
-Output must not require a fabricated BoQ when the user intentionally skipped Step 3.
-
-If the product later decides BoQ is mandatory:
-
-remove/disable skip behavior
-
-gate Output
-
-update workflow config
-
-update Step 3
-
-update Step 4
-
-update CLAUDE.md / PROGRESS.md
-
-Do not leave optional and mandatory rules mixed.
-
-19. Current notification system
-
-MIGRATED. React-Toastify is removed; React Hot Toast 2.6.0 is the notification
-system.
-
-Package
-
-react-toastify uninstalled and gone from package.json / package-lock.json
-react-hot-toast ^2.6.0 installed
-
-Repository search returns zero results for react-toastify, ToastContainer,
-Toastify__ and the Toastify stylesheet import.
-
-Global host
-
-src/components/ui/KraiosToaster.jsx — ONE `<Toaster>`, mounted once in
-src/main.jsx next to the RouterProvider. Public, auth, dashboard, workflow,
-assistant and modal surfaces all use it. No page renders its own Toaster.
-The old src/components/ui/KraiosToastContainer.jsx was deleted, not wrapped.
-
-Position: top-right, 18px inset. Below 1024 the stack drops to top 64px so it
-clears the 56px mobile navigation bar; at 480 and below the inset narrows to
-12px, and the toast is width-capped at 360px, so it wraps rather than
-overflowing at 430 / 390 / 375 / 360.
-
-Theme: light KRAIOS. White surface, hairline border, --radius-md geometry,
-restrained shadow, product body type at 0.75rem/600, compact 46px row. Semantics
-are a small icon badge plus a 2px remaining-time rule — success green, error
-red, info and loading KRAIOS blue. The surface is never filled with the
-semantic colour. The toast row is rendered by hand through the Toaster's
-children render prop rather than through the library's `ToastBar`, whose own
-surface, radius and shadow would have to be unpicked inline.
-
-Toasts pause while the pointer is inside the toast container — that is the
-library's own behaviour, and the container's `onMouseEnter` / `onMouseLeave`
-drive it. Two things had to respect it, and both were fixed after the first
-pass reported toasts that never disappeared:
-
-pointer-events is granted only while the toast is visible (`.kraios-toast--enter`),
-not for its whole life. It was unconditional, so a toast removed from under the
-cursor never fired `mouseleave`, the pause stayed set, and the library's
-auto-dismiss effect — which returns early for as long as `pausedAt` is set —
-stopped dismissing ANY toast for the rest of the session. This now matches what
-the library's own ToastBar does.
-
-the 2px remaining-time rule pauses with the timers
-(`.kraios-toaster:hover .kraios-toast__progress { animation-play-state: paused }`).
-It used to keep running while the toast was frozen, so the rule emptied and the
-toast read as finished while it sat there.
-
-removeDelay is 300ms rather than the default 1000ms: the exit animation is
-220ms, so a dismissed toast has no reason to stay mounted and inert for the
-remainder of a second.
-
-Styling: src/styles/toast.css was rewritten for React Hot Toast
-(`.kraios-toaster` / `.kraios-toast` / `.kraios-toast__progress`). No
-`.Toastify__` rule survives, and no unrelated style in that file was touched.
-The enter/exit keyframes and the reduced-motion guard are the Kraios ones.
-
-Centralized API
-
-src/lib/toast.js is the only module that imports react-hot-toast:
-
-showSuccessToast / showErrorToast / showInfoToast / showLoadingToast /
-dismissToast, plus TOAST_DURATION and toastKind.
-
-Durations: success 3000ms, info 3500ms, error 4500ms, loading until resolved or
-dismissed. No call site passes its own timing.
-
-WARNING was dropped. The application raised exactly one warning toast (Step 1's
-empty prompt), which is a validation error and is now an error toast, so a
-fourth semantic state had nothing left to describe.
-
-The component/helper split is preserved for the same reason as before:
-KraiosToaster.jsx exports only components, so Fast Refresh keeps working.
-
-The two competing call styles are gone. Every call site now uses the
-@/lib/toast helpers; nothing imports the library directly.
-
-Duplicate prevention
-
-Stable ids on everything a user can fire repeatedly: workflow-stage-gate,
-locked-mode-notice, multiple-files, unsupported-file, upload-success,
-empty-prompt, floor-plan-generation-notice, model-generation-notice,
-boq-generation-notice, login-validation, signup-validation,
-forgot-password-validation, profile-validation, profile-saved,
-create-project-validation, project-created, project-deleted,
-output-download-2d / -3d / -zip, output-export-boq, output-doc-download,
-output-doc-preview.
-
-One user-facing toast per event, raised by the page or component that owns the
-action. No service or helper raises a toast, so no event can be reported twice.
-
-No loading toast is currently in use: every async flow in the product already
-owns a visible loading state (the modal PageLoader, the assistant pending turn,
-the button's loading label), and stacking a loading toast on top of those would
-duplicate them. showLoadingToast + dismissToast exist for a real backend call
-that has no such state.
-
-Call sites migrated
-
-Auth — Login, Signup, Forgot Password. Validation copy moved out of the page
-and into one error toast per invalid submit, chosen by field order (Login:
-email then password; Signup: name, firm, email, country, then date and time).
-The first invalid field is still focused, the pickers still scroll into view,
-and the existing rules were preserved exactly — no password or format rule was
-invented. Copy was tightened to the product voice ("Enter a valid email
-address."). The mock 900ms delays and the Signup / Forgot Password confirmation
-modals are unchanged, and nothing claims an authentication or an email that did
-not happen.
-
-Dashboard — Create Project (empty-name validation, and "Project created." only
-once the project is in the store), Delete Project (confirmation stays a modal;
-"Project deleted." is the receipt afterwards), Profile.
-
-Profile also gained the validation the toast needed something to say: name
-required, email required and well-formed, using the shared isEmail. One toast
-per submit, first invalid field focused. The transient inline "Changes saved"
-line and its 3s timer were removed in favour of a "Profile updated." toast; the
-form, its fields and the Save Changes / Discard changes row are untouched.
-
-Subscription raises no toast: its two mock notices are Modals by design, and
-inventing payment or plan-change feedback would claim a backend that is not
-connected.
-
-Workflow —
-
-Step 1: locked-mode notice, multiple-files notice, unsupported file, upload
-success, empty prompt, generation success, and the "generation backend not
-connected" notice (kept as info — it is a statement about the product, not a
-user error).
-
-Step 2 / workflow gating: the Previous-Next gate message. It is raised in
-ProjectStepNavigation only, which stays domain-agnostic — the message still
-comes from each stage's selector.
-
-Design Assistant: generation success, generation/retry failure, canvas-edit
-handoff, approval granted and revoked.
-
-Step 3 / BoQ gateway: no toast of its own — its states (no approved 3D design,
-BoQ not generated) are persistent page UI and stayed that way.
-
-BoQ Assistant: generation success, document removed, approval granted and
-revoked, row added, row removed, and a generation failure toast that did not
-exist before. A thrown error's own message no longer reaches the transcript or
-the user; both now read one controlled line.
-
-Step 4 / Output: ZIP success and failure, BoQ CSV export success and failure,
-2D and 3D download success and failure, document download, and the previously
-silent "no file behind this record" case.
-
-Output downloads are honest now. downloadAssetUrl returns whether the asset was
-actually fetched and saved; the Step 4 handlers used to announce a successful
-download unconditionally, including for an asset that never arrived. The
-best-effort direct-link fallback is unchanged, but because its outcome cannot be
-observed it is reported as a failure rather than a success.
-
-Inline transient messages removed
-
-FormInput no longer prints a red error line. The message is now carried in a
-screen-reader-only node that aria-describedby points at, and the field keeps its
-red border and aria-invalid. Same treatment for Signup's date/time errors (which
-also gained the aria-describedby wiring they lacked) and Step 1's generate-prompt
-textarea.
-
-Nothing else changed visually. Field validation, focus behaviour, required
-semantics and disabled/loading button states are as they were, and no toast
-fires on keystroke — validation still runs on change and blur, silently.
-
-Persistent state deliberately left in the page: NO PROJECTS YET, DESIGN
-APPROVED / NOT APPROVED, BOQ READY / not finalized, NO DOCUMENTS UPLOADED, the
-Output empty states, the assistant transcripts' failed turns with Retry, and
-the Subscription and confirmation modals.
-
-20. Responsiveness
-
-Responsive implementation exists across:
-
-dashboard shell
-
-Sidebar/mobile nav
-
-Projects
-
-Profile
-
-Subscription
-
-workflow
-
-Step 1
-
-Step 2
-
-Design Assistant
-
-Step 3
-
-BoQ Assistant
-
-Step 4
-
-This audit is based on source inspection.
-
-It does not claim a fresh manual browser QA pass at every viewport.
-
-Do not write “fully responsive and verified” without actual browser/device inspection.
-
-21. Architecture status
-
-Current workflow structure is already sensibly feature-scoped.
-
-Current structure:
-
-projects/
-├── library/
-└── workflow/
-    ├── shared/
-    ├── step-1/
-    ├── step-2/
-    │   ├── assistant/
-    │   └── canvas/
-    ├── step-3/
-    │   └── assistant/
-    └── step-4/
-
-All four stage folders are in active use.
-
-Modules added during the engineering cleanup pass (no folder restructure was performed):
-
-src/lib/toast.js
-    the centralized React Hot Toast API, so KraiosToaster.jsx exports only
-    components
-
-src/components/ui/KraiosToaster.jsx
-    the ONE global <Toaster>, replacing the deleted KraiosToastContainer.jsx
-
-src/lib/dashboard/workflow/step-3/boqDemoData.js
-    the single BoQ demonstration fixture, read by Step 3's mock generation and
-    available to Step 4; replaces the byte-identical copies that were declared
-    separately in boqAssistantConfig.js and outputConfig.js
-
-src/lib/dashboard/workflow/step-3/boqDocuments.js
-    the supporting-document record (createBoqDocument), its blob-URL release
-    helpers, and canPreviewDocument — mirroring step-1/floorPlanSource.js
-
-src/pages/dashboard/projects/RequireProject.jsx
-    the one project-existence guard, used by the workspace route and both
-    assistant routes
-
-No broad folder rewrite is currently recommended.
-
-22. Duplication / maintainability targets
-
-Design Assistant and BoQ Assistant intentionally share visual patterns.
-
-Current duplicated families include:
-
-Assistant header / BoQ Assistant header
-
-Render Style dropdown / Document Type dropdown
-
-Design composer / BoQ composer
-
-result header controls
-
-message/timestamp structure
-
-Reviewed during the cleanup pass — NOTHING EXTRACTED, deliberately.
-
-The genuinely shared pieces are already shared: formatMessageTimestamp / toISOTimestamp in lib/date.js are used by both AssistantMessage and BoQMessage, and both composers/conversations already reuse ASSISTANT_GRID / ASSISTANT_GUTTER from step-2/assistant/assistantGrid.js.
-
-What is left duplicated (the two headers, the two dropdown shells, the two composers, the two result-header controls) differs in real ways: the Step 2 composer has a cancel action and a paper-plane/sparkle affordance, the Step 3 one has a ruler affordance and no cancel; the two result-header controls differ by an Edit button. A shared shell would need a prop and a conditional for each of those. Per the rule above, some duplication is better than a generic component with a switchboard of feature props.
-
-Keep:
-
-Step 2 3D behavior separate
-
-Step 3 BoQ behavior separate
-
-Do not build one giant assistant component with feature conditionals.
-
-23. ProjectsProvider performance target
-
-Current provider value includes:
-
-project list
-
-Step 1 state
-
-Step 2 assistant state
-
-Step 3 assistant state
-
-Long assistant conversations can cause broad context updates.
-
-Reviewed during the cleanup pass and DEFERRED. Splitting the provider means changing what every hook in projectsContext.js subscribes to, which touches every stage and both assistants — real risk of behaviour or route-persistence changes, against a benefit nobody has measured. Correctness work was prioritized instead. The provider grew one small addition in this pass: a boqStatesRef mirror, so supporting-document object URLs can be released on delete and unmount without adding dependencies to those callbacks.
-
-This remains a future performance optimization target.
-
-Do not introduce Redux/Zustand automatically.
-
-Preferred first direction:
-
-narrower providers
-
-narrower feature subscriptions
-
-preserve current external behavior
-
-24. Artificial delays
-
-Reviewed and classified during the cleanup pass.
-
-REDUCED:
-
-Step 1 local floor-plan upload: 3500ms to 400ms. Nothing is uploaded — the browser already holds the picked file and createUploadSource only wraps it — so the wait was slowing the fastest action in the product for no reason. A short beat is kept because the panel has a real uploading state and flashing through it reads as a glitch. When a real endpoint exists, the wait becomes the request.
-
-KEPT, deliberately, as mock-backend / loading-state demonstrations:
-
-auth demo delays (900ms, Login / Signup / ForgotPassword)
-
-project creation (700ms, behind the brand PageLoader)
-
-BoQ mock generation (1400ms — it stands in for a backend call, and the pending/cancel states must stay observable)
-
-Design Canvas opening (2200ms, behind the brand PageLoader)
-
-25. Dead / unused source candidates
-
-REMOVED after verification (each re-checked for any remaining reference, including dynamic use, before deletion):
-
-src/hooks/useSectionReveal.js
-src/components/ui/Figure.jsx
-src/components/dashboard/projects/workflow/step-2/StageIntro.jsx
-src/components/dashboard/projects/workflow/step-2/assistant/AssistantGeometryBackdrop.jsx
-src/components/dashboard/projects/workflow/step-2/assistant/ExpandResultModal.jsx
-src/components/dashboard/projects/workflow/step-2/assistant/ComposerContextStrip.jsx
-
-Unused public assets REMOVED:
-
-public/assets/hero-poster.svg — content.js references only hero-poster-768.jpg / hero-poster-1600.jpg
-public/assets/plan-2d-detail.svg — no reference anywhere
-public/assets/plan-3d-primary.svg — no reference anywhere
-public/assets/team-placeholder-02.svg — content.js builds these paths dynamically via teamPlaceholder(slot), and the only slots used are 01, 03 and 04
-
-Assets deliberately KEPT because they are live demo fixtures: plan-2d-primary.svg and plan-3d-light.svg (Step 4 demo assets and the Step 2 mock model result), plan-2d-light.svg, and team-placeholder-01/03/04.svg.
-
-26. Import / dependency graph audit
-
-Re-run after the cleanup pass, over 139 source files:
-
-0 unresolved local imports (the only non-JS specifier is main.jsx's stylesheet import)
-
-0 circular JS/JSX module dependencies
-
-No obvious unused runtime npm dependency was identified.
-
-Dependency change in the notification migration: react-toastify removed,
-react-hot-toast ^2.6.0 added. Nothing else was added or removed.
-
-27. Lint status
-
-Current source IS lint-clean.
-
-Verified by running:
-
-npm run lint
-
-Result: 0 errors, 0 warnings (exit 0). The previous 22 errors / 5 warnings were all fixed at the source — no eslint-disable, no dummy references, no blanket underscore renames:
-
-AssistantComposer.jsx — dropped baseResult / isExplicitSelection / onClearEditing, left over from the removed ComposerContextStrip, and the props they were passed with
-
-AssistantConversation.jsx — dropped the unused onViewAngleSelect prop
-
-AssistantResult.jsx — dropped onEdit (the message header owns Edit) and its call site
-
-ResultHeaderControls.jsx / BoQResultHeaderControls.jsx — dropped the unused result prop; also removed a dead PrimaryButton import
-
-BoQMessage.jsx — react-markdown passes the mdast node to custom components, so it is stripped once by a small domProps helper instead of being destructured away ten times
-
-BoQResult.jsx — dropped the unused approved prop
-
-OutputStage.jsx — removed the unused summaryText
-
-UploadedDocumentsSection.jsx / CurrentPlanCard.jsx — removed unused cn imports
-
-boqGeneration.js — dropped the documentTypeId parameter and its plumbing; the mock does not analyse documents and accepting it implied an influence it does not have
-
-KraiosToastContainer.jsx — the five Fast Refresh warnings were gone once the helpers moved to src/lib/toast.js. That file has since been replaced by KraiosToaster.jsx, which keeps the same component-only rule
-
-Re-verified after the React Hot Toast migration:
-
-npm run lint — 0 errors, 0 warnings (exit 0), confirmed with
-`npx eslint . --max-warnings=0`.
-
-Note: lint parses every source file, so a clean run is also a syntax check.
-No production build was run and there is still no automated test suite. The
-migrated modules were additionally smoke-checked by serving them through the
-Vite dev server (main.jsx, KraiosToaster.jsx, lib/toast.js, the migrated pages
-and the rewritten stylesheet all transform and resolve), which is a module
-resolution check — NOT a browser QA pass of the toast at every breakpoint.
-
-28. Dropdown interaction issue
-
-Double-fire — FIXED
-
-Render Style, View Angle and Document Type each ran selection from BOTH onMouseDown and onClick, so one mouse press could select twice. Selection is now bound to onClick only. No flag, timer or duplicate-suppression hack was used — the second binding was removed. This mattered most for View Angle, which now starts a generation.
-
-Focus behaviour — IMPROVED
-
-Escape closes the menu and returns focus to the trigger, and choosing an option returns focus there too (also applied to the Uploaded Documents dropdown). Nothing visible changed.
-
-Keyboard navigation — STILL NOT IMPLEMENTED, and no longer claimed
-
-The triggers are real buttons and are fully keyboard operable. The option rows are plain list items: there is no arrow-key roving focus and no Enter/Space activation on an option, in any of the three menus. Comments in RenderStyleDropdown and ViewAngleMenu that advertised "keyboard navigation" were corrected to say what the controls actually do. Adding roving focus needs an active-option highlight, which is a visual decision and was out of scope for a UI-freeze pass; it remains a real accessibility gap.
-
-29. Invalid project route issue
-
-FIXED. src/pages/dashboard/projects/RequireProject.jsx is one shared guard at the route boundary, wrapping the ProjectWorkspace route and both assistant routes. An unknown :projectId redirects (replace) to /dashboard/projects, so a typed or stale URL can no longer enter workflow UI and write state against a project that does not exist.
-
-No per-stage `if (!project)` checks were added and no new error page was designed. The per-project hooks still return a shared frozen default for a project that exists but is untouched — that remains their only job.
-
-Consequence worth stating: because projects are session-memory, refreshing the browser while inside a project workspace now lands on the empty Projects library rather than an orphaned workspace. That is the honest result of having no persistence, and it becomes moot when a backend exists.
-
-30. Current top engineering priorities
-
-Completed in the engineering cleanup pass (details in the sections above):
-
-View Angle generation wiring
-
-dropdown double-fire
-
-BoQ approval invalidation after row edits
-
-Output consumes approved BoQ only
-
-optional-BoQ Output behaviour normalized (BoQ stays optional; Output represents "no finalized BoQ")
-
-misleading document-upload copy corrected
-
-Step 3 document data contract aligned with Step 4, with object-URL release
-
-invalid-project route guard
-
-lint: 0 errors, 0 warnings
-
-verified dead code and unused assets removed
-
-canvas history capped, advertised shortcuts wired
-
-React Hot Toast migration: React-Toastify removed, one global Toaster, one
-centralized helper API, inline transient form errors converted to toasts
-
-ZIP fetch/response.ok and filename hardening
-
-BoQ demo fixture deduplicated into one module
-
-Remaining, in rough priority order:
-
-Wire supporting-document upload end to end. Needs a visible attachment control in the BoQ composer, which is a design decision.
-
-Arrow-key navigation for the three custom dropdowns. Needs an active-option highlight, which is a design decision.
-
-Reduce broad ProjectsProvider rerenders, if profiling justifies it.
-
-Implement Lasso / Cutout as a real selection tool, or retire the tool.
-
-Connect real backends: 2D generation, 3D generation, BoQ calculation, document analysis, auth, billing, persistence.
-
-Real browser/device QA at the documented breakpoints.
-
-31. What is intentionally NOT claimed
-
-The current archive is not documented as:
-
-backend complete
-
-persistent across refresh
-
-production auth ready
-
-production billing ready
-
-real 2D AI generation connected
-
-real 3D generation connected
-
-real BoQ calculation connected
-
-real document analysis connected
-
-live market pricing connected
-
-backend PDF/XLSX export connected
-
-fully browser-tested at every breakpoint
-
-covered by an automated test suite
-
-verified by a production build or runtime smoke test in the most recent cleanup pass (source-level work plus lint only)
-
-32. Documentation state
-
-Section 19 and CLAUDE.md section 26 now describe React Hot Toast as the
-notification system. Every statement saying React-Toastify is current has been
-removed rather than annotated.
-
-This replacement PROGRESS.md removes the old contradictions that said:
-
-Step 3 was not implemented
-
-Step 4 was not implemented
-
-hasBoQ always remained false
-
-lint passed with 0 errors/warnings
-
-Current truth:
-
-Step 1 UI implemented
-
-Step 2 UI implemented
-
-Design Assistant UI implemented
-
-Step 3 UI implemented
-
-BoQ Assistant UI implemented
-
-Step 4 UI implemented
-
-backend-dependent functionality is still mock/pending in multiple areas
-
-lint is clean (0 errors, 0 warnings) as of the engineering cleanup pass
-
-The cleanup pass was engineering-only: no colors, type, spacing, radius, sizing, icons, composition, responsive behaviour or motion were changed. The only user-visible differences are ones correctness demanded — Output's not-finalized BoQ state, the honest BoQ chip and ZIP caption in the Output header, the corrected Uploaded Documents empty copy, and a view-angle choice now producing a render.
+# KRAIOS — PROGRESS.md
+
+Current implementation status, verified against the source in the working tree.
+
+This file records **what exists right now**: which UI is built, which behaviour
+is a frontend mock, which APIs are really integrated, what is missing, and which
+issues are still open. CLAUDE.md holds the durable rules; this file holds the
+state.
+
+Last synchronized by full source inspection of `src/`, `api/`, `public/`,
+`package.json`, `vite.config.js`, `vercel.json` and `eslint.config.js`.
+
+---
+
+## 1. Headline status
+
+| Area | UI | Frontend mock | Real backend |
+|---|---|---|---|
+| Public site (landing, nav, sections) | ✅ complete | content from `src/lib/content.js` | n/a |
+| Login | ✅ complete | ⚠️ dummy fallback active | `POST /auth/login/` wired |
+| Signup (request a session) | ✅ complete | — | `POST /auth/signup-request/` wired |
+| Forgot Password | ✅ complete | ⚠️ no request is made | none (no endpoint in contract) |
+| Reset Password | ✅ complete | — | `POST /auth/reset-password/` wired |
+| Session bootstrap | ✅ complete | ⚠️ dummy fallback active | `GET /auth/me/` wired |
+| Dashboard shell / navigation | ✅ complete | — | n/a |
+| Overview | ✅ complete | — | no API |
+| Projects library | ✅ complete | session-memory store | ❌ no project API |
+| Subscription | ✅ complete | all data mock | ❌ no billing API |
+| Profile | ✅ complete | ⚠️ save falls back locally | `GET`/`PATCH /profile/` + 4 OTP endpoints wired |
+| Step 1 Upload / Generate | ✅ complete | local file handling is real | ❌ no upload API |
+| 2D Floor Plan Assistant | ✅ complete | generation mocked | ❌ not connected |
+| Step 2 3D Rendering gateway | ✅ complete | — | n/a |
+| Design Assistant | ✅ complete | generation mocked | ❌ not connected |
+| Kraios Design Canvas | ✅ complete | — | n/a |
+| Step 3 BoQ gateway | ✅ complete | — | n/a |
+| BoQ Assistant | ✅ complete | generation mocked | ❌ not connected |
+| Step 4 Output / Deliverables | ✅ complete | ⚠️ heavy sample-data fallbacks | ❌ no packaging service |
+| Notifications | ✅ complete | — | n/a |
+
+`✅` = implemented in source. `⚠️` = implemented but currently behaves in a way
+that overstates reality; see §11 Known issues.
+
+---
+
+## 2. ⚠️ Temporary authentication bypass — CURRENTLY PRESENT
+
+**A temporary frontend authentication bypass is currently present for UI
+development and must be removed before production authentication enforcement.**
+
+It lives entirely in `src/contexts/AuthContext.jsx` (plus a relaxed validation
+rule on the Login page). Three separate paths make the dashboard reachable
+without a real authenticated session:
+
+1. **`DUMMY_USER`** — an exported hardcoded identity ("Shayan Delta", Studio
+   Kraios Architecture, `user@kraios.ai`, Albania, "Architect Account").
+
+2. **`verifySession()` never fails.** `GET /auth/me/` is still issued with
+   `skipRefresh: true`, but its `.catch()` sets `DUMMY_USER` (or keeps the
+   previous user), clears `sessionExpired` and sets the status to
+   `authenticated`. A rejected or unreachable backend therefore still resolves to
+   a signed-in dashboard, and `verifySession` always resolves `true`.
+
+3. **`login()` has two dummy paths.**
+   - If **both** email and password are blank, it signs in as `DUMMY_USER`
+     immediately without calling the API at all.
+   - If `loginUser()` throws (bad credentials, network, CORS, 500 — anything),
+     the `catch` builds a fallback user from `DUMMY_USER` + the typed email and
+     signs in anyway. `login()` therefore never rejects and never surfaces an
+     authentication failure.
+
+4. **Login page validation was relaxed to match.** `src/pages/Login.jsx`
+   `validate()` only checks email *format*, and only when an email was typed.
+   Neither field is required, so submitting the empty form passes validation and
+   reaches the blank-credentials dummy path.
+
+**Observable consequence:** `/dashboard` and every dashboard route are reachable
+by anyone, with or without a backend, and the caution modal path
+(`sessionStatus === 'anonymous'`) is effectively only reachable after an explicit
+Log out or an expired-session event.
+
+**Not production-ready authentication.** The real cookie/CSRF/refresh plumbing
+underneath is intact and unchanged; only these fallbacks bypass it. Removing them
+is a separate, deliberate task (see §12 Follow-ups). This documentation pass did
+NOT modify any of it.
+
+---
+
+## 3. Stack and configuration
+
+Dependencies (`package.json`, name `floor`):
+
+```
+react 19 · react-dom 19 · react-router-dom 7
+vite 8 · @vitejs/plugin-react 6 · tailwindcss 4 · @tailwindcss/vite 4
+gsap 3 · @gsap/react 2
+@phosphor-icons/react 2
+react-hot-toast 2
+react-markdown 10 · remark-gfm 4
+@fontsource-variable/inter 5
+eslint 10 · @eslint/js · eslint-plugin-react-hooks 7 · eslint-plugin-react-refresh · globals
+```
+
+No HTTP client dependency; no state library; no UI kit; no second toast library.
+React-Toastify is fully removed — no import, container, class or helper remains.
+
+- `vite.config.js` — `@` → `./src`; dev proxy `/api` → the ngrok backend host
+  with `ngrok-skip-browser-warning`.
+- `vercel.json` — `/api/(.*)` → `/api/proxy?path=$1`; everything else (except
+  `api/` and `assets/`) → `/index.html`.
+- `api/proxy.js` — serverless forwarder; passes method, body and the
+  `content-type` / `cookie` / `origin` / `referer` / `x-csrftoken` headers, and
+  returns `set-cookie` (including multi-cookie via `getSetCookie()`).
+- `.env` / `.env.example` — `VITE_API_BASE_URL=/api/v1`.
+- `FRONTEND_PROFILE_API_GUIDE.md` sits at the repository root (currently
+  untracked) and is the backend contract `src/lib/api/profile.js` implements.
+- `eslint.config.js` — flat config, `**/*.{js,jsx}`, browser **and** Node
+  globals, `js.configs.recommended`, `react-hooks` recommended,
+  `no-unused-vars` with `varsIgnorePattern: '^[A-Z_]'`,
+  `react-refresh/only-export-components` as a warning with
+  `allowConstantExport`.
+
+---
+
+## 4. Routing — verified against `src/router/router.jsx`
+
+Public (`AppLayout`): `/`, `/login`, `/forgot-password`, `/reset-password`,
+`/signup`.
+
+Dashboard (`DashboardLayout`):
+
+```
+/dashboard                                        DashboardHome
+/dashboard/projects                               Projects
+/dashboard/profile                                Profile
+/dashboard/subscription                           Subscription
+
+/dashboard/projects/:projectId                    RequireProject → ProjectWorkspace
+  index                                           → <Navigate to="upload" replace />
+  …/upload                                        UploadStep      (Step 1, upload mode)
+  …/generate                                      GenerateStep    (Step 1, generate mode)
+  …/rendering                                     RenderingStep   (Step 2 gateway)
+  …/boq                                           BoQStep         (Step 3 gateway)
+  …/output                                        OutputStep      (Step 4)
+
+/dashboard/projects/:projectId/upload/assistant    RequireProject → FloorPlanAssistantPage
+/dashboard/projects/:projectId/generate/assistant  RequireProject → FloorPlanAssistantPage
+/dashboard/projects/:projectId/rendering/assistant RequireProject → DesignAssistantPage
+/dashboard/projects/:projectId/boq/assistant       RequireProject → BoQAssistantPage
+
+*                                                  NotFoundPage
+```
+
+- Lazy: all page components except `RequireProject` and `NotFoundPage`.
+- `/generate` and `/generate/assistant` are current, real routes — Step 1 has two
+  addressable modes.
+- No route list is duplicated in `DashboardLayout`; precedence lives only in the
+  route table.
+- Invalid dashboard addresses (`/dashboard/banana`,
+  `/dashboard/projects/1/banana`) fall through to `*` and get the blue
+  `NotFoundModal`, never a login wall.
+- A valid route shape with an unknown project id redirects to
+  `/dashboard/projects` via `RequireProject`.
+
+---
+
+## 5. API integration status
+
+Single client: `src/lib/api/client.js`, surfaced through `src/lib/api.js`.
+Implemented: `credentials: 'include'`, CSRF fetch + `X-CSRFToken` on mutating
+methods, one-shot 401 refresh (excluded for login/refresh/csrf/signup-request and
+when `skipRefresh`), `kraios:auth-expired` dispatch, `parseApiError`
+normalization, network-error wrapping.
+
+| Endpoint | Service | Caller | Fires when | Status |
+|---|---|---|---|---|
+| `GET /auth/csrf/` | `ensureCsrfToken` / `fetchCsrfToken` | client + `loginUser` | before mutating calls / before login | integrated |
+| `POST /auth/login/` | `loginUser` | Login page via `AuthContext.login` | valid submit | integrated, ⚠️ dummy fallback on failure |
+| `POST /auth/signup-request/` | `submitSignupRequest` | Signup page | valid submit | integrated |
+| `POST /auth/logout/` | `logoutUser` | Sidebar / mobile nav Log out | click | integrated (swallows transport failure) |
+| `POST /auth/refresh/` | internal | client on 401 | automatic, once | integrated |
+| `GET /auth/me/` | `getCurrentUser` | `DashboardLayout` boundary | status `unknown` | integrated, ⚠️ dummy fallback on failure |
+| `POST /auth/reset-password/` | `apiRequest` + `AUTH_ENDPOINTS` | ResetPassword page | valid submit | integrated |
+| `GET /profile/` | `fetchProfile` | Profile page mount | on entry | integrated |
+| `PATCH /profile/` | `updateProfile` | EditProfileModal | save | integrated, ⚠️ local fallback on failure |
+| `POST /profile/password-change/request/` | `requestPasswordChange` | ResetPasswordModal | step A | integrated |
+| `POST /profile/password-change/confirm/` | `confirmPasswordChange` | ResetPasswordModal | step B → `clearSession()` → `/login` | integrated |
+| `POST /profile/delete-account/request/` | `requestAccountDeletion` | DeleteAccountModal | step A | integrated |
+| `POST /profile/delete-account/confirm/` | `confirmAccountDeletion` | DeleteAccountModal | step B → `clearSession()` → `/` | integrated |
+
+**No API exists for:** projects, floor-plan upload, 2D generation, 3D
+generation, BoQ generation, document upload, deliverables packaging, or billing.
+
+**Calling-boundary compliance (verified):**
+
+- Public routes fire no authenticated request. `AuthProvider` performs no
+  bootstrap on mount; only the dashboard boundary calls `verifySession`.
+- No dashboard page calls `/auth/me/` a second time. Overview → Projects →
+  Subscription costs zero requests; Profile costs exactly one `GET /profile/`.
+- Forgot Password calls nothing (see §11 for the honesty issue this creates).
+- `verifySession` is de-duplicated through a promise ref, so StrictMode's double
+  effect cannot produce two `/auth/me/` requests.
+
+---
+
+## 6. State architecture
+
+**`AuthContext`** — `user`, `sessionStatus` (`unknown` / `verifying` /
+`authenticated` / `anonymous`), `sessionExpired`, `isLoading`, `error`;
+`verifySession`, `login`, `signup`, `logout`, `clearSession`, `setUser`.
+`isAuthenticated` is derived from the status. `token` is always `null`. Legacy
+aliases `useLogin` / `LoginProvider` / `LoginContext` are still exported.
+
+**`ProfileContext`** — `profile` (draft), `savedProfile`, `isDirty`,
+`isLoading`, `isSaving`, `error`; `fetchProfile`, `updateProfile`,
+`resetProfile`, `setField`, `setProfile`. Seeds from the auth user using the
+render-time `prevUser` adjustment pattern; `mergeUserData` reconciles backend
+field names with the UI's. Note that `DEFAULT_PROFILE` supplies placeholder
+values ("Shayan Delta", Studio Kraios Architecture, Albania) when a field is
+absent.
+
+**`ProjectsProvider`** (inside `DashboardLayout`) — session memory only:
+
+```
+projects[]                     { id, name, createdAt, has3DRender, hasBoQ }
+floorPlanSources{}             per project — Step 1 active source
+floorPlanAssistantStates{}     per project — Step 1 assistant reducer state
+designAssistantStates{}        per project — Step 2 assistant reducer state
+boqAssistantStates{}           per project — Step 3 assistant reducer state
+```
+
+- Ids from a monotonic counter (`project-001`, `project-002`, …).
+- `has3DRender` / `hasBoQ` are **derived** from the two `approvedResultId`s in
+  `projectsWithStageState` — never written into the project record.
+- Blob URLs are released on source replacement, document removal, project
+  deletion and provider unmount.
+- Hooks: `useProjects`, `useFloorPlanSource`, `useFloorPlanAssistant`,
+  `useDesignAssistant`, `useBoqAssistant`; each per-project hook falls back to a
+  frozen shared default state.
+
+**Persistence: none.** No localStorage, no sessionStorage (except the OTP
+`verification_id`), no API. A refresh loses every project, source, conversation
+and approval. Refreshing while inside a project workspace lands on
+`RequireProject`, which redirects to an empty library.
+
+---
+
+## 7. Dashboard shell and pages
+
+**`DashboardLayout`** resolves three states in order: (1) session unverified →
+full-surface `PageLoader`; (2) no session → `AuthRequiredModal` with the
+attempted address; (3) verified → `ProjectsProvider` + sidebar + mobile nav +
+page surface + `Outlet`. It also owns `useScrollToTop`, the `RouteReady`
+opacity crossfade, and the `DiscardProjectModal` guard that intercepts nav clicks
+while inside `/dashboard/projects/<id>…`.
+
+Sidebar retained on **every** dashboard route, including all three assistants.
+
+Global nav (`dashboardNavigation.js`): Overview · Projects · Subscription ·
+Profile, plus `DASHBOARD_SIGN_OUT` (Log out) exported separately and wired to
+`AuthContext.logout` in both the sidebar and the mobile nav.
+
+**Overview (`/dashboard`)** — `DashboardHome` renders `WelcomeWorkflowCanvas`
+plus `CreateProjectModal`. The canvas is a centred welcome composition: an
+"ARCHITECTURAL AI ENGINE · 2D TO 3D & BoQ" status badge, the brand mark between
+two hairlines, a personalized "Welcome, &lt;name&gt;" headline (name resolved
+from `ProfileContext` then `AuthContext`), one line of product copy, and two
+CTAs — "Create New Project" (opens the modal) and "View Projects" (link to
+`/dashboard/projects`). There are no stage cards, no API calls and no fabricated
+metrics on this page.
+
+Note: `WORKFLOW_STAGES[].description` and `.summary` are declared but no longer
+rendered anywhere; the stepper and Previous/Next bar read `number`, `label` and
+`segment` only.
+
+**Projects (`/dashboard/projects`)** — `DashboardPageHeader` + "Create New
+Project" CTA; empty state ("NO PROJECTS YET") when the list is empty, otherwise
+`ProjectGrid` → `ProjectCard`. Card shows the project id chip, creation date,
+name, a delete action, and an "Open Workspace" link. `ProjectGrid` owns the
+delete confirmation modal and toasts "Project deleted."; `CreateProjectModal`
+validates the name (one toast), creates the project, navigates to
+`/dashboard/projects` and toasts "Project created."
+A commented-out `StageStatusTile` block remains in `ProjectCard.jsx`.
+
+**Subscription (`/dashboard/subscription`)** — `CurrentPlanCard` +
+three `PricingPlanCard`s from `src/lib/dashboard/subscriptionPlans.js`. The
+module states plainly that all of it is mock: no billing backend, no checkout, no
+feature enforcement. "Manage" opens a modal saying billing is not connected yet.
+
+**Profile (`/dashboard/profile`)** — `ProfileIdentityPanel` plus three modals:
+`EditProfileModal` (full name / firm / country / job title / phone; email
+read-only), `ResetPasswordModal` (current + new + confirm → OTP → `clearSession`
+→ `/login`), `DeleteAccountModal` (type DELETE + password → OTP →
+`clearSession` → `/`). `fetchProfile()` runs once on mount.
+
+---
+
+## 8. Project workflow — current implementation
+
+### Step 1 — Upload / Generate (`/upload`, `/generate`)
+
+`FloorPlanInputStage` renders the mode toggle, `FloorPlanBrief` and one of two
+panels.
+
+- **Upload** — real local file handling: hidden file input + drag & drop with
+  refcounted drag depth, one file only (extra files → info toast), PNG/JPG/JPEG/
+  PDF validated by mime and extension, object URL minted for images. On success
+  the source is stored and the stage shows a full-area
+  "GOING TO 3D RENDERING STEP…" loader, then navigates to `/rendering` after
+  **1400 ms**.
+- **Generate** — a gateway card ("GENERATE NOW") into the 2D Floor Plan
+  Assistant, with a bottom status strip that is green when a source exists and
+  red otherwise.
+- Mode toggle navigates between `/upload` and `/generate`; the mode locked by an
+  existing source raises one info toast instead of switching.
+- Next is gated by `floorPlanGateMessage` until a source exists.
+
+**Not present any more:** an in-stage source preview / remove / regenerate card.
+`FloorPlanSourcePreview.jsx` still exists in the tree but nothing imports it
+(see §10 Dead code). Once a file is uploaded the stage moves straight on to Step
+2; returning to Step 1 shows the upload dropzone again (with the mode lock
+applied), not a preview of the stored file.
+
+### 2D Floor Plan Assistant (`/upload/assistant`, `/generate/assistant`)
+
+**UI implemented; generation currently frontend mock.**
+
+- Header: Back (to whichever Step 1 address the user came from), brand block,
+  `ApprovalStatus` indicator. There is no "Approve Now" button in the header —
+  approval is per result, in the result's header row.
+- Conversation: empty state with four `FLOOR_PLAN_QUICK_PROMPTS`, user/assistant
+  messages, pending block, failure notice with Retry, result blocks with
+  `ResultHeaderControls` (Edit + Approve) and a "Full View" overlay rail.
+- Composer: Step 2's `AssistantComposer` with a 2D-specific placeholder.
+- Generation: `FLOOR_PLAN_GENERATION_ENABLED = false`,
+  `FLOOR_PLAN_GENERATION_MOCK_ENABLED = true` → returns
+  `/assets/plan-2d-primary.svg` immediately, every time, with no artificial
+  delay and no invented metadata.
+- Approve writes a `generated` source into Step 1 (`createGeneratedSource`) and
+  navigates back. Toggling approval off clears the Step 1 source.
+- A new generation clears the previous approval and the editing pointer.
+- Edit opens `KraiosDesignCanvas` after a **1800 ms** transition loader; the
+  canvas "Proceed" runs the same generation path with a composite snapshot and
+  produces a new, unapproved result.
+
+### Step 2 — 3D Rendering gateway (`/rendering`)
+
+`RenderingStage` renders exactly one thing: `DesignAssistantGateway` — a
+branded, animated entry card with the capability hint, the "Open Design
+Assistant" CTA and an approved/unapproved state. `renderingStatusNote` derives
+the contextual line from real state.
+
+Next is gated by `renderingGateMessage` until a render is approved.
+
+### Design Assistant (`/rendering/assistant`)
+
+**UI implemented; generation currently frontend mock.**
+
+- Header: Back to 3D Rendering, brand block, `FloorPlansDropdown` (attached 2D
+  plans, with a full-screen preview), `ApprovalStatus`.
+- Conversation: `AssistantEmptyState` + four `QUICK_PROMPTS`, timestamped
+  messages, pending / failure / retry blocks, result blocks.
+- Result header controls: Edit, Approve (toggle, with tooltip), View Angle menu.
+- Result rail: Full View always; DWG only when the result actually carries a
+  `dwgUrl` (the mock never does, so no DWG button is shown).
+- Composer: single-line input, Enter to send, `RenderStyleDropdown` inline. The
+  Cancel control is gated on `MODEL_GENERATION_SUPPORTS_CANCEL`, which evaluates
+  to `false`, so no cancel button is rendered.
+- **Render styles: SketchUp, Photo Realistic.**
+- **View angles: Isometric 45° only.** `DEFAULT_VIEW_ANGLE_ID` is `null`, so a
+  result generated from a typed prompt carries `viewAngleId: null`.
+- Generation: `MODEL_GENERATION_ENABLED = false`,
+  `MODEL_GENERATION_MOCK_ENABLED = true` → returns `/assets/plan-3d-light.svg`
+  immediately, no delay, no invented processing metadata. Style and angle are
+  recorded on the result as metadata only.
+- Selecting a view angle runs the same `runGeneration` path a typed instruction
+  runs — a real generation request, producing a new unapproved result. No CSS
+  transform stands in for a viewpoint.
+- A new result clears the previous approval; approving navigates back to
+  `/rendering`.
+- Edit opens the canvas after a **2200 ms** transition loader.
+
+### Kraios Design Canvas
+
+**Fully implemented, shared by the Step 1 and Step 2 assistants.**
+
+- Two tools: **Markup Pen** (`P`) and **Marker / highlighter** (`M` or `H`).
+  There is no lasso / selection / cutout tool in the current source.
+- Ten colour swatches, five brush widths, zoom in / out / reset, clear.
+- Undo / redo wired to `Ctrl+Z`, `Ctrl+Y` and `Ctrl+Shift+Z`, ignored while an
+  input/textarea/contenteditable has focus.
+- `MAX_HISTORY = 30` full-canvas `toDataURL()` snapshots; the oldest is dropped
+  past the cap and the index clamped.
+- The right-side prompt panel opens automatically once the user draws.
+- "Proceed" composites base image + annotation layer into a PNG data URL and
+  hands it to `onRegenerate`, which starts a normal generation.
+
+Every advertised shortcut in the toolbar is implemented.
+
+### Step 3 — BoQ gateway (`/boq`)
+
+`BoQStage` renders `BoQAssistantGateway`: BoQ identity tile, four capability
+chips, "Open BoQ Assistant", approved/unapproved state, a full-screen preview
+modal, and the bottom strip that lets the user skip straight to Output.
+
+BoQ is optional: `boqGateMessage()` returns `null`, so Next is never blocked
+here.
+
+The gateway also carries a local **"Upload 3D Plan"** file input with
+component-local state — see §11, it is not wired to project state and leaks
+object URLs.
+
+### BoQ Assistant (`/boq/assistant`)
+
+**UI implemented; generation currently frontend mock.**
+
+- Header: Back to BoQ, brand block, `FloorPlansDropdown` (2D),
+  `FloorPlans3DDropdown` (approved render), `UploadedDocumentsDropdown`,
+  `ApprovalStatus`.
+- Conversation: empty state, user/assistant messages, assistant text rendered as
+  Markdown (`react-markdown` + `remark-gfm` — the only place either is used),
+  pending / failure / retry blocks, `BoQResult` → `BoQTable`.
+- Table: Add Row (header and footer) and per-row Delete, both of which clear the
+  approval when they touch the approved result (`withRowEdit`).
+- Approve / revoke per result; approving navigates back to `/boq`.
+- Composer: single-line input + `DocumentTypeDropdown` + send. **No attachment
+  control.**
+- Document types: **General Document · MEP Drawing · HVAC Drawing · Door and
+  Window Schedule**.
+- Generation: `requestBoqGeneration` waits a deliberate **1400 ms** (abortable),
+  then picks one of five declared fixtures by keyword (`wall`/`finish`/`paint`,
+  `floor`/`tile`, `cost`/`rate`/`price`/`schedule`, `breakdown`/`material`/
+  `quantity`, else the default requirements analysis) from `boqDemoData.js` and
+  an inline set. It deliberately ignores the selected document type. Rates and
+  amounts in the returned rows are `—` placeholders.
+
+### Step 4 — Output / Deliverables (`/output`)
+
+**UI implemented (recently redesigned); no packaging backend; heavy demo-data
+fallbacks — see §11.**
+
+Current composition (`OutputStage`):
+
+```
+OutputHeader              hero, "DELIVERABLES READY" badge, four stat chips,
+                          Quick Downloads card:
+                            Download All (ZIP) · Latest 3D · 3D Images · 2D Plans
+OutputDeliverablesTabs    All Deliverables · 3D Renders · 2D Floor Plans · BOQ · Documents
+Output3DRendersSection    approved render + version gallery, preview + download
+Output2DPlansSection      2D plan + versions, preview + download
+OutputBoQSection          BoQ preview table, CSV export, open full modal,
+                          "Edit BoQ" → /boq/assistant
+OutputDocumentsSection    documents grid + downloads
+OutputBoQModal            full-screen BoQ inspection
+FloorPlanFullscreenModal  shared lightbox
+```
+
+Real behaviour that works:
+
+- Reads Step 1's source, Step 2's `approvedResult`, Step 3's
+  `approvedBoqResult` (approved only — no fallback to the latest draft at the
+  stage level) and Step 3's uploaded documents.
+- `generateBoqCsv` produces RFC 4180 CSV.
+- `downloadAssetUrl` fetches, checks `response.ok`, and returns whether the file
+  was actually produced.
+- `downloadProjectPackageZip` builds a real PKZIP 2.0 store-mode archive with no
+  zip dependency, normalizes every user-supplied name through `safeFileName`,
+  uses `projectSlug` for folder naming, and omits any asset whose fetch failed
+  rather than packaging an error body. The BoQ CSV is written only when rows were
+  passed in.
+
+---
+
+## 9. Notifications, modals, shared UI
+
+**Notifications** — React Hot Toast only. One `<Toaster>` in `KraiosToaster.jsx`,
+mounted once in `main.jsx`. The helper API is `src/lib/toast.js`
+(`showSuccessToast` / `showErrorToast` / `showInfoToast` / `showLoadingToast` /
+`dismissToast`, `TOAST_DURATION`, `toastKind`); no file outside those two imports
+`react-hot-toast`. Light KRAIOS surface, icon badge + 2px remaining-time rule,
+styling in `src/styles/toast.css`. Stable ids are used for repeatable events
+(`login-validation`, `signup-error`, `unsupported-file`, `multiple-files`,
+`locked-mode-notice`, `workflow-stage-gate`, `project-created`,
+`project-deleted`, `profile-saved`, …).
+
+**Modals** — one shared `Modal` primitive, used for: signup confirmation, forgot-
+password confirmation, reset-password confirmation, create project, delete
+project, discard project, auth required (`AuthRequiredModal`), route not found
+(`NotFoundModal`), subscription "not connected" notice, edit profile, reset
+password, delete account, and the Output BoQ modal. The floor-plan/render
+lightbox (`FloorPlanFullscreenModal`) is a separate portal component shared by
+Steps 1–4.
+
+**Buttons** — `PrimaryButton` is the only CTA component; `loading` gives
+`aria-busy`, a size-stable invisible label and an overlaid spinner. Variants
+`solid` / `outline`; sizes `default` / `compact` / `sm` / `xs`.
+
+**Country dropdown** — 196 canonical countries, 74 alias keys, diacritic-
+insensitive normalization, tiered ranking, match highlight, clear control, and
+real ArrowUp / ArrowDown / Enter / Escape keyboard navigation.
+
+**Assistant dropdowns** — `RenderStyleDropdown`, `ViewAngleMenu`,
+`DocumentTypeDropdown`, `UploadedDocumentsDropdown`, `FloorPlansDropdown`,
+`FloorPlans3DDropdown`. All bind selection to `onClick` only (no duplicate
+`onMouseDown` firing), close on outside pointerdown and Escape, and return focus
+to the trigger. **None of them implement arrow-key roving focus over the option
+rows.**
+
+**Design tokens** — verified in `src/styles/index.css`: navy `#071426` /
+`#0b1c32`, brand `#1677ff`, brand-deep `#0b5ed7`, light `#f4f6f8`, success
+`#0a6c48`, danger `#b42318`, warning `#b54708`; radius 3 / 4 / 6 / 8px with
+Tailwind's xl–4xl radii disabled; Inter Variable for both `--font-display` and
+`--font-body`.
+
+---
+
+## 10. Dead / unused source (verified — not removed)
+
+These files exist in the tree but nothing imports them. They are the remains of
+the previous Step 4 composition, the previous Step 2 sheet composition and the
+previous Step 1 preview. **Nothing here was deleted in this pass.**
+
+```
+src/components/dashboard/projects/workflow/step-1/FloorPlanSourcePreview.jsx
+src/components/dashboard/projects/workflow/step-2/ApprovedDesignSheet.jsx     (imported by RenderingStage but never rendered)
+src/components/dashboard/projects/workflow/step-2/SheetTitleBlock.jsx
+src/components/dashboard/projects/workflow/step-2/ReferenceSourceStrip.jsx
+src/components/dashboard/projects/workflow/step-4/PlansAndRendersSection.jsx
+src/components/dashboard/projects/workflow/step-4/OutputPlanCard.jsx          (only referenced by PlansAndRendersSection)
+src/components/dashboard/projects/workflow/step-4/FinalBoQSection.jsx
+src/components/dashboard/projects/workflow/step-4/FinalBoQTable.jsx           (only referenced by FinalBoQSection)
+src/components/dashboard/projects/workflow/step-4/UploadedDocumentsSection.jsx
+src/lib/dashboard/currentUser.js                                              (reads tokenStorage.getUser(), which always returns null)
+```
+
+Also unused in place:
+
+- `RenderingStage.jsx` defines a local `StageNote` component and imports
+  `RENDERING_COPY` / `ApprovedDesignSheet` that the rendered JSX no longer uses.
+- `UploadFloorPlanPanel` accepts a `source` prop it never reads;
+  `GenerateFloorPlanPanel` accepts `onSourceChange` it never calls.
+
+None of this is reported by ESLint, because `no-unused-vars` is configured with
+`varsIgnorePattern: '^[A-Z_]'` — PascalCase component imports are exempt. A green
+lint run is therefore **not** evidence that a component is reachable.
+
+---
+
+## 11. Known issues — verified in the current source
+
+Ordered roughly by impact. None of these were fixed in this pass.
+
+### Auth / honesty
+
+1. **Temporary auth bypass** (§2). Dashboard is reachable without a real session;
+   `login()` never rejects; blank credentials sign in as `DUMMY_USER`.
+2. **Profile save can report success for a failed request.**
+   `ProfileContext.updateProfile` wraps the `PATCH /profile/` call in an inner
+   `try/catch` that, on ANY failure, synthesizes a `responseData` object from the
+   submitted form and continues down the success path. `EditProfileModal`
+   therefore toasts "Profile updated successfully." and clears the dirty state
+   even when the backend rejected or was unreachable. This contradicts the
+   honest-feedback rule in CLAUDE.md §28.
+3. **Forgot Password claims an email was sent.** `src/pages/ForgotPassword.jsx`
+   makes no request at all (correctly — there is no endpoint), but on submit it
+   opens a modal titled **"Email Sent"**. Nothing was sent.
+
+### Step 4 fabricated data
+
+4. **Hardcoded deliverable counts.** `OutputStage` builds
+   `counts = { all: 45, renders: 18, plans: 2, boq: 1, documents: uploadedDocs.length || 24 }`
+   and passes them to `OutputHeader` and `OutputDeliverablesTabs`. `OutputHeader`
+   additionally defaults `renderCount = 18`, `planCount = 2`,
+   `docCount = uploadedDocs.length || 24`, `boqCount = boqRows.length || 1`, and
+   `OutputDeliverablesTabs` has the same numbers as its own default prop. These
+   are invented project metrics shown as fact.
+5. **"DELIVERABLES READY" badge is unconditional** in `OutputHeader`, regardless
+   of whether anything is approved.
+6. **Sample BoQ rows are substituted for a real deliverable.**
+   `OutputBoQSection` falls back to a local `SAMPLE_BOQ_ROWS` constant — complete
+   with fabricated rates and amounts ("6,200.00", "1,06,250.00") — when no
+   approved BoQ exists, and the CSV export downloads whatever `rows` currently
+   holds. A user with no approved BoQ can therefore export a priced CSV of
+   invented figures. This contradicts CLAUDE.md §26.
+7. **Sample documents are substituted for real ones.**
+   `OutputDocumentsSection` falls back to `SAMPLE_PROJECT_DOCS` ("Project
+   Brief.pdf", "Structural Drawings.zip", …) and, when such a row has no file or
+   URL, its download handler generates a Blob containing
+   `Sample document content for <name>` and saves it under the real-looking
+   filename.
+8. **Sample version histories.** `Output3DRendersSection` (`DEFAULT_3D_VERSIONS`
+   — v6/v7/v8 with fixed 2026 dates) and `Output2DPlansSection`
+   (`DEFAULT_2D_VERSIONS`) present render/plan history that the application never
+   produced.
+9. **"3D Images" quick download is mislabelled.** `handleDownloadAll3DZip` in
+   `OutputHeader` simply calls the full project ZIP handler; "2D Plans (All plans
+   ZIP)" downloads a single asset, not a ZIP.
+10. **`downloadAssetUrl`'s return value is ignored** at every Step 4 call site.
+    Nothing currently announces a false success, but the signal that exists to
+    prevent that is unused.
+
+### Functional gaps and defects
+
+11. **BoQ supporting-document upload is unreachable.** The reducer has
+    `uploadDocument`, `boqDocuments.js` has `createBoqDocument`, and the header
+    has `UploadedDocumentsDropdown` — but no component exposes an attachment
+    control and nothing ever dispatches the action. `createBoqDocument` has zero
+    call sites.
+12. **Step 3 gateway's "Upload 3D Plan" is orphaned and leaks.**
+    `BoQAssistantGateway` holds the uploaded plan in component-local state, so it
+    is discarded on navigation and never reaches `ProjectsProvider`, Step 4 or the
+    ZIP. It mints **two** object URLs per file (`imageUrl` and `previewUrl`) and
+    revokes neither, including on remove and on unmount.
+13. **Design Assistant "Full View" can throw.** `DesignAssistantPage` builds the
+    lightbox name with `viewAngleById(expanded.viewAngleId).label`.
+    `viewAngleById` returns `null` for an unknown/`null` id, and
+    `DEFAULT_VIEW_ANGLE_ID` **is** `null`, so any result produced by a typed
+    prompt (rather than by picking a view angle) has `viewAngleId: null` and
+    expanding it dereferences `null`. `AssistantResult` guards this correctly with
+    `angle?.label`; the page does not.
+14. **`requestFloorPlanGeneration` has an inverted guard.** In
+    `step-1/floorPlanGeneration.js`, `if (FLOOR_PLAN_GENERATION_ENABLED) { throw
+    new FloorPlanGenerationUnavailableError() }` — i.e. turning the real service
+    flag ON makes generation throw "not connected". Harmless today because the
+    flag is `false` and the mock branch runs, but it will misfire the moment the
+    real service is wired.
+15. **`latestBoqResult` relies on object key order.** It reads
+    `Object.keys(state.results)` and takes the last key, rather than walking the
+    message list the way Step 1 and Step 2 selectors do.
+16. **`Login.jsx` no longer requires a password**, and does not require an email
+    at all — part of the bypass (§2), but worth listing separately because the
+    fix is in a different file.
+17. **`ProfileContext.DEFAULT_PROFILE` supplies plausible-looking placeholder
+    identity data** ("Shayan Delta", "Studio Kraios Architecture", "Albania")
+    whenever a real field is missing, so the Profile panel can display invented
+    values as though they were the user's.
+18. **`Profile.jsx` carries a stale comment** — "Fetch /auth/me/ profile API" —
+    above a call that actually fires `GET /profile/`.
+
+### Deliberate delays still present
+
+- Step 1 upload → 3D Rendering transition: **1400 ms**
+- Step 1 assistant → canvas open: **1800 ms**
+- Step 2 assistant → canvas open: **2200 ms**
+- BoQ mock generation: **1400 ms** (deliberate, so the pending/cancel state stays
+  observable)
+
+2D and 3D mock generation have **no** artificial delay.
+
+### Resolved — previously documented, no longer true
+
+- The canvas Lasso / Cutout tool that only drew freehand strokes has been
+  **removed**; the canvas now ships two honest tools.
+- Dropdown double-fire (`onMouseDown` + `onClick`) is gone from all assistant
+  menus.
+- The ESLint Node-globals gap that made `api/proxy.js` report `no-undef` is
+  fixed — the flat config now includes `globals.node`.
+- Step 4 no longer substitutes an unapproved BoQ draft for an approved one **at
+  the stage level** (`OutputStage` reads `approvedBoqResult` only) — but see
+  issue 6 for the section-level sample fallback that still does.
+- `hasBoQ` is correctly derived from Step 3's `approvedResultId`.
+- No stray `console.log` / `console.warn` / `console.error` statements remain in
+  `src/` (the Login and Signup pages keep them commented out).
+
+---
+
+## 12. Follow-ups (not started)
+
+**Authentication (blocking for production)**
+
+1. Remove `DUMMY_USER` and both dummy login paths from `AuthContext`; let
+   `login()` reject so the Login page's existing error toast fires.
+2. Remove the dummy fallback from `verifySession`'s `.catch()` so a rejected
+   `/auth/me/` produces `anonymous` and the caution modal.
+3. Restore required-field validation for email and password on the Login page.
+4. Re-verify the three route-integrity cases (public / protected-no-session /
+   non-existent) after the bypass is gone.
+
+**Honesty of feedback**
+
+5. Let `ProfileContext.updateProfile` propagate a failed `PATCH` instead of
+   synthesizing success.
+6. Replace the Forgot Password "Email Sent" modal with copy that matches the
+   fact that no request is made — or connect a real endpoint.
+7. Remove or gate the Step 4 sample-data fallbacks (counts, BoQ rows, documents,
+   version histories, the always-on "DELIVERABLES READY" badge) so Output can
+   never show or export invented figures.
+
+**Functional**
+
+8. Wire a real attachment control into `BoQComposer` so `createBoqDocument` /
+   `uploadDocument` become reachable (a design decision — new element in an
+   approved interface).
+9. Route the Step 3 gateway's "Upload 3D Plan" through `ProjectsProvider`, or
+   remove it; revoke its object URLs either way.
+10. Guard `viewAngleById(...)` with `?.` in `DesignAssistantPage`'s lightbox.
+11. Fix the inverted `FLOOR_PLAN_GENERATION_ENABLED` guard.
+12. Delete the unused modules listed in §10 after one more verification pass.
+
+**Backend integration (blocked on services)**
+
+13. Project persistence API (list / create / delete / read), replacing the
+    session-memory store. The context value is already shaped like the API that
+    will replace it.
+14. 2D generation service → `step-1/floorPlanGeneration.js` only.
+15. 3D generation service → `step-2/modelGeneration.js` only (plus
+    `MODEL_GENERATION_SUPPORTS_CANCEL` if the endpoint honours `AbortSignal`).
+16. BoQ generation / quantity-takeoff service → `step-3/boqGeneration.js`.
+17. Document upload + storage service.
+18. Server-side deliverables packaging, for archives too large to hold in browser
+    memory.
+19. Billing / subscription API to replace `subscriptionPlans.js`.
+
+**Performance (not urgent)**
+
+20. `ProjectsProvider` is broad and receives high-frequency assistant updates —
+    consider narrower providers or selector boundaries before reaching for a
+    state library.
+21. Canvas history stores 30 full base64 PNG snapshots.
+
+---
+
+## 13. Validation status
+
+- **`npm run lint` — RUN and PASSED.** `eslint .` exited 0 with no errors and no
+  warnings on the current source. Caveat: `no-unused-vars` is configured with
+  `varsIgnorePattern: '^[A-Z_]'`, so the unused component imports and unused
+  local components listed in §10 are not reported.
+- **`npm run build` — NOT run** in this pass.
+- **Tests — none exist** in the repository.
+- **Responsive verification — NOT performed.** No viewport in the
+  1920 → 360 list has been visually verified recently; do not claim otherwise.
+- **Runtime / browser verification — NOT performed** in this pass. Everything in
+  this document was established by reading the current source.

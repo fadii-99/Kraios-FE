@@ -12,7 +12,7 @@ export default function ApprovalStatus({ approved, showLabel = false, className 
     <div className={cn('inline-flex shrink-0 items-center gap-2 sm:gap-2.5', className)}>
       {showLabel && (
         <span
-          className="font-display text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-slate-400/80"
+          className="font-display text-[0.625rem] font-bold uppercase tracking-[0.12em] text-slate-400/80"
           style={{ fontFamily: 'var(--font-display)' }}
         >
           Status

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import AuthShell from '@/components/ui/AuthShell'
 import FormInput from '@/components/ui/FormInput'
@@ -16,22 +16,39 @@ const FIELD_ORDER = ['email', 'password']
 function validate(values) {
   const errors = {}
 
-  if (!values.email.trim()) errors.email = 'Enter your email address.'
-  else if (!isEmail(values.email)) errors.email = 'Enter a valid email address.'
+  if (!values.email.trim()) {
+    errors.email = 'Enter your email address.'
+  } else if (!isEmail(values.email)) {
+    errors.email = 'Enter a valid email address.'
+  }
 
-  if (!values.password) errors.password = 'Enter your password.'
+  if (!values.password) {
+    errors.password = 'Enter your password.'
+  }
 
   return errors
 }
 
 export default function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login } = useAuth()
   const [values, setValues] = useState(EMPTY)
   const [errors, setErrors] = useState({})
   const [touched, setTouched] = useState({})
   const [status, setStatus] = useState('idle')
   const formRef = useRef(null)
+
+  /*
+   * Where to land after signing in. The dashboard boundary does not redirect an
+   * unauthenticated visitor — it answers in place — so the address they asked
+   * for is still known, and its caution modal hands it here in router state.
+   * Anything else (a direct visit to /login) goes to the dashboard root.
+   */
+  const from =
+    typeof location.state?.from === 'string' && location.state.from.startsWith('/dashboard')
+      ? location.state.from
+      : '/dashboard'
 
   const setField = (key) => (e) => {
     const { value } = e.target
@@ -79,14 +96,14 @@ export default function Login() {
     setStatus('submitting')
 
     try {
-      const result = await login({
+      await login({
         email: values.email.trim(),
         password: values.password,
       })
 
-      // console.log('[Login Page] 🎉 Login successful! Payload:', result)
-      // console.log('[Login Page] 🧭 Navigating to /dashboard...')
-      navigate('/dashboard')
+      // Replace, so Back does not walk into the login form of a session that
+      // is now signed in.
+      navigate(from, { replace: true })
     } catch (err) {
       // console.error('[Login Page] ❌ Login failed with error:', {
       //   message: err.message,
@@ -119,7 +136,6 @@ export default function Login() {
           inputMode="email"
           autoComplete="email"
           placeholder="you@firm.com"
-          required
           value={values.email}
           onChange={setField('email')}
           onBlur={onBlur('email')}
@@ -133,7 +149,6 @@ export default function Login() {
             type="password"
             autoComplete="current-password"
             placeholder="••••••••"
-            required
             value={values.password}
             onChange={setField('password')}
             onBlur={onBlur('password')}

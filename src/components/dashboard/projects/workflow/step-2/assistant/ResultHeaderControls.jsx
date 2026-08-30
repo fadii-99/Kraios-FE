@@ -1,13 +1,17 @@
 import { CheckCircle, PencilSimple } from '@phosphor-icons/react'
 
+import ViewAngleMenu from '@/components/dashboard/projects/workflow/step-2/assistant/ViewAngleMenu'
 import { cn } from '@/lib/cn'
 
 /**
  * The controls that CHANGE or REFINE a render, in that render's own header row:
+ * - View Angle dropdown (isometric camera perspective selector)
  * - Edit Plan (sets this render as active base and focuses composer)
  * - Approve Plan button
  */
 export default function ResultHeaderControls({
+  viewAngleId,
+  onViewAngleChange,
   approved,
   busy,
   onApprove,
@@ -15,6 +19,7 @@ export default function ResultHeaderControls({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 ml-auto">
+      {/* 1. Edit Button */}
       {onEdit && (
         <div className="group/edit-tip relative inline-flex">
           <button
@@ -52,12 +57,7 @@ export default function ResultHeaderControls({
         </div>
       )}
 
-
-      <span
-        aria-hidden="true"
-        className="hidden h-4 w-px shrink-0 bg-[var(--tone-line)] sm:block"
-      />
-
+      {/* 2. Approve Button */}
       {approved ? (
         <div className="group/app-tip relative inline-flex">
           <button
@@ -128,6 +128,24 @@ export default function ResultHeaderControls({
             <div className="absolute -top-1 right-2.5 h-1.5 w-1.5 rotate-45 border-l border-t border-emerald-200/90 bg-white" />
           </div>
         </div>
+      )}
+
+      {/* Divider */}
+      {onViewAngleChange && (
+        <span
+          aria-hidden="true"
+          className="h-4 w-px shrink-0 bg-[var(--tone-line)]"
+        />
+      )}
+
+      {/* 3. View Angle Dropdown (Right side of icons) */}
+      {onViewAngleChange && (
+        <ViewAngleMenu
+          value={viewAngleId}
+          onSelect={onViewAngleChange}
+          disabled={busy}
+          align="right"
+        />
       )}
     </div>
   )

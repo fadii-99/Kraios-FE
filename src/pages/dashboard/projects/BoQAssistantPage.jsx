@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 
@@ -11,8 +11,12 @@ import {
   isBoqGenerating,
 } from '@/lib/dashboard/workflow/step-3/boqAssistantSelectors'
 import { requestBoqGeneration } from '@/lib/dashboard/workflow/step-3/boqGeneration'
-import { useBoqAssistant } from '@/lib/dashboard/projects/projectsContext'
-import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
+import {
+  useBoqAssistant,
+  useDesignAssistant,
+  useFloorPlanSource,
+} from '@/lib/dashboard/projects/projectsContext'
+import { approvedResult } from '@/lib/dashboard/workflow/step-2/designAssistantSelectors'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
@@ -30,7 +34,12 @@ const GENERATION_FAILED_MESSAGE = 'Unable to generate the BoQ. Please try again.
  */
 export default function BoQAssistantPage() {
   const { projectId } = useParams()
+  const navigate = useNavigate()
   const [state, dispatch] = useBoqAssistant(projectId)
+  const [source] = useFloorPlanSource(projectId)
+  const [designAssistant] = useDesignAssistant(projectId)
+
+  const approvedRender = approvedResult(designAssistant)
 
   const [prompt, setPrompt] = useState('')
   const composerRef = useRef(null)
@@ -68,7 +77,6 @@ export default function BoQAssistantPage() {
           text: result.text,
           prompt: instruction,
         })
-        showSuccessToast('Bill of Quantities compiled.')
       } catch (thrown) {
         if (thrown?.name === 'AbortError') {
           dispatch({ type: 'generationCancelled', message: 'BoQ generation cancelled.' })
@@ -78,14 +86,6 @@ export default function BoQAssistantPage() {
             message: GENERATION_FAILED_MESSAGE,
             prompt: instruction,
           })
-
-          /*
-           * ONE notification per failed run, raised here and only here. The
-           * conversation keeps the failed turn and its Retry — that is the
-           * persistent state; this is the transient event. The id means a
-           * user retrying five times sees one toast, not five.
-           */
-          showErrorToast(GENERATION_FAILED_MESSAGE, { id: 'boq-generation-notice' })
         }
       } finally {
         inFlightRef.current = false
@@ -111,7 +111,6 @@ export default function BoQAssistantPage() {
   const handleRemoveDocument = useCallback(
     (documentId) => {
       dispatch({ type: 'removeDocument', documentId })
-      showInfoToast('Document removed from project.')
     },
     [dispatch],
   )
@@ -120,20 +119,17 @@ export default function BoQAssistantPage() {
     (result) => {
       if (state.approvedResultId === result.id) {
         dispatch({ type: 'disapproveResult' })
-        showInfoToast('BoQ approval revoked.')
       } else {
         dispatch({ type: 'approveResult', resultId: result.id })
-        showSuccessToast('Bill of Quantities approved. Ready for Output.')
+        navigate(projectStagePath(projectId, 'boq'))
       }
-
     },
-    [dispatch, state.approvedResultId],
+    [dispatch, navigate, projectId, state.approvedResultId],
   )
 
   const handleAddRow = useCallback(
     (resultId) => {
       dispatch({ type: 'addRow', resultId })
-      showSuccessToast('Added new item to BoQ.')
     },
     [dispatch],
   )
@@ -141,7 +137,6 @@ export default function BoQAssistantPage() {
   const handleDeleteRow = useCallback(
     (resultId, rowIndex) => {
       dispatch({ type: 'deleteRow', resultId, rowIndex })
-      showInfoToast('Removed item from BoQ.')
     },
     [dispatch],
   )
@@ -181,14 +176,12 @@ export default function BoQAssistantPage() {
       <div data-boq-header className="relative z-40 shrink-0">
         <BoQAssistantHeader
           backTo={projectStagePath(projectId, 'boq')}
-          documentTypeId={state.documentTypeId}
-          onDocumentTypeChange={(documentTypeId) =>
-            dispatch({ type: 'setDocumentType', documentTypeId })
-          }
           uploadedDocuments={state.uploadedDocuments || []}
           onRemoveDocument={handleRemoveDocument}
           approved={approved}
           busy={busy}
+          source={source}
+          approvedRender={approvedRender}
         />
       </div>
 
@@ -212,6 +205,10 @@ export default function BoQAssistantPage() {
           onChange={setPrompt}
           onSubmit={handleSubmit}
           busy={busy}
+          documentTypeId={state.documentTypeId}
+          onDocumentTypeChange={(documentTypeId) =>
+            dispatch({ type: 'setDocumentType', documentTypeId })
+          }
         />
       </div>
     </div>

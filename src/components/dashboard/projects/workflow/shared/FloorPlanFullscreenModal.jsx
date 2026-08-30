@@ -45,11 +45,11 @@ export default function FloorPlanFullscreenModal({ source, open, onClose }) {
       {/* Top Controls Bar */}
       <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-black/60 px-5 py-3.5 sm:px-8">
         <div className="flex items-center gap-3 text-white">
-          <span className="h-2 w-2 rounded-xs bg-[var(--color-brand)] shadow-[0_0_8px_var(--color-brand)]" />
+          <span className="h-2 w-2 rounded-full bg-[var(--color-brand)] shadow-[0_0_8px_var(--color-brand)]" />
           <h3 className="font-display text-[0.9375rem] font-bold uppercase tracking-wide">
             {name}
           </h3>
-          <span className="rounded-xs border border-white/20 px-2 py-0.5 text-[0.6875rem] font-semibold uppercase text-white/70">
+          <span className="rounded-full border border-white/20 px-2.5 py-0.5 text-[0.6875rem] font-semibold uppercase text-white/70">
             {extension}
           </span>
         </div>
@@ -59,7 +59,7 @@ export default function FloorPlanFullscreenModal({ source, open, onClose }) {
             type="button"
             onClick={onClose}
             aria-label="Close modal"
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
             <X size={20} weight="bold" />
           </button>
@@ -77,7 +77,7 @@ export default function FloorPlanFullscreenModal({ source, open, onClose }) {
               src={imageUrl}
               alt={name}
               onClick={(e) => e.stopPropagation()}
-              className="max-h-full max-w-full cursor-default rounded-md object-contain shadow-2xl"
+              className="max-h-full max-w-full cursor-default rounded-xl object-contain shadow-2xl"
             />
           ) : (
             <div

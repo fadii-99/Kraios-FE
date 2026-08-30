@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { CaretLeft } from '@phosphor-icons/react'
 import DashboardBrand from '@/components/dashboard/DashboardBrand'
 import DashboardNavItem from '@/components/dashboard/DashboardNavItem'
 import {
@@ -10,58 +12,106 @@ import { cn } from '@/lib/cn'
 /**
  * The desktop dashboard rail (>= 1024px), light theme.
  *
- * Three bands and nothing else: the brand lockup in its own ruled header, the
- * four destinations grouped together beneath it, and the way out held at the
- * foot by a flexible gap. No search, no section headings, no account block —
- * everything the rail carries is either a place you can go or the door.
- *
- * 12rem / 192px. Measured, not picked: "Subscription" is the longest label and
- * sets at ~81px at 13px, so a row runs 16 + 16 + 10 + 81 + 12 = 135px; the
- * centred brand lockup runs 32 + 10 + ~69 = 111px inside a 160px track. Both
- * clear it with room, and the narrower rail hands the width back to the
- * workspace, which is what actually needs it.
- *
- * Structure comes from whitespace and one hairline — no cards, no radius, no
- * shadow. The rail is part of the shell, not a panel floating on it.
+ * Supports expanding to full width (13.5rem) and collapsing to narrow icon rail (3.75rem).
+ * State is remembered in localStorage so user preferences persist.
  */
 export default function DashboardSidebar({ className, onNavigate }) {
   const { logout } = useAuth()
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('kraios:sidebar-collapsed') === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const toggleSidebar = () => {
+    setCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('kraios:sidebar-collapsed', String(next))
+      } catch {
+        // ignore
+      }
+      return next
+    })
+  }
 
   return (
     <aside
       aria-label="Dashboard sidebar"
       className={cn(
-        'tone-light z-20 hidden h-dvh shrink-0 select-none flex-col overflow-hidden border-r border-[var(--tone-line)] bg-white lg:sticky lg:top-0 lg:flex lg:w-[13.5rem]',
+        'tone-light z-30 hidden h-dvh shrink-0 select-none flex-col border-r border-[var(--tone-line)] bg-white lg:sticky lg:top-0 lg:flex',
+        'transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[width]',
+        collapsed ? 'lg:w-[3.75rem]' : 'lg:w-[13.5rem]',
         className,
       )}
     >
+      {/* Sleek Floating Collapse/Expand Toggle Button on the Right Border */}
+      <button
+        type="button"
+        onClick={toggleSidebar}
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        className={cn(
+          'group/toggle absolute -right-3.5 top-1/2 -translate-y-1/2 z-40',
+          'flex h-7 w-7 cursor-pointer items-center justify-center rounded-full',
+          'border border-slate-200/90 bg-white text-slate-500',
+          'shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)]',
+          'transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'hover:border-[var(--color-brand-deep)] hover:bg-[var(--color-brand-deep)] hover:text-white',
+          'hover:shadow-[0_4px_14px_rgba(11,94,215,0.28)] hover:scale-110 active:scale-95',
+          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
+        )}
+      >
+        <CaretLeft
+          size={12}
+          weight="bold"
+          className={cn(
+            'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+            collapsed ? 'rotate-180 translate-x-[0.5px]' : 'rotate-0 -translate-x-[0.5px]',
+          )}
+        />
+      </button>
+
       {/* Brand header: Centred mark with balanced vertical breathing room */}
       <DashboardBrand
+        collapsed={collapsed}
         onNavigate={(e) => onNavigate?.('/dashboard', e)}
-        className="shrink-0 justify-center border-b border-[var(--tone-line)] px-4 pt-5 pb-5"
+        className={cn(
+          'shrink-0 justify-center border-b border-[var(--tone-line)] pt-5 pb-5 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          collapsed ? 'px-1' : 'px-4',
+        )}
       />
 
-      {/* The register. `pt-4` is the intentional gap under the rule; `gap-0.5`
-          holds the four rows as one group rather than a spread list.
-          `min-h-0` + `overflow-y-auto` lets a very short viewport scroll the
-          rows instead of crushing the Log out band below. */}
+      {/* The register */}
       <nav
         aria-label="Dashboard"
-        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pt-4"
+        className={cn(
+          'flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pt-4 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          collapsed ? 'px-1.5' : 'px-2',
+        )}
       >
         {DASHBOARD_NAV_ITEMS.map((item) => (
           <DashboardNavItem
             key={item.id}
             item={item}
+            collapsed={collapsed}
             onNavigate={onNavigate}
           />
         ))}
       </nav>
 
       {/* The way out, separated by the hairline with generous bottom padding */}
-      <div className="shrink-0 border-t border-[var(--tone-line)] pt-3 pb-7">
+      <div
+        className={cn(
+          'shrink-0 border-t border-[var(--tone-line)] pt-3 pb-7 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          collapsed ? 'px-1.5' : 'px-2',
+        )}
+      >
         <DashboardNavItem
           item={DASHBOARD_SIGN_OUT}
+          collapsed={collapsed}
           onClick={logout}
           onNavigate={onNavigate}
         />

@@ -35,10 +35,12 @@ export default function ApprovedDesignSheet({
 }) {
   const style = renderStyleById(result.renderStyleId)
   const angle = viewAngleById(result.viewAngleId)
+  const angleLabel = angle?.label || 'Isometric 45°'
+  const styleLabel = style?.label || 'SketchUp'
 
   const meta = [
-    { term: 'Render Style', value: style.label },
-    { term: 'View Angle', value: angle.label },
+    { term: 'Render Style', value: styleLabel },
+    { term: 'View Angle', value: angleLabel },
   ]
 
   return (
@@ -47,7 +49,7 @@ export default function ApprovedDesignSheet({
         <div className="aspect-4/3 w-full shrink-0 overflow-hidden rounded-sm border border-[var(--tone-line)] bg-white sm:w-60 lg:w-68">
           <img
             src={result.imageUrl}
-            alt={`Approved 3D floor model — ${angle.label}, ${style.label}`}
+            alt={`Approved 3D floor model — ${angleLabel}, ${styleLabel}`}
             loading="eager"
             className="h-full w-full object-contain"
           />

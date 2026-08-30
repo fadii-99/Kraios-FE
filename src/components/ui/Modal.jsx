@@ -26,6 +26,8 @@ const FOCUSABLE =
  */
 const PANEL_SIZES = {
   default: 'max-w-lg p-8 sm:p-10',
+  md: 'max-w-2xl p-7 sm:p-9',
+  lg: 'max-w-3xl p-8 sm:p-10',
   wide: 'max-w-6xl p-5 sm:p-6',
 }
 

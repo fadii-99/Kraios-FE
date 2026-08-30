@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import { CircleNotch, PaperPlaneRight, Sparkle, X } from '@phosphor-icons/react'
 
+import RenderStyleDropdown from '@/components/dashboard/projects/workflow/step-2/assistant/RenderStyleDropdown'
 import {
   ASSISTANT_GRID,
   ASSISTANT_GUTTER,
@@ -11,7 +12,7 @@ import { cn } from '@/lib/cn'
 
 /**
  * The prompt composer — single-line input bar with high contrast, elevated footer,
- * and intuitive send triggers.
+ * integrated style dropdown on the right side, and intuitive send triggers.
  */
 const AssistantComposer = forwardRef(function AssistantComposer(
   {
@@ -20,6 +21,9 @@ const AssistantComposer = forwardRef(function AssistantComposer(
     onSubmit,
     onCancel,
     busy,
+    placeholder = ASSISTANT_COPY.composerPlaceholder,
+    renderStyleId,
+    onRenderStyleChange,
     className,
   },
   ref,
@@ -50,7 +54,7 @@ const AssistantComposer = forwardRef(function AssistantComposer(
           className="relative"
         >
           <label htmlFor="design-assistant-prompt" className="sr-only">
-            Describe changes to the 3D model
+            {placeholder}
           </label>
 
           <div
@@ -73,7 +77,7 @@ const AssistantComposer = forwardRef(function AssistantComposer(
               value={value}
               onChange={(event) => onChange(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={ASSISTANT_COPY.composerPlaceholder}
+              placeholder={placeholder}
               autoComplete="off"
               className={cn(
                 'w-full min-w-0 bg-transparent px-2.5 text-[0.875rem] font-medium text-[var(--tone-ink)] sm:text-[0.9375rem]',
@@ -81,13 +85,26 @@ const AssistantComposer = forwardRef(function AssistantComposer(
               )}
             />
 
+            {/* Render Style Dropdown — integrated neatly on the right side of the prompt input */}
+            {onRenderStyleChange && renderStyleId && (
+              <div className="shrink-0">
+                <RenderStyleDropdown
+                  value={renderStyleId}
+                  onChange={onRenderStyleChange}
+                  disabled={busy}
+                  placement="top"
+                  showLabel={false}
+                />
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={!canSend}
               aria-label={busy ? 'Generating' : 'Send instruction'}
               title="Send (Enter)"
               className={cn(
-                'flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 cursor-pointer items-center justify-center rounded-sm',
+                'flex h-9 w-9 sm:h-9.5 sm:w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-xs',
                 'bg-[var(--color-brand-deep)] text-white shadow-2xs transition-all duration-200 ease-[var(--ease-out-expo)]',
                 'hover:bg-blue-700 active:scale-95',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',

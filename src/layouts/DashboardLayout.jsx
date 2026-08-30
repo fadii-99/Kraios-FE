@@ -1,12 +1,13 @@
 import { Suspense, useCallback, useEffect, useState } from 'react'
-import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar'
 import DashboardMobileNav from '@/components/dashboard/DashboardMobileNav'
 import DashboardPageSurface from '@/components/dashboard/DashboardPageSurface'
 import DiscardProjectModal from '@/components/dashboard/projects/workflow/shared/DiscardProjectModal'
+import AuthRequiredModal from '@/components/dashboard/AuthRequiredModal'
 import PageLoader from '@/components/ui/PageLoader'
 import ProjectsProvider from '@/lib/dashboard/projects/ProjectsProvider'
-import { useAuth } from '@/contexts/AuthContext'
+import { SESSION_STATUS, useAuth } from '@/contexts/AuthContext'
 import { useScrollToTop } from '@/hooks/useScrollToTop'
 import { cn } from '@/lib/cn'
 
@@ -23,19 +24,28 @@ function RouteReady({ onChange }) {
 }
 
 /**
- * Dedicated layout for the authenticated Kraios dashboard (Light Theme).
+ * The authenticated boundary and shell for the whole dashboard.
  *
- * Architecture:
- * - Auth Guard: Requires active cookie-based session; redirects unauthenticated visitors to /login.
- * - Persistent Left Sidebar (Desktop >= 1024px)
- * - Mobile Navigation Header (< 1024px)
- * - Loading Phase: Centered loader in the right workspace area
- * - Ready Phase: Right-side white canvas (`DashboardPageSurface`), background grid,
- *   divs, and page content smoothly reveal after loading finishes.
- * - Project Workflow Guard: Shows Discard Project Modal when navigating away from any active project step.
+ * This layout mounts for VALID dashboard routes only. An address like
+ * /dashboard/banana matches no route in this branch, so React Router falls
+ * through to the global `*` route and answers it as a page that does not exist
+ * — a bad URL is never answered as a login wall. That precedence lives in the
+ * route table, which is why no route list is restated here.
+ *
+ * Three states, resolved in order:
+ *
+ * 1. Session unverified — the ONE GET /auth/me/ bootstrap runs and the shared
+ *    loader holds the surface. No protected content mounts behind it, so there
+ *    is no flash of sidebar, projects or workflow before access is decided.
+ * 2. No session — the red caution modal on the light surface. No request is
+ *    made: the status already says there is nothing to verify.
+ * 3. Verified — ProjectsProvider, sidebar / mobile nav, page surface, Outlet.
+ *
+ * Also owned here: useScrollToTop and the DiscardProjectModal guard for
+ * navigating away from an active project workflow.
  */
 export default function DashboardLayout() {
-  const { isAuthenticated, isRestoring } = useAuth()
+  const { isAuthenticated, sessionStatus, sessionExpired, verifySession } = useAuth()
   const [ready, setReady] = useState(false)
   const [discardModalOpen, setDiscardModalOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState(null)
@@ -43,6 +53,17 @@ export default function DashboardLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const onChange = useCallback((value) => setReady(value), [])
+
+  // The single authenticated bootstrap. It runs on entering the dashboard with
+  // an unverified session and never again: navigating Overview → Projects →
+  // Profile leaves the status `authenticated`, so no child route refetches the
+  // user, and signing out leaves it `anonymous`, so no request is made to
+  // confirm what is already known.
+  useEffect(() => {
+    if (sessionStatus === SESSION_STATUS.unknown) {
+      verifySession()
+    }
+  }, [sessionStatus, verifySession])
 
   // Navigation guard: intercepts sidebar/nav clicks when inside an active project workflow
   const handleNavClick = useCallback(
@@ -78,18 +99,30 @@ export default function DashboardLayout() {
   // Ensure route transitions land at top of view
   useScrollToTop()
 
-  // During session restore, display loader
-  if (isRestoring) {
+  // 1. Session not yet decided — hold the surface with the shared loader.
+  if (
+    sessionStatus === SESSION_STATUS.unknown ||
+    sessionStatus === SESSION_STATUS.verifying
+  ) {
     return (
-      <div className="flex h-dvh w-full items-center justify-center bg-[var(--color-light)]">
-        <PageLoader label="Loading workspace" />
+      <div className="tone-light flex h-dvh w-full items-center justify-center bg-[var(--color-light)]">
+        <PageLoader variant="inline" label="Loading" />
       </div>
     )
   }
 
-  // If session is unauthenticated, redirect to login
+  // 2. Valid dashboard route, no session — red caution modal. The attempted
+  //    address travels with it, so signing in returns here.
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />
+    return (
+      <div className="tone-light flex h-dvh w-full items-center justify-center bg-[var(--color-light)]">
+        <AuthRequiredModal
+          open
+          expired={sessionExpired}
+          from={`${location.pathname}${location.search}`}
+        />
+      </div>
+    )
   }
 
   return (

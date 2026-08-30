@@ -7,6 +7,7 @@ import {
   formatFileSize,
 } from '@/lib/dashboard/workflow/step-1/floorPlanSource'
 import { RENDERING_COPY } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
+import { useFloorPlanSource } from '@/lib/dashboard/projects/projectsContext'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { cn } from '@/lib/cn'
 
@@ -82,6 +83,8 @@ export default function ReferenceSourceStrip({ projectId, source, className }) {
  * here has failed, the previous stage simply has not been done.
  */
 function MissingSource({ projectId, className }) {
+  const [, setSource] = useFloorPlanSource(projectId)
+
   return (
     <div className={cn('flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2.5', className)}>
       <div className="flex min-w-0 items-center gap-3">
@@ -104,6 +107,7 @@ function MissingSource({ projectId, className }) {
 
       <Link
         to={projectStagePath(projectId, 'upload')}
+        onClick={() => setSource(null)}
         className={cn(
           'group label-ui inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-sm border px-3 text-[0.5625rem] touch:min-h-11',
           'border-[var(--tone-line-strong)] bg-white text-[var(--tone-ink)]',

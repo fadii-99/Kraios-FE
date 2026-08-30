@@ -20,7 +20,8 @@ export default function DocumentTypeDropdown({
   value,
   onChange,
   disabled = false,
-  showLabel = true,
+  showLabel = false,
+  placement = 'top',
   className,
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -65,12 +66,12 @@ export default function DocumentTypeDropdown({
   return (
     <div
       ref={containerRef}
-      className={cn('relative flex items-center gap-2.5 sm:gap-3', className)}
+      className={cn('relative flex items-center gap-1.5', className)}
     >
       {showLabel && (
         <label
           htmlFor={buttonId}
-          className="font-display shrink-0 text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-slate-400/80"
+          className="font-display shrink-0 text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-slate-400/80 hidden xl:block"
           style={{ fontFamily: 'var(--font-display)' }}
         >
           Doc Type
@@ -88,24 +89,27 @@ export default function DocumentTypeDropdown({
           aria-expanded={isOpen}
           aria-controls={listboxId}
           className={cn(
-            'inline-flex h-8 min-w-[10.5rem] sm:min-w-[11.5rem] cursor-pointer items-center justify-between gap-2 rounded-sm border border-[var(--tone-line-strong)] bg-white px-2.5 sm:px-3 py-1 text-left',
-            'text-[0.6875rem] font-bold uppercase tracking-[0.05em] text-[var(--tone-ink)] shadow-2xs font-display',
-            'transition-all duration-200 ease-[var(--ease-out-expo)]',
-            'hover:border-[var(--color-brand-deep)] hover:bg-[var(--color-light)]/50',
-            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
-            isOpen && 'border-[var(--color-brand-deep)] ring-2 ring-[var(--color-brand-deep)]/15',
-            disabled &&
-              'cursor-not-allowed opacity-50 shadow-none hover:border-[var(--tone-line-strong)]',
+            'inline-flex h-6.5 cursor-pointer items-center justify-between gap-1 rounded-xs bg-transparent border-0 shadow-none px-1 text-left font-display select-none transition-colors duration-150',
+            'hover:text-[var(--color-brand-deep)] focus-visible:outline-none',
+            isOpen
+              ? 'text-[var(--color-brand-deep)]'
+              : 'text-[var(--tone-ink)]',
+            disabled && 'cursor-not-allowed opacity-50',
           )}
-          style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.05em' }}
+          style={{ fontFamily: 'var(--font-display)' }}
         >
-          <span className="truncate">{currentType.label}</span>
+          <span className="text-[0.625rem] font-bold uppercase tracking-wider text-slate-400 shrink-0">
+            DOC TYPE:
+          </span>
+          <span className="truncate max-w-[7.5rem] text-[0.625rem] font-bold uppercase tracking-wide text-[var(--color-brand-deep)]">
+            {currentType.label}
+          </span>
           <CaretDown
-            size={12}
+            size={9}
             weight="bold"
             aria-hidden="true"
             className={cn(
-              'shrink-0 text-[var(--tone-muted-dark)] transition-transform duration-200 ease-[var(--ease-out-expo)]',
+              'shrink-0 text-slate-400 transition-transform duration-200 ease-[var(--ease-out-expo)]',
               isOpen && 'rotate-180 text-[var(--color-brand-deep)]',
             )}
           />
@@ -115,13 +119,21 @@ export default function DocumentTypeDropdown({
           <div
             role="tooltip"
             className={cn(
-              'pointer-events-none absolute left-1/2 -translate-x-1/2 top-full z-50 mt-1.5 whitespace-nowrap rounded-xs border border-slate-200/90 bg-white/95 px-2 py-0.5 text-[0.5625rem] font-semibold text-slate-700 shadow-md backdrop-blur-xs',
-              'opacity-0 -translate-y-1 transition-all duration-200 ease-out',
-              'group-hover/type-tip:opacity-100 group-hover/type-tip:translate-y-0 group-focus-within/type-tip:opacity-100 group-focus-within/type-tip:translate-y-0',
+              'pointer-events-none absolute right-0 z-50 whitespace-nowrap rounded-xs border border-slate-200/90 bg-white/95 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-slate-700 shadow-md backdrop-blur-xs',
+              placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1',
+              'opacity-0 transition-all duration-200 ease-out',
+              'group-hover/type-tip:opacity-100 group-focus-within/type-tip:opacity-100',
             )}
           >
             Select project document classification
-            <div className="absolute -top-1 left-1/2 -translate-x-1/2 h-1.5 w-1.5 rotate-45 border-l border-t border-slate-200/90 bg-white" />
+            <div
+              className={cn(
+                'absolute right-3 h-1.5 w-1.5 rotate-45 border-slate-200/90 bg-white',
+                placement === 'top'
+                  ? '-bottom-1 border-b border-r'
+                  : '-top-1 border-l border-t',
+              )}
+            />
           </div>
         )}
 
@@ -131,11 +143,11 @@ export default function DocumentTypeDropdown({
             role="listbox"
             tabIndex={-1}
             className={cn(
-              'absolute right-0 top-full z-[100] mt-1.5 w-72 rounded-md border border-[var(--tone-line-strong)] bg-white p-1.5 shadow-[0_12px_36px_rgba(7,20,38,0.2)]',
+              'absolute right-0 z-[100] w-56 rounded-md border border-[var(--tone-line-strong)] bg-white p-1.5 shadow-[0_12px_32px_rgba(7,20,38,0.18)]',
+              placement === 'top' ? 'bottom-full mb-2.5' : 'top-full mt-2',
               'animate-in fade-in-0 zoom-in-95 duration-150',
             )}
           >
-
             {DOCUMENT_TYPES.map((type) => {
               const isSelected = type.id === currentType.id
               return (
@@ -145,31 +157,24 @@ export default function DocumentTypeDropdown({
                   aria-selected={isSelected}
                   onClick={() => handleSelect(type.id)}
                   className={cn(
-                    'flex cursor-pointer select-none items-center justify-between rounded-xs px-3 py-2 text-[0.8125rem] transition-colors',
+                    'flex cursor-pointer select-none items-center justify-between rounded-xs px-2.5 py-2 text-[0.625rem] transition-colors',
                     isSelected
                       ? 'bg-[var(--color-brand-deep)]/10 font-bold text-[var(--color-brand-deep)]'
                       : 'text-[var(--tone-ink)] hover:bg-[var(--color-light)]',
                   )}
                 >
-                  <div className="flex flex-col pr-2">
-                    <span
-                      className="font-display text-[0.75rem] font-bold uppercase tracking-[0.08em]"
-                      style={{ fontFamily: 'var(--font-display)' }}
-                    >
-                      {type.label}
-                    </span>
-                    {type.description && (
-                      <span className="mt-0.5 text-[0.6875rem] font-normal text-[var(--color-muted-dark)]">
-                        {type.description}
-                      </span>
-                    )}
-                  </div>
+                  <span
+                    className="font-display font-bold uppercase tracking-[0.06em]"
+                    style={{ fontFamily: 'var(--font-display)' }}
+                  >
+                    {type.label}
+                  </span>
 
                   {isSelected && (
                     <Check
-                      size={16}
+                      size={11}
                       weight="bold"
-                      className="shrink-0 text-[var(--color-brand-deep)]"
+                      className="shrink-0 text-[var(--color-brand-deep)] ml-1.5"
                     />
                   )}
                 </li>

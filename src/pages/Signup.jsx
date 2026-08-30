@@ -118,8 +118,8 @@ export default function Signup() {
       }
 
       // console.log('[Signup Page] 🌐 Calling AuthContext signup with payload:', payload)
-      const response = await signup(payload)
-      // console.log('[Signup Page] ✅ Signup successfully completed! Response:', response)
+      await signup(payload)
+      // console.log('[Signup Page] ✅ Signup successfully completed!')
 
       setOpen(true)
     } catch (err) {
