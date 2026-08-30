@@ -23,11 +23,11 @@
  * asked of this state live in `designAssistantSelectors.js`.
  */
 
-import { GENERATION_FAILED_MESSAGE } from '@/lib/dashboard/workflow/step-2/modelGeneration'
 import {
   ASSISTANT_COPY,
   DEFAULT_RENDER_STYLE_ID,
   DEFAULT_VIEW_ANGLE_ID,
+  GENERATION_FAILED_MESSAGE,
 } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
 
 export const GENERATION_STATUS = {
@@ -50,6 +50,8 @@ export function createDesignAssistantState() {
     approvedResultId: null,
     /** The render "Edit image" pointed the next instruction at. */
     editingResultId: null,
+    /** Whether the backend conversation and history have been read once. */
+    hydrated: false,
     /** Monotonic — never `messages.length`, which repeats after a removal. */
     issued: 0,
   }
@@ -90,6 +92,50 @@ function withoutPending(state) {
  */
 export function designAssistantReducer(state, action) {
   switch (action.type) {
+    /**
+     * Replaces the transcript with the server's record of Step 2.
+     *
+     * The working settings follow the most recent real render when the payload
+     * carries them, so reopening the workspace shows the style and angle the
+     * user last actually produced rather than the defaults.
+     */
+    case 'hydrate': {
+      const results = action.results ?? {}
+
+      return {
+        ...state,
+        messages: action.messages ?? [],
+        results,
+        approvedResultId: action.approvedResultId ?? null,
+        editingResultId: results[state.editingResultId] ? state.editingResultId : null,
+        renderStyleId: action.renderStyleId ?? state.renderStyleId,
+        viewAngleId: action.viewAngleId !== undefined ? action.viewAngleId : state.viewAngleId,
+        status: action.busy ? GENERATION_STATUS.generating : GENERATION_STATUS.idle,
+        error: null,
+        hydrated: true,
+      }
+    }
+
+    /**
+     * A running job's own progress line, written onto the pending block.
+     *
+     * The backend reports `progress` and `message` while a job runs; without
+     * this the workspace would show one frozen "Generating…" for the whole
+     * wait. Nothing else changes — it is the same pending message, relabelled.
+     */
+    case 'generationProgress': {
+      const index = state.messages.findIndex((m) => m.kind === MESSAGE_KINDS.pending)
+      if (index === -1) return state
+
+      const current = state.messages[index]
+      if (current.text === action.text) return state
+
+      const messages = [...state.messages]
+      messages[index] = { ...current, text: action.text }
+
+      return { ...state, messages }
+    }
+
     case 'setRenderStyle':
       return state.renderStyleId === action.renderStyleId
         ? state

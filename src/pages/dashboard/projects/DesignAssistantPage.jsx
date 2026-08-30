@@ -9,13 +9,17 @@ import AssistantHeader from '@/components/dashboard/projects/workflow/step-2/ass
 import KraiosDesignCanvas from '@/components/dashboard/projects/workflow/step-2/canvas/KraiosDesignCanvas'
 import FloorPlanFullscreenModal from '@/components/dashboard/projects/workflow/shared/FloorPlanFullscreenModal'
 import PageLoader from '@/components/ui/PageLoader'
+import { dataUrlToFile } from '@/lib/api/files'
+import { jobIdFromResponse, waitForJob } from '@/lib/api/jobs'
+import { editThreeD, generateThreeD, generateThreeDAngle } from '@/lib/api/projects'
+import { jobProgressText } from '@/lib/dashboard/workflow/apiShapes'
 import {
   ASSISTANT_COPY,
   renderStyleById,
   viewAngleById,
 } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
+import { renderStyleToApi, viewAngleToApi } from '@/lib/dashboard/workflow/step-2/designAdapters'
 import {
-  editingResult as selectEditingResult,
   generationErrorMessage,
   isApproved,
   isGenerating,
@@ -23,25 +27,48 @@ import {
   refinementBase,
 } from '@/lib/dashboard/workflow/step-2/designAssistantSelectors'
 import {
-  MODEL_GENERATION_SUPPORTS_CANCEL,
-  ModelGenerationCancelledError,
-  requestModelGeneration,
-} from '@/lib/dashboard/workflow/step-2/modelGeneration'
-import { useDesignAssistant, useFloorPlanSource } from '@/lib/dashboard/projects/projectsContext'
+  useDesignAssistant,
+  useFloorPlanSource,
+  useProjects,
+  useStep1Data,
+  useStep2Data,
+} from '@/lib/dashboard/projects/projectsContext'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
+import { showErrorToast, showInfoToast } from '@/lib/toast'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { useResumedJob } from '@/hooks/useResumedJob'
 
 /**
  * Design Assistant — /dashboard/projects/:projectId/rendering/assistant
+ *
+ * The same three-beat cycle as the other assistants — queue, watch the job,
+ * refetch — over Step 2's three endpoints:
+ *
+ *   - `POST /step-2/generate/` for an instruction, carrying the chosen render
+ *     style and the approved 2D plan,
+ *   - `POST /step-2/edit/` for a canvas edit, carrying the annotation mask,
+ *   - `POST /step-2/angle/` for a view angle, which is a REAL request producing
+ *     a NEW version with `source: 'ANGLE'` — never a transform of the image on
+ *     screen.
+ *
+ * Step 1's history is loaded too, because the header's 2D plan dropdown shows
+ * the plan this render is built from and the generate request names it.
  */
 export default function DesignAssistantPage() {
   const { projectId } = useParams()
   const navigate = useNavigate()
-  const [source] = useFloorPlanSource(projectId)
+
+  useStep1Data(projectId)
+  const step2 = useStep2Data(projectId)
+  const reloadStep2 = step2.reload
+
+  const source = useFloorPlanSource(projectId)
+  const { approveThreeD } = useProjects()
   const [state, dispatch] = useDesignAssistant(projectId)
 
   const [prompt, setPrompt] = useState('')
   const [expanded, setExpanded] = useState(null)
+  const [approving, setApproving] = useState(false)
 
   // Canvas Mode and Loader Transition states
   const [isOpeningCanvas, setIsOpeningCanvas] = useState(false)
@@ -49,17 +76,22 @@ export default function DesignAssistantPage() {
   const [canvasTargetResult, setCanvasTargetResult] = useState(null)
   const canvasTimeoutRef = useRef(null)
 
-  useEffect(() => {
-    return () => {
-      if (canvasTimeoutRef.current) clearTimeout(canvasTimeoutRef.current)
-    }
-  }, [])
-
   const composerRef = useRef(null)
   const abortRef = useRef(null)
   // Belt and braces against a double-fire (a fast second Enter, an opener tap
   // that lands before the state update paints).
   const inFlightRef = useRef(false)
+  const activeRef = useRef(true)
+
+  useEffect(() => {
+    activeRef.current = true
+
+    return () => {
+      activeRef.current = false
+      if (canvasTimeoutRef.current) clearTimeout(canvasTimeoutRef.current)
+      abortRef.current?.abort()
+    }
+  }, [])
 
   const busy = isGenerating(state)
 
@@ -72,23 +104,23 @@ export default function DesignAssistantPage() {
   const base = refinementBase(state)
 
   /**
-   * One generation, whatever started it — a typed instruction, an opener or a
-   * view-angle choice. They differ in the words they send and nothing else:
-   * same request, same conversation turns, same result handling.
+   * One generation, whatever started it — a typed instruction, an opener, a
+   * canvas edit or a view-angle choice. They differ in the request they send
+   * and in nothing else: same conversation turns, same job watch, same refetch.
    */
   const runGeneration = useCallback(
-    async ({ text, viewAngleId, pendingText, canvasSnapshotUrl }) => {
-      const instruction = text.trim()
+    async ({ text, viewAngleId, pendingText, canvasSnapshotUrl, maskDataUrl, angleOf }) => {
+      const instruction = text?.trim()
       if (!instruction || inFlightRef.current) return
 
       // Captured before the first await: the request must carry the settings as
       // they were when the user pressed send.
       const renderStyleId = state.renderStyleId
       const angleId = viewAngleId ?? state.viewAngleId
-      const baseResult = selectEditingResult(state) ?? latestResult(state)
+      const baseResult = base
 
       inFlightRef.current = true
-      const controller = MODEL_GENERATION_SUPPORTS_CANCEL ? new AbortController() : null
+      const controller = new AbortController()
       abortRef.current = controller
 
       dispatch({
@@ -99,42 +131,63 @@ export default function DesignAssistantPage() {
       })
 
       try {
-        const result = await requestModelGeneration({
-          prompt: instruction,
-          renderStyleId,
-          viewAngleId: angleId,
-          source,
-          baseResult,
-          signal: controller?.signal,
-        })
+        const mask = maskDataUrl ? dataUrlToFile(maskDataUrl, 'mask.png') : null
+        let queued
+
+        if (angleOf) {
+          queued = await generateThreeDAngle(projectId, {
+            originalVersionId: angleOf,
+            angle: viewAngleToApi(angleId),
+          })
+        } else if (mask && baseResult?.id) {
+          queued = await editThreeD(projectId, {
+            originalVersionId: baseResult.id,
+            instruction,
+            mask,
+          })
+        } else {
+          queued = await generateThreeD(projectId, {
+            prompt: instruction,
+            // Optional by contract; naming it makes the render's provenance
+            // explicit rather than leaving it to the backend's default.
+            floorPlanVersionId: source?.versionId ?? null,
+            renderStyle: renderStyleToApi(renderStyleId),
+          })
+        }
+
+        const jobId = jobIdFromResponse(queued)
+
+        if (jobId) {
+          await waitForJob(jobId, {
+            signal: controller.signal,
+            onProgress: (job) => {
+              if (!activeRef.current) return
+              dispatch({
+                type: 'generationProgress',
+                text: jobProgressText(job, pendingText || ASSISTANT_COPY.generating),
+              })
+            },
+          })
+        }
+
+        if (!activeRef.current) return
+        await reloadStep2()
+      } catch (thrown) {
+        if (!activeRef.current || thrown?.name === 'AbortError') return
 
         dispatch({
-          type: 'generationSucceeded',
-          result,
-          renderStyleId,
-          viewAngleId: angleId,
+          type: 'generationFailed',
+          message: generationErrorMessage(thrown),
           prompt: instruction,
+          viewAngleId: angleId,
+          pendingText,
         })
-      } catch (thrown) {
-        const message = generationErrorMessage(thrown)
-
-        dispatch(
-          thrown instanceof ModelGenerationCancelledError
-            ? { type: 'generationCancelled', message }
-            : {
-                type: 'generationFailed',
-                message,
-                prompt: instruction,
-                viewAngleId: angleId,
-                pendingText,
-              },
-        )
       } finally {
         inFlightRef.current = false
         abortRef.current = null
       }
     },
-    [dispatch, source, state],
+    [base, dispatch, projectId, reloadStep2, source, state.renderStyleId, state.viewAngleId],
   )
 
   const handleSubmit = useCallback(() => {
@@ -171,35 +224,38 @@ export default function DesignAssistantPage() {
   )
 
   /**
-   * A view angle is a REAL request, not a setting: the conversation shows the
-   * user's turn and "Generating <angle> view…", and the generation pipeline
-   * returns a NEW render. The current image is never transformed in CSS to fake
-   * a second viewpoint.
+   * A view angle is a REAL request, not a setting: `POST /step-2/angle/` makes
+   * a new version with `source: 'ANGLE'` from a completed one, and the original
+   * is untouched. It needs a version to convert, so an angle chosen before
+   * anything has been rendered explains itself rather than failing.
    *
-   * It goes through `runGeneration` — the SAME path a typed instruction takes —
-   * so an angle choice cannot drift into a second generation implementation.
    * The header is moved to the chosen angle first so the control reflects the
-   * choice while the request is in flight; the result carries the same angle,
-   * and like every new result it lands UNAPPROVED.
+   * choice while the request is in flight; like every new version, the result
+   * lands UNAPPROVED.
    */
   const handleViewAngleSelect = useCallback(
     (angleOrId) => {
       const angle = viewAngleById(typeof angleOrId === 'string' ? angleOrId : angleOrId.id)
+      if (!angle) return
+
+      const target = base ?? latestResult(state)
+      if (!target) {
+        showInfoToast('Generate a 3D model first, then choose a view angle.', {
+          id: 'angle-needs-render',
+        })
+        return
+      }
 
       dispatch({ type: 'setViewAngle', viewAngleId: angle.id })
       runGeneration({
         text: angle.prompt,
         viewAngleId: angle.id,
+        angleOf: target.id,
         pendingText: ASSISTANT_COPY.generatingAngle.replace('{angle}', angle.label),
       })
     },
-    [dispatch, runGeneration],
+    [base, dispatch, runGeneration, state],
   )
-
-
-  const handleCancel = useCallback(() => {
-    abortRef.current?.abort()
-  }, [])
 
   /**
    * Opening Kraios Design Canvas:
@@ -222,12 +278,13 @@ export default function DesignAssistantPage() {
   )
 
   const handleCanvasRegenerate = useCallback(
-    (promptText, targetResult, canvasSnapshotUrl) => {
+    (promptText, targetResult, canvasSnapshotUrl, maskSnapshotUrl) => {
       setCanvasActive(false)
       runGeneration({
         text: promptText,
         viewAngleId: targetResult?.viewAngleId,
         canvasSnapshotUrl,
+        maskDataUrl: maskSnapshotUrl,
       })
     },
     [runGeneration],
@@ -237,10 +294,6 @@ export default function DesignAssistantPage() {
    * Clicking a render makes it the one the next instruction changes — the same
    * pointer "Edit image" sets, and deliberately the same state: two ways to say
    * "this one" must not become two competing notions of which one.
-   *
-   * Unlike "Edit image" it does NOT move focus to the composer. Selecting a
-   * render is often just comparing two of them, and yanking the caret down to
-   * the prompt field mid-comparison scrolls away the thing being compared.
    */
   const handleSelect = useCallback(
     (result) => {
@@ -249,18 +302,63 @@ export default function DesignAssistantPage() {
     [dispatch],
   )
 
+  /**
+   * Approval is `POST /step-2/versions/{id}/approve/`: it sets
+   * `selected_three_d` and completes Step 2. There is no un-approve endpoint,
+   * so approving the render that is already approved returns to the stage
+   * instead of pretending to clear a record the backend still holds.
+   */
   const handleApprove = useCallback(
-    (result) => {
+    async (result) => {
+      if (!result || approving) return
+
       if (state.approvedResultId === result.id) {
-        dispatch({ type: 'disapproveResult' })
-      } else {
-        dispatch({ type: 'approveResult', resultId: result.id })
+        showInfoToast('This 3D design is already approved.', { id: 'render-already-approved' })
         navigate(projectStagePath(projectId, 'rendering'))
+        return
+      }
+
+      setApproving(true)
+      try {
+        await approveThreeD(projectId, result.id)
+        if (!activeRef.current) return
+        navigate(projectStagePath(projectId, 'rendering'))
+      } catch (thrown) {
+        if (!activeRef.current) return
+        showErrorToast(thrown?.message || 'That 3D design could not be approved.', {
+          id: 'render-approve-failed',
+        })
+      } finally {
+        if (activeRef.current) setApproving(false)
       }
     },
-    [dispatch, navigate, projectId, state.approvedResultId],
+    [approveThreeD, approving, navigate, projectId, state.approvedResultId],
   )
 
+  /**
+   * A version the backend was already working on when this page opened.
+   *
+   * Generation runs on the server, so a refresh or a walk to another stage
+   * does not stop it — but nothing would be watching it either, and the
+   * restored pending block would never resolve. The version history carries
+   * the job, so the watch is simply picked back up, and the step is
+   * refetched when it settles.
+   */
+  const resumedJobId = step2.data?.hydrated?.pending?.job?.id ?? null
+
+  useResumedJob(resumedJobId, {
+    onProgress: (job) => {
+      if (!activeRef.current) return
+      dispatch({ type: 'generationProgress', text: jobProgressText(job, ASSISTANT_COPY.generating) })
+    },
+    onSettled: () => {
+      if (!activeRef.current) return
+      reloadStep2().catch(() => {
+        // The transcript keeps what it has; the stage reports its own
+        // failure state on the next read.
+      })
+    },
+  })
 
   const pageContainerRef = useRef(null)
   const reduced = usePrefersReducedMotion()
@@ -314,6 +412,14 @@ export default function DesignAssistantPage() {
     )
   }
 
+  if (!state.hydrated && step2.isLoading) {
+    return (
+      <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center overflow-hidden bg-white">
+        <PageLoader label="Loading Assistant" variant="inline" className="my-auto" />
+      </div>
+    )
+  }
+
   return (
     <div ref={pageContainerRef} className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <div data-assistant-header className="relative z-40 shrink-0">
@@ -327,7 +433,7 @@ export default function DesignAssistantPage() {
       <div data-assistant-body className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <AssistantConversation
           state={state}
-          busy={busy}
+          busy={busy || approving}
           approvedResultId={state.approvedResultId}
           onQuickPrompt={handleQuickPrompt}
           onExpand={setExpanded}
@@ -346,7 +452,6 @@ export default function DesignAssistantPage() {
           value={prompt}
           onChange={setPrompt}
           onSubmit={handleSubmit}
-          onCancel={handleCancel}
           busy={busy}
           renderStyleId={state.renderStyleId}
           onRenderStyleChange={(renderStyleId) =>
@@ -361,7 +466,7 @@ export default function DesignAssistantPage() {
           expanded
             ? {
                 imageUrl: expanded.imageUrl,
-                name: `3D Floor Model — ${viewAngleById(expanded.viewAngleId).label}`,
+                name: `3D Floor Model — ${viewAngleById(expanded.viewAngleId)?.label ?? 'Original'}`,
                 extension: renderStyleById(expanded.renderStyleId).label.toUpperCase(),
               }
             : null

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -16,9 +16,15 @@ import {
   lockedModeForSource,
   modeForSource,
 } from '@/lib/dashboard/workflow/step-1/floorPlanSource'
-import { useFloorPlanSource } from '@/lib/dashboard/projects/projectsContext'
+import { uploadFloorPlan } from '@/lib/api/projects'
+import {
+  CACHE_KEYS,
+  useFloorPlanSource,
+  useProjects,
+  useStep1Data,
+} from '@/lib/dashboard/projects/projectsContext'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
-import { showInfoToast } from '@/lib/toast'
+import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
 /**
@@ -28,30 +34,73 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
  * processing loader on upload.
  */
 export default function FloorPlanInputStage({ projectId, defaultMode }) {
-  const [source, setSource] = useFloorPlanSource(projectId)
+  // Step 1's own data request: the conversation and version history that say
+  // which plan this project is currently working from.
+  const step1 = useStep1Data(projectId)
+  const reloadStep1 = step1.reload
+  const { refreshProject, invalidateStep } = useProjects()
+  const source = useFloorPlanSource(projectId)
+
   const [isProcessing, setIsProcessing] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const processingTimerRef = useRef(null)
 
   const scope = useRef(null)
   const reduced = usePrefersReducedMotion()
+  const activeRef = useRef(true)
 
-  const handleUploadSuccess = (newSource) => {
-    setSource(newSource)
-    setIsProcessing(true)
+  useEffect(
+    () => () => {
+      activeRef.current = false
+    },
+    [],
+  )
 
-    if (processingTimerRef.current) clearTimeout(processingTimerRef.current)
-    processingTimerRef.current = setTimeout(() => {
-      navigate(projectStagePath(projectId, 'rendering'))
-    }, 1400)
-  }
+  /**
+   * The real upload.
+   *
+   * `POST /step-1/upload/` creates a completed version, approves it and moves
+   * the project to Step 2 — so the navigation waits on the refetched project
+   * confirming `step_1_complete` rather than on a timer. The loader covers
+   * actual work, and a failure leaves the user on Step 1 with an explanation
+   * instead of on a stage the backend does not think they have reached.
+   */
+  const handleFileSelected = useCallback(
+    async (file) => {
+      if (isProcessing) return
 
-  useEffect(() => {
-    return () => {
-      if (processingTimerRef.current) clearTimeout(processingTimerRef.current)
-    }
-  }, [])
+      setIsProcessing(true)
+
+      try {
+        await uploadFloorPlan(projectId, file)
+
+        // The version list changed, so Step 1's cache is stale; the project
+        // changed, so its workflow state is too.
+        invalidateStep(CACHE_KEYS.step1(projectId))
+        const project = await refreshProject(projectId)
+        if (!activeRef.current) return
+
+        showSuccessToast('Floor plan uploaded.', { id: 'upload-success' })
+
+        if (project?.workflowState?.step_1_complete) {
+          navigate(projectStagePath(projectId, 'rendering'))
+          return
+        }
+
+        // Uploaded, but the backend has not marked Step 1 complete. Staying put
+        // is the honest answer — the stage reloads and shows what it has.
+        setIsProcessing(false)
+        reloadStep1().catch(() => {})
+      } catch (thrown) {
+        if (!activeRef.current) return
+        setIsProcessing(false)
+        showErrorToast(thrown?.message || 'That floor plan could not be uploaded.', {
+          id: 'upload-failed',
+        })
+      }
+    },
+    [invalidateStep, isProcessing, navigate, projectId, refreshProject, reloadStep1],
+  )
 
   const isGenerateRoute = location.pathname.includes('/generate')
   const routeMode = isGenerateRoute ? FLOOR_PLAN_MODES.generate : FLOOR_PLAN_MODES.upload
@@ -101,6 +150,18 @@ export default function FloorPlanInputStage({ projectId, defaultMode }) {
     { scope, dependencies: [reduced, mode, source?.type ?? 'none', source?.addedAt ?? 0] },
   )
 
+  // Held while Step 1's own data is still arriving, so the stage cannot show
+  // "no plan yet" to a project that in fact has one.
+  if (step1.isLoading) {
+    return (
+      <div className="relative flex h-full min-h-[500px] w-full flex-1 flex-col items-center justify-center overflow-hidden bg-white my-auto">
+        <div className="relative z-10 my-auto flex flex-col items-center justify-center">
+          <PageLoader variant="inline" label="Loading Floor Plan" className="my-auto" />
+        </div>
+      </div>
+    )
+  }
+
   if (isProcessing) {
     return (
       <div className="relative flex h-full min-h-[500px] w-full flex-1 flex-col items-center justify-center overflow-hidden bg-white my-auto">
@@ -108,7 +169,7 @@ export default function FloorPlanInputStage({ projectId, defaultMode }) {
         <div className="relative z-10 my-auto flex flex-col items-center justify-center">
           <PageLoader
             variant="inline"
-            label="GOING TO 3D RENDERING STEP..."
+            label="UPLOADING FLOOR PLAN..."
             className="my-auto"
           />
         </div>
@@ -145,16 +206,11 @@ export default function FloorPlanInputStage({ projectId, defaultMode }) {
         <div className="flex w-full min-w-0 flex-1 flex-col justify-center lg:col-span-7 xl:col-span-7">
           {isUpload ? (
             <UploadFloorPlanPanel
-              source={source}
-              onSourceChange={setSource}
-              onUploadSuccess={handleUploadSuccess}
+              onFileSelected={handleFileSelected}
+              disabled={isProcessing}
             />
           ) : (
-            <GenerateFloorPlanPanel
-              projectId={projectId}
-              source={source}
-              onSourceChange={setSource}
-            />
+            <GenerateFloorPlanPanel projectId={projectId} source={source} />
           )}
         </div>
       </div>

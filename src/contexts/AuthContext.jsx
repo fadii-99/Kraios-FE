@@ -27,21 +27,6 @@ export const AuthContext = createContext(null)
  *               answers with the caution modal and issues NO request — the
  *               answer is already known.
  */
-export const DUMMY_USER = {
-  id: 'dummy-architect-1',
-  name: 'Shayan Delta',
-  full_name: 'Shayan Delta',
-  email: 'user@kraios.ai',
-  firm: 'Studio Kraios Architecture',
-  firm_name: 'Studio Kraios Architecture',
-  company: 'Studio Kraios Architecture',
-  country: 'Albania',
-  role: 'Architect Account',
-  jobTitle: 'Architect Account',
-  job_title: 'Architect Account',
-  phone: '',
-}
-
 export const SESSION_STATUS = {
   unknown: 'unknown',
   verifying: 'verifying',
@@ -56,7 +41,8 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // A session counts as authenticated only once /auth/me/ has said so (or dummy mode is active)
+  // A session counts as authenticated only once the backend has said so —
+  // GET /auth/me/ answered, or POST /auth/login/ succeeded. Never Boolean(user).
   const isAuthenticated = sessionStatus === SESSION_STATUS.authenticated
 
   // De-duplicates the verification request. Two callers (React's double effect
@@ -99,8 +85,10 @@ export function AuthProvider({ children }) {
    * verifies the cookie the browser is holding and supplies the current user,
    * so no dashboard page needs a profile fetch of its own.
    *
-   * If backend is unavailable, it gracefully falls back to DUMMY_USER so the
-   * dummy dashboard can be viewed and tested without backend dependency.
+   * A failure is a real answer, not a reason to invent a session: the client
+   * state is cleared and the status becomes `anonymous`, which is what makes
+   * the boundary render the caution modal. A backend that is unreachable is
+   * therefore "not signed in", never "signed in as somebody".
    *
    * @returns {Promise<boolean>} whether the session is usable
    */
@@ -118,12 +106,15 @@ export function AuthProvider({ children }) {
         return true
       })
       .catch(() => {
-        // Fallback to dummy user if backend is offline / unavailable
-        setUser((prev) => prev || DUMMY_USER)
-        setSessionExpired(false)
-        wasAuthenticatedRef.current = true
-        setSessionStatus(SESSION_STATUS.authenticated)
-        return true
+        tokenStorage.clearAuthTokens()
+        setUser(null)
+        // `expired` copy only when this browser session had a session to lose.
+        // A cold visit to a dashboard URL was never signed in, so it gets the
+        // "sign in to continue" copy instead.
+        setSessionExpired(wasAuthenticatedRef.current)
+        wasAuthenticatedRef.current = false
+        setSessionStatus(SESSION_STATUS.anonymous)
+        return false
       })
       .finally(() => {
         verifyPromiseRef.current = null
@@ -134,13 +125,20 @@ export function AuthProvider({ children }) {
   }, [])
 
   /**
-   * Log in:
-   * 1. If email/password are omitted, immediately sign in as dummy user
-   * 2. Otherwise attempt POST /auth/login/
-   * 3. If backend is unavailable/fails, fallback to dummy session for testing
+   * Log in: GET /auth/csrf/ then POST /auth/login/ (both inside `loginUser`).
+   *
+   * The dashboard is reachable ONLY when that request succeeds. A rejected
+   * credential, a CSRF failure or an unreachable backend all leave the status
+   * `anonymous` and rethrow the normalized message, so the Login page stays put
+   * and raises one error toast.
+   *
+   * When the login response carries no user payload the status is left
+   * `unknown` rather than guessed: the dashboard boundary then runs its ONE
+   * GET /auth/me/ to load the account, which keeps `/auth/me/` owned by the
+   * boundary and off the login page.
    *
    * @param {Object} credentials - { email, password }
-   * @returns {Promise<Object>}
+   * @returns {Promise<{ success: true, user: Object|null }>}
    */
   const login = useCallback(async ({ email, password } = {}) => {
     setIsLoading(true)
@@ -148,52 +146,30 @@ export function AuthProvider({ children }) {
 
     const trimmedEmail = (email || '').trim()
 
-    // Immediate dummy login if fields are left blank
-    if (!trimmedEmail && !password) {
-      verifyPromiseRef.current = null
-      wasAuthenticatedRef.current = true
-      setUser(DUMMY_USER)
-      setSessionExpired(false)
-      setSessionStatus(SESSION_STATUS.authenticated)
-      setIsLoading(false)
-
-      return { success: true, user: DUMMY_USER }
-    }
-
     try {
       const authResult = await loginUser({ email: trimmedEmail, password })
-
-      const authenticatedUser =
-        authResult.user || {
-          email: trimmedEmail,
-          name: trimmedEmail.split('@')[0],
-        }
+      const authenticatedUser = authResult?.user || null
 
       verifyPromiseRef.current = null
       wasAuthenticatedRef.current = true
       setUser(authenticatedUser)
       setSessionExpired(false)
-      setSessionStatus(SESSION_STATUS.authenticated)
-      setIsLoading(false)
+      setSessionStatus(
+        authenticatedUser ? SESSION_STATUS.authenticated : SESSION_STATUS.unknown,
+      )
 
       return { success: true, user: authenticatedUser }
-    } catch {
-      // Backend offline or error fallback: sign in with fallback dummy identity
-      const fallbackUser = {
-        ...DUMMY_USER,
-        email: trimmedEmail || DUMMY_USER.email,
-        name: trimmedEmail ? trimmedEmail.split('@')[0] : DUMMY_USER.name,
-        full_name: trimmedEmail ? trimmedEmail.split('@')[0] : DUMMY_USER.full_name,
-      }
-
+    } catch (err) {
       verifyPromiseRef.current = null
-      wasAuthenticatedRef.current = true
-      setUser(fallbackUser)
+      wasAuthenticatedRef.current = false
+      tokenStorage.clearAuthTokens()
+      setUser(null)
       setSessionExpired(false)
-      setSessionStatus(SESSION_STATUS.authenticated)
+      setSessionStatus(SESSION_STATUS.anonymous)
+      setError(err.message)
+      throw err
+    } finally {
       setIsLoading(false)
-
-      return { success: true, user: fallbackUser }
     }
   }, [])
 

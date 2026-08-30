@@ -5,7 +5,7 @@ import ProjectCard from '@/components/dashboard/projects/library/ProjectCard'
 import Modal from '@/components/ui/Modal'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import { useProjects } from '@/lib/dashboard/projects/projectsContext'
-import { showSuccessToast } from '@/lib/toast'
+import { showErrorToast, showSuccessToast } from '@/lib/toast'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
@@ -32,6 +32,7 @@ export default function ProjectGrid({ projects }) {
   const reduced = usePrefersReducedMotion()
   const { deleteProject } = useProjects()
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Only cards that have not been revealed yet animate, so adding or deleting
   // one project does not re-run the whole stagger over the cards already on
@@ -70,17 +71,29 @@ export default function ProjectGrid({ projects }) {
     setDeleteTarget(project)
   }
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     // Confirmation stays a modal — a toast cannot ask a question. The toast is
-    // only the receipt, and only after the project has actually gone.
-    if (deleteTarget) {
-      deleteProject(deleteTarget.id)
+    // only the receipt, and only once the backend has actually deleted it:
+    // `DELETE /projects/{id}/` removes the project AND its files, so announcing
+    // it before the response would be announcing something that may not happen.
+    if (!deleteTarget || deleting) return
+
+    setDeleting(true)
+    try {
+      await deleteProject(deleteTarget.id)
+      setDeleteTarget(null)
       showSuccessToast('Project deleted.', { id: 'project-deleted' })
+    } catch (thrown) {
+      showErrorToast(thrown?.message || 'That project could not be deleted.', {
+        id: 'project-delete-failed',
+      })
+    } finally {
+      setDeleting(false)
     }
-    setDeleteTarget(null)
   }
 
   const handleDeleteCancel = () => {
+    if (deleting) return
     setDeleteTarget(null)
   }
 
@@ -123,6 +136,8 @@ export default function ProjectGrid({ projects }) {
           <PrimaryButton
             type="button"
             onClick={handleDeleteConfirm}
+            loading={deleting}
+            loadingLabel="Deleting project"
             withArrow={false}
             align="center"
             className="w-full bg-red-600 hover:bg-red-700 sm:w-auto"

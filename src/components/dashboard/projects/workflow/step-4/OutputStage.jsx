@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 
@@ -10,43 +10,46 @@ import OutputBoQSection from '@/components/dashboard/projects/workflow/step-4/Ou
 import OutputDocumentsSection from '@/components/dashboard/projects/workflow/step-4/OutputDocumentsSection'
 import OutputBoQModal from '@/components/dashboard/projects/workflow/step-4/OutputBoQModal'
 import FloorPlanFullscreenModal from '@/components/dashboard/projects/workflow/shared/FloorPlanFullscreenModal'
+import PageLoader from '@/components/ui/PageLoader'
 
+import { useProject, useProjectOutput } from '@/lib/dashboard/projects/projectsContext'
 import {
-  useBoqAssistant,
-  useDesignAssistant,
-  useFloorPlanSource,
-  useProjects,
-} from '@/lib/dashboard/projects/projectsContext'
-import { approvedResult } from '@/lib/dashboard/workflow/step-2/designAssistantSelectors'
-import { approvedBoqResult } from '@/lib/dashboard/workflow/step-3/boqAssistantSelectors'
+  completedVersions as completedPlanVersions,
+  versionToResult as planVersionToResult,
+} from '@/lib/dashboard/workflow/step-1/floorPlanAdapters'
+import { sourceFromApprovedVersion } from '@/lib/dashboard/workflow/step-1/floorPlanSource'
+import {
+  completedVersions as completedRenderVersions,
+  versionToResult as renderVersionToResult,
+} from '@/lib/dashboard/workflow/step-2/designAdapters'
+import {
+  documentsToRecords,
+  versionToResult as boqVersionToResult,
+} from '@/lib/dashboard/workflow/step-3/boqAdapters'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
 /**
  * Step 4 — Kraios Project Deliverables Output Stage.
  *
- * Master deliverables workspace with horizontal tabs, quick download cards,
- * 3D Renders gallery, 2D Plans, BoQ costing table, and supporting project documents.
+ * ONE request builds this page: `GET /projects/{id}/output/` returns the
+ * project, a summary, and the floor plans, 3D renders, BOQ versions and
+ * documents together. Nothing here reassembles the stage from four separate
+ * step caches, and nothing here re-derives what was approved: the backend marks
+ * the approved item with `selected: true`, and that is what the "Approved"
+ * cards read.
+ *
+ * Every count on the page is COUNTED. It used to declare 45 deliverables — 18
+ * renders, 2 plans, 1 BoQ, 24 documents — as constants regardless of what the
+ * project contained; a project with one render now says one.
  */
 export default function OutputStage({ projectId }) {
   const scope = useRef(null)
   const reduced = usePrefersReducedMotion()
 
-  const { getProject } = useProjects()
-  const project = getProject(projectId)
-  const projectName = project?.name || 'Project-Deliverables'
-
-  // Stage 1: 2D Floor Plan Source
-  const [source] = useFloorPlanSource(projectId)
-
-  // Stage 2: Approved 3D Design
-  const [assistant] = useDesignAssistant(projectId)
-  const approvedRender = approvedResult(assistant)
-
-  // Stage 3: Approved BoQ
-  const [boqState] = useBoqAssistant(projectId)
-  const finalizedBoq = approvedBoqResult(boqState)
-  const uploadedDocs = boqState?.uploadedDocuments || []
+  const project = useProject(projectId)
+  const output = useProjectOutput(projectId)
+  const projectName = project?.name || output.data?.project?.name || 'Project-Deliverables'
 
   // Active Tab state (default: 'all')
   const [activeTab, setActiveTab] = useState('all')
@@ -58,21 +61,60 @@ export default function OutputStage({ projectId }) {
   // BoQ Full Modal state
   const [boqModalOpen, setBoqModalOpen] = useState(false)
 
+  /**
+   * The whole page's data, derived once from the output bundle.
+   *
+   * `selected` is the backend's approval mark. A draft is not a deliverable, so
+   * an unapproved BoQ is not shown under an approved badge and not exported —
+   * "no finalized BoQ" is a normal state, because BoQ is optional.
+   */
+  const deliverables = useMemo(() => {
+    const payload = output.data
+
+    const planVersions = payload?.floor_plans ?? []
+    const renderVersions = payload?.three_d_renders ?? []
+    const boqVersions = payload?.boq_versions ?? []
+    const documents = payload?.documents ?? []
+
+    const selectedPlan = planVersions.find((version) => version.selected)
+    const selectedRender = renderVersions.find((version) => version.selected)
+    const selectedBoq = boqVersions.find((version) => version.selected)
+
+    const summary = payload?.summary ?? {}
+
+    return {
+      source: selectedPlan
+        ? sourceFromApprovedVersion(planVersionToResult(selectedPlan, projectId))
+        : null,
+      planVersions: completedPlanVersions(planVersions, projectId).map((version) => ({
+        ...version,
+        name: version.assetName || 'Floor plan',
+      })),
+      approvedRender: selectedRender ? renderVersionToResult(selectedRender, projectId) : null,
+      renderVersions: completedRenderVersions(renderVersions, projectId).map((version) => ({
+        ...version,
+        name: version.assetName || '3D render',
+      })),
+      finalizedBoq: selectedBoq ? boqVersionToResult(selectedBoq) : null,
+      documents: documentsToRecords(documents, projectId),
+      counts: {
+        plans: summary.floor_plans ?? planVersions.length,
+        renders: summary.three_d_renders ?? renderVersions.length,
+        boq: summary.boq_versions ?? boqVersions.length,
+        documents: summary.documents ?? documents.length,
+        all:
+          summary.total_deliverables ??
+          planVersions.length + renderVersions.length + boqVersions.length + documents.length,
+      },
+    }
+  }, [output.data, projectId])
+
   const handleOpenPreview = (itemSource) => {
     setPreviewSource(itemSource)
     setPreviewOpen(true)
   }
 
-  const finalBoqRows = finalizedBoq?.rows ?? []
-
-  // Deliverable Counts for Tabs
-  const counts = {
-    all: 45,
-    renders: 18,
-    plans: 2,
-    boq: 1,
-    documents: uploadedDocs.length || 24,
-  }
+  const finalBoqRows = deliverables.finalizedBoq?.rows ?? []
 
   // GSAP Entrance Animation
   useGSAP(
@@ -91,8 +133,18 @@ export default function OutputStage({ projectId }) {
         },
       )
     },
-    { scope, dependencies: [reduced, projectId, activeTab] },
+    { scope, dependencies: [reduced, projectId, activeTab, output.isReady] },
   )
+
+  // Held while the bundle is in flight: an Output page rendered from nothing
+  // would announce a project with no deliverables at all.
+  if (output.isLoading) {
+    return (
+      <div className="flex w-full flex-1 items-center justify-center py-16">
+        <PageLoader variant="inline" label="Loading Deliverables" />
+      </div>
+    )
+  }
 
   return (
     <div
@@ -103,13 +155,13 @@ export default function OutputStage({ projectId }) {
         {/* ── 1. Page Hero Banner & Quick Downloads Center ── */}
         <div data-output-section>
           <OutputHeader
+            projectId={projectId}
             projectName={projectName}
-            plan2DSource={source}
-            render3DSource={approvedRender}
-            boqRows={finalBoqRows}
-            uploadedDocs={uploadedDocs}
-            renderCount={counts.renders}
-            planCount={counts.plans}
+            render3DSource={deliverables.approvedRender}
+            boqCount={deliverables.counts.boq}
+            docCount={deliverables.counts.documents}
+            renderCount={deliverables.counts.renders}
+            planCount={deliverables.counts.plans}
           />
         </div>
 
@@ -118,7 +170,7 @@ export default function OutputStage({ projectId }) {
           <OutputDeliverablesTabs
             activeTab={activeTab}
             onTabChange={setActiveTab}
-            counts={counts}
+            counts={deliverables.counts}
           />
         </div>
 
@@ -126,7 +178,10 @@ export default function OutputStage({ projectId }) {
         {(activeTab === 'all' || activeTab === 'renders') && (
           <div data-output-section>
             <Output3DRendersSection
-              render3DSource={approvedRender}
+              projectId={projectId}
+              projectName={projectName}
+              render3DSource={deliverables.approvedRender}
+              versions={deliverables.renderVersions}
               onViewSource={handleOpenPreview}
             />
           </div>
@@ -138,7 +193,8 @@ export default function OutputStage({ projectId }) {
             {(activeTab === 'all' || activeTab === 'plans') && (
               <div className={activeTab === 'all' ? 'lg:col-span-6' : ''}>
                 <Output2DPlansSection
-                  plan2DSource={source}
+                  plan2DSource={deliverables.source}
+                  versions={deliverables.planVersions}
                   onViewSource={handleOpenPreview}
                 />
               </div>
@@ -150,7 +206,7 @@ export default function OutputStage({ projectId }) {
                 <OutputBoQSection
                   projectId={projectId}
                   projectName={projectName}
-                  boqResult={finalizedBoq}
+                  boqResult={deliverables.finalizedBoq}
                   onOpenFullModal={() => setBoqModalOpen(true)}
                 />
               </div>
@@ -161,7 +217,9 @@ export default function OutputStage({ projectId }) {
         {(activeTab === 'all' || activeTab === 'documents') && (
           <div data-output-section>
             <OutputDocumentsSection
-              documents={uploadedDocs}
+              projectId={projectId}
+              projectName={projectName}
+              documents={deliverables.documents}
             />
           </div>
         )}

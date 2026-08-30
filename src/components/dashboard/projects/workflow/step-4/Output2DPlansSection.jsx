@@ -5,40 +5,42 @@ import {
   Eye,
 } from '@phosphor-icons/react'
 
-import { DEMO_ASSETS } from '@/lib/dashboard/workflow/step-4/outputConfig'
 import { downloadAssetUrl } from '@/lib/dashboard/workflow/step-4/outputDownloads'
-
-const DEFAULT_2D_VERSIONS = [
-  {
-    id: 'plan-v1',
-    name: 'Floor_Plan_v1',
-    date: 'May 18, 2026',
-    imageUrl: '/assets/plan-2d-primary.svg',
-  },
-]
+import { formatProjectDate } from '@/lib/date'
+import { showErrorToast } from '@/lib/toast'
 
 /**
- * Output2DPlansSection — Displays 2D architectural blueprint floor plans.
+ * Output2DPlansSection — the project's 2D architectural floor plans.
+ *
+ * The version list is the project's real `FloorPlanVersion` history rather than
+ * the single hardcoded "Floor_Plan_v1, May 18 2026" card it used to show.
  */
 export default function Output2DPlansSection({
   plan2DSource,
+  versions = [],
   onViewSource,
 }) {
-  const approvedName = plan2DSource?.name || 'Approved_Floor_Plan_v2'
-  const approvedImageUrl =
-    plan2DSource?.previewUrl || plan2DSource?.imageUrl || DEMO_ASSETS.floorPlan2DUrl
+  const approvedName = plan2DSource?.name || 'approved-floor-plan.png'
+  const approvedImageUrl = plan2DSource?.previewUrl || plan2DSource?.imageUrl || null
+  // The real approval date, not a hardcoded one.
+  const approvedAt = plan2DSource?.addedAt ? formatProjectDate(plan2DSource.addedAt) : null
+
+  const otherVersions = versions.filter((version) => version.id !== plan2DSource?.versionId)
 
   const handlePreview = (item) => {
     onViewSource?.({
       previewUrl: item.imageUrl,
       imageUrl: item.imageUrl,
       name: item.name,
-      extension: 'SVG',
+      extension: (item.name?.split('.').pop() || 'PNG').toUpperCase(),
     })
   }
 
   const handleDownload = async (item) => {
-    await downloadAssetUrl(item.imageUrl, `${item.name}.svg`)
+    const saved = await downloadAssetUrl(item.imageUrl, item.name)
+    if (!saved) {
+      showErrorToast('That floor plan could not be downloaded.', { id: 'plan-download-failed' })
+    }
   }
 
   return (
@@ -59,9 +61,25 @@ export default function Output2DPlansSection({
           </div>
         </div>
 
+        {/* A project that has not completed Step 1 has no plan to show. */}
+        {!plan2DSource && otherVersions.length === 0 && (
+          <div className="rounded-md border border-dashed border-[var(--tone-line-strong)] bg-slate-50/60 p-8 text-center">
+            <h3
+              className="text-[0.8125rem] font-bold uppercase tracking-[0.12em] text-[var(--tone-ink)]"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              No 2D Floor Plans Yet
+            </h3>
+            <p className="mx-auto mt-2 max-w-sm text-[0.8125rem] leading-relaxed text-[var(--tone-muted-dark)]">
+              Upload or generate a floor plan in the Upload stage to see it here.
+            </p>
+          </div>
+        )}
+
         {/* ── Cards Grid (2 Columns Layout) ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-          {/* Card 1: Approved Latest 2D Floor Plan */}
+          {/* Card 1: the APPROVED plan — rendered only when there is one. */}
+          {plan2DSource && (
           <div className="group relative flex flex-col justify-between overflow-hidden rounded-lg border-2 border-[var(--color-brand-deep)]/60 bg-white p-4 sm:p-4.5 shadow-2xs transition-all hover:shadow-md">
             {/* Top Tag */}
             <div className="mb-2.5 flex items-center justify-between">
@@ -89,7 +107,7 @@ export default function Output2DPlansSection({
                 {approvedName}
               </h3>
               <p className="text-[0.625rem] font-medium text-slate-400 mt-0.5">
-                Approved on May 24, 2026
+                {approvedAt ? `Approved ${approvedAt}` : 'Approved'}
               </p>
 
               {/* Action Buttons Row */}
@@ -113,9 +131,10 @@ export default function Output2DPlansSection({
               </div>
             </div>
           </div>
+          )}
 
           {/* Card 2: Previous 2D Version */}
-          {DEFAULT_2D_VERSIONS.map((item) => (
+          {otherVersions.map((item) => (
             <div
               key={item.id}
               className="group relative flex flex-col justify-between overflow-hidden rounded-lg border border-[var(--tone-line-strong)] bg-white p-4 sm:p-4.5 shadow-2xs transition-all hover:shadow-md"
@@ -140,7 +159,7 @@ export default function Output2DPlansSection({
                   {item.name}
                 </h3>
                 <p className="text-[0.625rem] font-medium text-slate-400 mt-0.5">
-                  {item.date}
+                  {formatProjectDate(item.at)}
                 </p>
 
                 {/* Action Buttons Row */}

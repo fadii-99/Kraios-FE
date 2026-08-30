@@ -1,5 +1,5 @@
-import { forwardRef } from 'react'
-import { CircleNotch, PaperPlaneRight, Ruler } from '@phosphor-icons/react'
+import { forwardRef, useId, useRef } from 'react'
+import { CircleNotch, PaperPlaneRight, Paperclip, Ruler } from '@phosphor-icons/react'
 
 import DocumentTypeDropdown from '@/components/dashboard/projects/workflow/step-3/assistant/DocumentTypeDropdown'
 import {
@@ -11,7 +11,16 @@ import { cn } from '@/lib/cn'
 
 /**
  * The BoQ Prompt Composer — single-line input bar with high contrast, elevated footer,
- * measurement icon, integrated document type dropdown, and intuitive send triggers.
+ * measurement icon, attachment control, integrated document type dropdown, and
+ * intuitive send triggers.
+ *
+ * The attachment control is what finally makes Step 3's document API reachable.
+ * The reducer and the header's Uploaded Documents dropdown had existed for a
+ * while with nothing able to add a document — a documented dead end. The file
+ * is classified by whatever the document-type dropdown beside it says, and the
+ * page uploads it through `POST /step-3/documents/`; documents are deliberately
+ * separate from conversation attachments, so this never sends a file to the
+ * conversation or the generation endpoint.
  */
 const BoQComposer = forwardRef(function BoQComposer(
   {
@@ -21,11 +30,22 @@ const BoQComposer = forwardRef(function BoQComposer(
     busy,
     documentTypeId,
     onDocumentTypeChange,
+    onAttachDocument,
+    uploading = false,
     className,
   },
   ref,
 ) {
   const canSend = Boolean(value.trim()) && !busy
+  const attachId = useId()
+  const attachInputRef = useRef(null)
+
+  const handleAttachChange = (event) => {
+    const [file] = Array.from(event.target.files || [])
+    // Reset first: picking the same file twice in a row must still fire.
+    event.target.value = ''
+    if (file) onAttachDocument?.(file)
+  }
 
   const handleKeyDown = (event) => {
     if (event.key === 'Enter') {
@@ -67,6 +87,44 @@ const BoQComposer = forwardRef(function BoQComposer(
             >
               <Ruler size={18} weight="bold" />
             </div>
+
+            {/* Supporting Document Attachment */}
+            {onAttachDocument && (
+              <>
+                <label htmlFor={attachId} className="sr-only">
+                  Attach a supporting document
+                </label>
+                <input
+                  id={attachId}
+                  ref={attachInputRef}
+                  type="file"
+                  onChange={handleAttachChange}
+                  disabled={uploading}
+                  className="sr-only"
+                />
+                <button
+                  type="button"
+                  onClick={() => attachInputRef.current?.click()}
+                  disabled={uploading}
+                  aria-label="Attach a supporting document"
+                  title="Attach supporting document"
+                  className={cn(
+                    'flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xs',
+                    'border border-[var(--tone-line-strong)] bg-white text-[var(--tone-muted-dark)]',
+                    'transition-colors duration-200 ease-[var(--ease-out-expo)]',
+                    'hover:border-[var(--color-brand-deep)] hover:text-[var(--color-brand-deep)]',
+                    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
+                    'disabled:cursor-not-allowed disabled:opacity-45',
+                  )}
+                >
+                  {uploading ? (
+                    <CircleNotch size={16} weight="bold" aria-hidden="true" className="animate-spin" />
+                  ) : (
+                    <Paperclip size={16} weight="bold" aria-hidden="true" />
+                  )}
+                </button>
+              </>
+            )}
 
             {/* Text Input */}
             <input

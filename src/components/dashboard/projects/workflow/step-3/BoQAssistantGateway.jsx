@@ -55,11 +55,18 @@ const OUTPUT_THEMES = {
  * - 4 itemized BoQ capability highlight chips
  * - 3D Floor Plan Upload & Full-page lightbox preview viewer
  * - Simple bottom strip allowing users to skip BoQ to Step 4 Output anytime
+ *
+ * Skipping is an ACTION, not a link. `POST /step-3/skip/` clears any selected
+ * BOQ and records the skip on the project, so it is confirmed first and the
+ * navigation happens only once the backend has agreed. This component only
+ * raises the request; the stage owns the confirmation and the transition.
  */
 export default function BoQAssistantGateway({
   isBoqApproved = false,
   to,
   outputPath,
+  onSkipRequest,
+  skipping = false,
   className,
 }) {
   const containerRef = useRef(null)
@@ -516,18 +523,23 @@ export default function BoQAssistantGateway({
           </div>
 
           {outputPath && !isBoqApproved && (
-            <Link
-              to={outputPath}
+            <button
+              type="button"
+              onClick={onSkipRequest}
+              disabled={skipping}
+              aria-busy={skipping || undefined}
               className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 rounded-xs border border-amber-300/80 bg-white/90 px-3 py-1',
+                'inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xs border border-amber-300/80 bg-white/90 px-3 py-1',
                 'text-[0.6875rem] font-bold uppercase tracking-wider text-amber-800 shadow-2xs font-display',
                 'transition-all duration-200 hover:border-amber-500 hover:bg-amber-600 hover:text-white active:scale-95',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600',
+                'disabled:cursor-not-allowed disabled:opacity-60',
               )}
               style={{ fontFamily: 'var(--font-display)' }}
             >
-              <span>Skip to Output</span>
+              <span>{skipping ? 'Skipping…' : 'Skip to Output'}</span>
               <ArrowRight size={13} weight="bold" />
-            </Link>
+            </button>
           )}
         </div>
       </FloorPlanWorkArea>

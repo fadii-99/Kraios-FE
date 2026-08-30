@@ -5,12 +5,17 @@ import PageLoader from '@/components/ui/PageLoader'
 import FormInput from '@/components/ui/FormInput'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import { useProjects } from '@/lib/dashboard/projects/projectsContext'
+import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { showErrorToast, showSuccessToast } from '@/lib/toast'
 
 /**
- * Create Project — the one modal the whole product needs today: a name and
- * a Create action. No backend: `createProject` writes into the session-scoped
- * ProjectsProvider, so the new project is on /dashboard/projects immediately.
+ * Create Project — a name and a Create action.
+ *
+ * `POST /projects/` is a real request now, so the loader covers actual work
+ * rather than a timer, and the id the workspace opens on is the backend's
+ * project UUID. Project names are unique per user case-insensitively; a
+ * duplicate comes back as a field error, is shown on the input and said once in
+ * a toast, and the modal stays open with the name still in it.
  */
 export default function CreateProjectModal({ open, onClose }) {
   const navigate = useNavigate()
@@ -19,11 +24,15 @@ export default function CreateProjectModal({ open, onClose }) {
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
 
-  // The 700ms create delay is a timer like any other: if the modal's page
-  // unmounts mid-create (a nav click while it runs), it has to be cleared
-  // rather than left to resolve against a gone component.
-  const timerRef = useRef(null)
-  useEffect(() => () => window.clearTimeout(timerRef.current), [])
+  // A create that resolves after this modal's page unmounts must not set state
+  // on a component that is gone.
+  const activeRef = useRef(true)
+  useEffect(
+    () => () => {
+      activeRef.current = false
+    },
+    [],
+  )
 
   const handleClose = () => {
     if (creating) return
@@ -35,6 +44,9 @@ export default function CreateProjectModal({ open, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    // Re-entry guard, the same one every submitting form in the product keeps.
+    if (creating) return
+
     // `error` still marks the field invalid; the copy is a toast now. One per
     // submit, never per keystroke.
     if (!name.trim()) {
@@ -45,20 +57,28 @@ export default function CreateProjectModal({ open, onClose }) {
 
     setError('')
     setCreating(true)
-    const project = createProject(name.trim())
 
-    await new Promise((resolve) => {
-      timerRef.current = window.setTimeout(resolve, 700)
-    })
+    try {
+      const project = await createProject(name.trim())
+      if (!activeRef.current) return
 
-    setCreating(false)
-    setName('')
-    onClose()
-    navigate('/dashboard/projects', { state: { newProjectId: project.id } })
-    // Announced only once the project is actually in the store. The 700ms wait
-    // has the brand PageLoader in the modal, so it needs no loading toast on
-    // top of it.
-    showSuccessToast('Project created.', { id: 'project-created' })
+      setCreating(false)
+      setName('')
+      onClose()
+
+      // Straight into Step 1 of the real project, on its real UUID.
+      navigate(projectStagePath(project.id, 'upload'))
+      showSuccessToast('Project created.', { id: 'project-created' })
+    } catch (thrown) {
+      if (!activeRef.current) return
+
+      // Already normalized by `parseApiError` — a duplicate name arrives as the
+      // backend's own sentence, not as a field name or a raw payload.
+      const message = thrown?.message || 'That project could not be created.'
+      setCreating(false)
+      setError(message)
+      showErrorToast(message, { id: 'create-project-failed' })
+    }
   }
 
   return (

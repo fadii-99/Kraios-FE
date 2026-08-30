@@ -2,8 +2,13 @@
  * Step 3 — the BoQ Assistant state shape and its transitions.
  *
  * ONE state object per project holds everything Step 3 knows: the conversation,
- * the generated BOQ table results, which result is approved, the uploaded supporting
- * documents, and the active document type.
+ * the BOQ versions, which one is approved, the supporting documents, and the
+ * active document type.
+ *
+ * It is a VIEW MODEL over backend state, not a store of its own: `hydrate`
+ * replaces it with what `/step-3/conversation/`, `/step-3/versions/` and
+ * `/step-3/documents/` hold, and the optimistic transitions below only cover
+ * the gap between sending a request and the refetch that answers it.
  */
 
 import {
@@ -36,13 +41,15 @@ export function createBoqAssistantState() {
     error: null,
     documentTypeId: DEFAULT_DOCUMENT_TYPE_ID,
     /**
-     * Uploaded supporting documents. Records are built by
-     * `createBoqDocument` in `boqDocuments.js` — that module owns the shape,
-     * and it is the shape Step 4 previews, downloads and packages.
+     * Supporting documents, as `ProjectDocument` records mapped by
+     * `boqAdapters.documentToRecord`. Backend records with backend urls — the
+     * shape Step 4 lists, previews and downloads.
      */
     uploadedDocuments: [],
     /** The one BoQ result the user explicitly approved. Never set implicitly. */
     approvedResultId: null,
+    /** Whether the backend conversation, versions and documents were read. */
+    hydrated: false,
     /** Monotonic id counter. */
     issued: 0,
   }
@@ -69,46 +76,57 @@ function withoutPending(state) {
   }
 }
 
-/**
- * Writes an amended result back, and drops the approval if the amended result
- * was the approved one. Every table mutation goes through here so no future
- * edit action can quietly keep an approval it invalidated.
- */
-function withRowEdit(state, resultId, updatedResult) {
-  return {
-    ...state,
-    results: { ...state.results, [resultId]: updatedResult },
-    approvedResultId: state.approvedResultId === resultId ? null : state.approvedResultId,
-  }
-}
-
 export function boqAssistantReducer(state, action) {
   switch (action.type) {
+    /**
+     * Replaces the transcript, the versions AND the document list with what the
+     * backend holds. Documents are part of this because they are backend
+     * records now, not browser blobs: the document API is the register, and a
+     * refetch is what a page trusts after an upload or a delete.
+     */
+    case 'hydrate': {
+      const results = action.results ?? {}
+
+      return {
+        ...state,
+        messages: action.messages ?? [],
+        results,
+        approvedResultId: action.approvedResultId ?? null,
+        uploadedDocuments: action.uploadedDocuments ?? state.uploadedDocuments,
+        status: action.busy ? GENERATION_STATUS.generating : GENERATION_STATUS.idle,
+        error: null,
+        hydrated: true,
+      }
+    }
+
+    /**
+     * A running job's own progress line, written onto the pending block.
+     *
+     * The backend reports `progress` and `message` while a job runs; without
+     * this the workspace would show one frozen "Generating…" for the whole
+     * wait. Nothing else changes — it is the same pending message, relabelled.
+     */
+    case 'generationProgress': {
+      const index = state.messages.findIndex((m) => m.kind === MESSAGE_KINDS.pending)
+      if (index === -1) return state
+
+      const current = state.messages[index]
+      if (current.text === action.text) return state
+
+      const messages = [...state.messages]
+      messages[index] = { ...current, text: action.text }
+
+      return { ...state, messages }
+    }
+
+    /** Just the document list, after an upload or a delete. */
+    case 'setDocuments':
+      return { ...state, uploadedDocuments: action.documents ?? [] }
+
     case 'setDocumentType':
       return state.documentTypeId === action.documentTypeId
         ? state
         : { ...state, documentTypeId: action.documentTypeId }
-
-    /**
-     * The caller hands over a finished record from `createBoqDocument`, which
-     * is what keeps this reducer pure: minting an object URL is a side effect
-     * and does not belong in a transition. Freeing it is a side effect too —
-     * `ProjectsProvider` releases the URLs of documents that leave this list.
-     */
-    case 'uploadDocument': {
-      if (!action.document) return state
-
-      return {
-        ...state,
-        uploadedDocuments: [action.document, ...state.uploadedDocuments],
-      }
-    }
-
-    case 'removeDocument':
-      return {
-        ...state,
-        uploadedDocuments: state.uploadedDocuments.filter((d) => d.id !== action.documentId),
-      }
 
     /** One turn: the user's instruction, then the pending assistant block. */
     case 'startGeneration': {
@@ -217,60 +235,16 @@ export function boqAssistantReducer(state, action) {
       return { ...state, approvedResultId: null }
 
     /**
-     * Row edits are MATERIAL changes to the table.
+     * Row edits are MATERIAL changes to the table, and they are not made here.
      *
-     * `withRowEdit` is what keeps that honest: it writes the amended result AND
-     * clears the approval when the amended result is the approved one. Approval
-     * belongs to a specific set of quantities, and a BoQ that gained or lost a
-     * line is no longer the BoQ anybody signed off — Output reads
-     * `approvedResultId` and nothing else, so leaving it pointing at a mutated
-     * table would hand the deliverables stage an unreviewed cost schedule.
-     *
-     * There is exactly one approval flag in Step 3, this one; the user
-     * re-approves explicitly, the same way they approved the first time.
+     * `addRow` and `deleteRow` used to mutate the result in place and clear the
+     * approval when they touched the approved one. A BOQ version is immutable
+     * on the backend, so an edit is now `POST /step-3/versions/manual/`: it
+     * creates a NEW version with the amended rows, and the transcript is
+     * refetched. That keeps the same rule — an edited table is not the table
+     * anybody approved — without a browser-only copy that the server would
+     * never agree with. The row arithmetic lives in `boqAdapters.js`.
      */
-    case 'addRow': {
-      const existing = state.results[action.resultId]
-      if (!existing) return state
-
-      const rows = existing.rows || []
-      const nextIndex = rows.length + 1
-      const itemNumber = String(nextIndex).padStart(2, '0')
-
-      const newRow = action.row || {
-        item: itemNumber,
-        description: 'New BoQ specification / item',
-        qty: '1',
-        unit: 'm²',
-        rate: '—',
-        amount: '—',
-      }
-
-      const updatedRows = [...rows, { ...newRow, item: itemNumber }]
-
-      return withRowEdit(state, action.resultId, {
-        ...existing,
-        rows: updatedRows,
-        summary: `${updatedRows.length} Items · Preliminary BoQ`,
-      })
-    }
-
-    case 'deleteRow': {
-      const existing = state.results[action.resultId]
-      if (!existing) return state
-
-      const filtered = (existing.rows || []).filter((_, idx) => idx !== action.rowIndex)
-      const updatedRows = filtered.map((row, idx) => ({
-        ...row,
-        item: String(idx + 1).padStart(2, '0'),
-      }))
-
-      return withRowEdit(state, action.resultId, {
-        ...existing,
-        rows: updatedRows,
-        summary: `${updatedRows.length} Items · Preliminary BoQ`,
-      })
-    }
 
     default:
       return state

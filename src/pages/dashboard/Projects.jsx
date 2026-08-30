@@ -1,13 +1,17 @@
 import { useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import { FolderSimpleDashed } from '@phosphor-icons/react'
+import { ArrowClockwise, FolderSimpleDashed, WarningCircle } from '@phosphor-icons/react'
 import CreateProjectModal from '@/components/dashboard/projects/library/CreateProjectModal'
 import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader'
 import ProjectGrid from '@/components/dashboard/projects/library/ProjectGrid'
+import PageLoader from '@/components/ui/PageLoader'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import { DASHBOARD_GUTTER } from '@/lib/dashboard/layout'
-import { useProjects } from '@/lib/dashboard/projects/projectsContext'
+import {
+  RESOURCE_STATUS,
+  useProjects,
+} from '@/lib/dashboard/projects/projectsContext'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { cn } from '@/lib/cn'
@@ -22,11 +26,19 @@ import { cn } from '@/lib/cn'
  * - Grid state (if > 0 projects): project cards staggered entrance
  */
 export default function Projects() {
-  const { projects } = useProjects()
+  const { projects, projectsStatus, projectsError, loadProjects } = useProjects()
   const [modalOpen, setModalOpen] = useState(false)
   const hasProjects = projects.length > 0
   const scope = useRef(null)
   const reduced = usePrefersReducedMotion()
+
+  // The list is loaded once by the store when the dashboard mounts. Three
+  // states are possible here and they are genuinely different: still loading,
+  // failed to load, and loaded-and-empty. Showing the "No Projects Yet" empty
+  // state for the first two would claim the account has no projects when the
+  // truth is that nobody has managed to ask yet.
+  const isFirstLoad = projectsStatus === RESOURCE_STATUS.loading && !hasProjects
+  const hasFailed = projectsStatus === RESOURCE_STATUS.error && !hasProjects
 
   useGSAP(
     () => {
@@ -89,7 +101,58 @@ export default function Projects() {
         </PrimaryButton>
       </DashboardPageHeader>
 
-      {!hasProjects ? (
+      {isFirstLoad ? (
+        /* STATE 0: THE LIST IS STILL ARRIVING */
+        <div className="flex flex-1 items-center justify-center py-8">
+          <PageLoader variant="inline" label="Loading Projects" />
+        </div>
+      ) : hasFailed ? (
+        /* STATE 0b: THE LIST COULD NOT BE LOADED */
+        <div
+          className={cn(
+            'relative flex flex-1 items-center justify-center overflow-y-auto py-8 sm:py-10 lg:py-12',
+            DASHBOARD_GUTTER,
+          )}
+        >
+          <div className="relative flex max-w-md flex-col items-center text-center">
+            <div
+              className="flex h-20 w-20 items-center justify-center rounded-md border border-amber-500/25 bg-amber-50/80 shadow-[0_4px_16px_rgba(181,71,8,0.08)]"
+              aria-hidden="true"
+            >
+              <WarningCircle size={38} weight="regular" className="text-[var(--color-warning)]" />
+            </div>
+
+            <h2
+              className="mt-5 text-[1.25rem] font-bold uppercase leading-tight tracking-[0.02em] text-[var(--tone-ink)] sm:text-[1.5rem]"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              Projects Unavailable
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--tone-muted-dark)]">
+              {projectsError?.message || 'Your projects could not be loaded right now.'}
+            </p>
+
+            <PrimaryButton
+              type="button"
+              size="compact"
+              variant="outline"
+              withArrow={false}
+              className="mt-6"
+              onClick={() => {
+                loadProjects().catch(() => {
+                  // The failure stays on the panel above; retrying is the
+                  // action, and a toast would only repeat what is on screen.
+                })
+              }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <ArrowClockwise size={15} weight="bold" aria-hidden="true" />
+                Try Again
+              </span>
+            </PrimaryButton>
+          </div>
+        </div>
+      ) : !hasProjects ? (
         /* STATE 1: NO PROJECTS YET */
         <div
           className={cn(

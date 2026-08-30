@@ -8,70 +8,55 @@ import {
 
 import {
   downloadAssetUrl,
-  downloadBlob,
+  downloadProjectArchive,
 } from '@/lib/dashboard/workflow/step-4/outputDownloads'
 import { formatFileSize } from '@/lib/dashboard/workflow/step-1/floorPlanSource'
-
-const SAMPLE_PROJECT_DOCS = [
-  {
-    id: 'doc-1',
-    name: 'Project Brief.pdf',
-    type: 'PDF',
-    size: 2400000,
-    icon: FilePdf,
-    iconColor: 'text-rose-600 bg-rose-50 border-rose-200',
-  },
-  {
-    id: 'doc-2',
-    name: 'Structural Drawings.zip',
-    type: 'ZIP',
-    size: 18700000,
-    icon: FileArchive,
-    iconColor: 'text-amber-600 bg-amber-50 border-amber-200',
-  },
-  {
-    id: 'doc-3',
-    name: 'Estimation Sheet.xlsx',
-    type: 'XLSX',
-    size: 122880,
-    icon: FileXls,
-    iconColor: 'text-emerald-600 bg-emerald-50 border-emerald-200',
-  },
-  {
-    id: 'doc-4',
-    name: 'Material Specifications.pdf',
-    type: 'PDF',
-    size: 1800000,
-    icon: FilePdf,
-    iconColor: 'text-rose-600 bg-rose-50 border-rose-200',
-  },
-]
+import { OUTPUT_COPY } from '@/lib/dashboard/workflow/step-4/outputConfig'
+import { showErrorToast, showSuccessToast } from '@/lib/toast'
 
 /**
- * OutputDocumentsSection — Project documents grid with file badges and batch download actions.
+ * OutputDocumentsSection — the project's supporting documents.
+ *
+ * Two fictions are gone from this section. It used to display four invented
+ * files — Project Brief.pdf, Structural Drawings.zip and so on — whenever the
+ * project had none, and Download produced a Blob containing the sentence
+ * "Sample document content for <name>" when it could not find a real file. A
+ * project with no documents now says so, and Download either saves the real
+ * asset or reports that it could not.
  */
 export default function OutputDocumentsSection({
+  projectId,
+  projectName,
   documents = [],
 }) {
-  const displayDocs =
-    documents && documents.length > 0
-      ? documents
-      : SAMPLE_PROJECT_DOCS
+  const displayDocs = documents ?? []
 
   const handleDownloadDoc = async (doc) => {
-    if (doc.file) {
-      downloadBlob(doc.file, doc.name)
-      return
+    const url = doc?.downloadUrl || doc?.url || doc?.previewUrl
+    const saved = url ? await downloadAssetUrl(url, doc.name) : false
+
+    if (!saved) {
+      showErrorToast('That document could not be downloaded.', {
+        id: 'document-download-failed',
+      })
     }
-    if (doc.url || doc.previewUrl) {
-      await downloadAssetUrl(doc.url || doc.previewUrl, doc.name)
-      return
+  }
+
+  const handleDownloadAll = async () => {
+    try {
+      const saved = await downloadProjectArchive({
+        projectId,
+        projectName,
+        scope: 'DOCUMENTS',
+      })
+
+      if (saved) showSuccessToast('Documents downloaded.', { id: 'archive-DOCUMENTS' })
+      else showErrorToast('There are no documents to download yet.', { id: 'archive-empty-docs' })
+    } catch (thrown) {
+      showErrorToast(thrown?.message || 'That download could not be prepared.', {
+        id: 'archive-failed-docs',
+      })
     }
-    // Fallback demonstration text download
-    const dummyBlob = new Blob([`Sample document content for ${doc.name}`], {
-      type: 'application/pdf',
-    })
-    downloadBlob(dummyBlob, doc.name)
   }
 
   const getDocVisuals = (doc) => {
@@ -110,8 +95,9 @@ export default function OutputDocumentsSection({
           {/* Download All (ZIP) */}
           <button
             type="button"
-            onClick={() => handleDownloadDoc(displayDocs[0])}
-            className="flex h-8 cursor-pointer items-center gap-2 rounded-sm border border-slate-200 bg-white px-3 text-[0.75rem] font-bold uppercase tracking-wider text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
+            onClick={handleDownloadAll}
+            disabled={displayDocs.length === 0}
+            className="flex h-8 cursor-pointer items-center gap-2 rounded-sm border border-slate-200 bg-white px-3 text-[0.75rem] font-bold uppercase tracking-wider text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             <DownloadSimple size={14} weight="bold" className="text-[var(--color-brand-deep)]" />
             <span>Download All (ZIP)</span>
@@ -119,9 +105,23 @@ export default function OutputDocumentsSection({
         </div>
       </div>
 
-      {/* ── Documents Cards Grid (4 Columns Layout) ── */}
+      {/* ── Empty State: a project genuinely may have no documents ── */}
+      {displayDocs.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-[var(--tone-line-strong)] bg-white p-8 text-center">
+          <h3
+            className="text-[0.875rem] font-bold uppercase tracking-[0.12em] text-[var(--tone-ink)]"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            {OUTPUT_COPY.noDocsHeading}
+          </h3>
+          <p className="mx-auto mt-2 max-w-md text-[0.8125rem] leading-relaxed text-[var(--tone-muted-dark)]">
+            {OUTPUT_COPY.noDocsBlurb}
+          </p>
+        </div>
+      ) : (
+      /* ── Documents Cards Grid (4 Columns Layout) ── */
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
-        {displayDocs.slice(0, 4).map((doc, idx) => {
+        {displayDocs.map((doc, idx) => {
           const { Icon, style } = getDocVisuals(doc)
           const ext = (doc.extension || doc.name?.split('.').pop() || 'FILE').toUpperCase()
 
@@ -147,7 +147,7 @@ export default function OutputDocumentsSection({
                     {doc.name}
                   </h3>
                   <p className="mt-1 text-[0.6875rem] font-medium text-slate-500">
-                    {ext} • {doc.size ? formatFileSize(doc.size) : '2.4 MB'}
+                    {ext} • {formatFileSize(doc.size)}
                   </p>
                 </div>
               </div>
@@ -168,6 +168,7 @@ export default function OutputDocumentsSection({
           )
         })}
       </div>
+      )}
     </section>
   )
 }

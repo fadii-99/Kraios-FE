@@ -7,7 +7,7 @@ import {
   ASSISTANT_GUTTER,
 } from '@/components/dashboard/projects/workflow/step-2/assistant/assistantGrid'
 import { ASSISTANT_COPY } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
-import { MODEL_GENERATION_SUPPORTS_CANCEL } from '@/lib/dashboard/workflow/step-2/modelGeneration'
+import { THREE_D_GENERATION_SUPPORTS_CANCEL } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
 import { cn } from '@/lib/cn'
 
 /**
@@ -130,7 +130,7 @@ const AssistantComposer = forwardRef(function AssistantComposer(
           </div>
         </form>
 
-        {busy && MODEL_GENERATION_SUPPORTS_CANCEL && (
+        {busy && THREE_D_GENERATION_SUPPORTS_CANCEL && (
           <div className="flex justify-end px-1">
             <button
               type="button"

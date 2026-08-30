@@ -3,21 +3,27 @@ import FloorPlanWorkArea from '@/components/dashboard/projects/workflow/shared/F
 import TechnicalIconFrame from '@/components/dashboard/TechnicalIconFrame'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import {
+  FILE_TOO_LARGE_ERROR,
   FLOOR_PLAN_ACCEPT,
   MULTIPLE_FILES_NOTICE,
   UNSUPPORTED_FILE_ERROR,
-  createUploadSource,
   isSupportedFloorPlanFile,
+  isWithinUploadLimit,
 } from '@/lib/dashboard/workflow/step-1/floorPlanSource'
-import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
+import { showErrorToast, showInfoToast } from '@/lib/toast'
 import { cn } from '@/lib/cn'
 
 /**
  * Upload mode's work surface: a drafted dropzone ready for 2D architectural drawings.
+ *
+ * It validates and hands the raw `File` up; it does not decide what happens to
+ * it. The stage owns the request, because the upload creates a version, an
+ * approval and a workflow move on the backend, and only the stage can wait for
+ * that and navigate on it.
  */
 export default function UploadFloorPlanPanel({
-  onSourceChange,
-  onUploadSuccess,
+  onFileSelected,
+  disabled = false,
   className,
 }) {
   const inputId = useId()
@@ -28,6 +34,8 @@ export default function UploadFloorPlanPanel({
   const dragDepth = useRef(0)
 
   const acceptFiles = (fileList) => {
+    if (disabled) return
+
     const files = Array.from(fileList || [])
     if (!files.length) return
 
@@ -43,13 +51,14 @@ export default function UploadFloorPlanPanel({
       return
     }
 
-    const newSource = createUploadSource(file)
-    if (onUploadSuccess) {
-      onUploadSuccess(newSource)
-    } else {
-      onSourceChange?.(newSource)
-      showSuccessToast('Floor plan uploaded successfully.', { id: 'upload-success' })
+    // Checked here so an oversized file is refused instantly rather than after
+    // uploading 25 MB to be told no. The backend enforces it too.
+    if (!isWithinUploadLimit(file)) {
+      showErrorToast(FILE_TOO_LARGE_ERROR, { id: 'file-too-large' })
+      return
     }
+
+    onFileSelected?.(file)
   }
 
   const handleInputChange = (event) => {
@@ -59,6 +68,7 @@ export default function UploadFloorPlanPanel({
 
   const handleDragEnter = (event) => {
     event.preventDefault()
+    if (disabled) return
     dragDepth.current += 1
     setDragging(true)
   }
@@ -156,6 +166,7 @@ export default function UploadFloorPlanPanel({
           type="file"
           accept={FLOOR_PLAN_ACCEPT}
           onChange={handleInputChange}
+          disabled={disabled}
           className="peer sr-only"
         />
 
@@ -184,7 +195,7 @@ export default function UploadFloorPlanPanel({
             Supported
           </span>
           <div className="flex flex-wrap items-center justify-center gap-1.5">
-            {['PNG', 'JPG', 'JPEG', 'PDF'].map((ext) => (
+            {['PNG', 'JPG', 'JPEG', 'WEBP', 'PDF'].map((ext) => (
               <span
                 key={ext}
                 className="rounded-xs border border-[var(--tone-line)] bg-white px-2 py-0.5 text-[0.625rem] sm:text-[0.6875rem] font-semibold tracking-wider text-[var(--tone-ink)]"

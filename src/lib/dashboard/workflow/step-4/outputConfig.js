@@ -40,16 +40,13 @@ export const OUTPUT_COPY = {
   downloadZipCta: 'DOWNLOAD PROJECT ZIP',
 }
 
-/**
- * Local assets for standalone frontend demonstration when upstream stages
- * have not yet saved real files.
+/*
+ * `DEMO_ASSETS` used to live here — a local 2D SVG and a local 3D SVG that
+ * every Step 4 section fell back to when the real asset was missing, so an
+ * empty project displayed two drawings it did not own. Step 4 reads the
+ * project's own `GET /output/` bundle now and shows nothing where there is
+ * nothing, so the fallbacks are gone rather than merely unused.
  */
-export const DEMO_ASSETS = {
-  floorPlan2DUrl: '/assets/plan-2d-primary.svg',
-  floorPlan2DName: 'Floor-Plan-Design.svg',
-  render3DUrl: '/assets/plan-3d-light.svg',
-  render3DName: 'Approved-3D-Model.svg',
-}
 
 /*
  * The BoQ demonstration rows used to be declared here as `DEMO_BOQ_ROWS`, a

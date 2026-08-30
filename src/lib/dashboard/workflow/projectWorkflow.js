@@ -114,3 +114,42 @@ export function workflowIndexForPath(pathname) {
 
   return index >= 0 ? index : 0
 }
+
+/* ---------------------------------------------------------------------------
+   Stage gating
+   --------------------------------------------------------------------------- */
+
+/**
+ * Why the next stage is not reachable yet, or `null` when it is.
+ *
+ * Read from the PROJECT's `workflow_state`, which is the backend's own record
+ * of progress. That matters twice over: it is the same answer the API will give
+ * when the next stage's endpoint is called, so the nav cannot promise something
+ * the server then refuses; and it costs no request, so the bottom navigation
+ * does not have to load a step's history to decide whether Next is allowed.
+ *
+ * BoQ is optional and returns null unconditionally — Output is reachable from
+ * Step 3 whether or not a BoQ was approved.
+ */
+export const STAGE_GATE_MESSAGES = {
+  upload: 'Add or generate a 2D floor plan before continuing to 3D Rendering.',
+  rendering: 'Approve a 3D design before continuing to BoQ.',
+}
+
+export function stageGateMessage(stageId, project) {
+  const state = project?.workflowState ?? project?.workflow_state
+
+  // Nothing is gated until the project's own state is known — a nav that blocks
+  // on missing data blocks a user who has in fact finished the stage.
+  if (!state) return null
+
+  if (stageId === 'upload') {
+    return state.step_1_complete ? null : STAGE_GATE_MESSAGES.upload
+  }
+
+  if (stageId === 'rendering') {
+    return state.step_2_complete ? null : STAGE_GATE_MESSAGES.rendering
+  }
+
+  return null
+}

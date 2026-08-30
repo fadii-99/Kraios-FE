@@ -8,23 +8,21 @@ import {
   PencilSimple,
 } from '@phosphor-icons/react'
 
-import {
-  downloadText,
-  generateBoqCsv,
-  projectSlug,
-} from '@/lib/dashboard/workflow/step-4/outputDownloads'
+import { downloadBoqCsv } from '@/lib/dashboard/workflow/step-4/outputDownloads'
+import { OUTPUT_COPY } from '@/lib/dashboard/workflow/step-4/outputConfig'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
-
-const SAMPLE_BOQ_ROWS = [
-  { item: '1', description: 'Excavation in foundation', unit: 'Cum', qty: '12.50', rate: '350.00', amount: '4,375.00' },
-  { item: '2', description: 'RCC (M20) in footings & columns', unit: 'Cum', qty: '15.75', rate: '6,200.00', amount: '97,650.00' },
-  { item: '3', description: 'Brick Work (1:6) superstructure', unit: 'Sqm', qty: '125.00', rate: '850.00', amount: '1,06,250.00' },
-  { item: '4', description: 'Internal Cement Plaster (1:4)', unit: 'Sqm', qty: '280.00', rate: '220.00', amount: '61,600.00' },
-  { item: '5', description: 'Vitrified Floor Tiles (600x600)', unit: 'Sqm', qty: '110.00', rate: '950.00', amount: '1,04,500.00' },
-]
+import { showErrorToast } from '@/lib/toast'
 
 /**
- * OutputBoQSection — Itemized Bill of Quantities mini-table preview with CSV download.
+ * OutputBoQSection — the APPROVED Bill of Quantities, previewed, with the
+ * backend's own CSV export.
+ *
+ * Two corrections here. The preview used to fall back to five invented rows —
+ * excavation, RCC, brickwork, with rates and amounts — whenever no BoQ was
+ * approved, so a project with no costing showed a costed schedule. And the CSV
+ * was generated in the browser from whatever rows were on screen; it is now
+ * `GET /step-3/versions/{id}/download-csv/`, so the file is the version that
+ * was actually approved.
  */
 export default function OutputBoQSection({
   projectId,
@@ -35,17 +33,21 @@ export default function OutputBoQSection({
   const navigate = useNavigate()
   const [downloading, setDownloading] = useState(false)
 
-  const rows =
-    boqResult?.rows && boqResult.rows.length > 0
-      ? boqResult.rows
-      : SAMPLE_BOQ_ROWS
+  const rows = boqResult?.rows ?? []
 
-  const handleDownloadCsv = () => {
+  const handleDownloadCsv = async () => {
+    if (downloading || !boqResult?.id) return
+
+    setDownloading(true)
     try {
-      setDownloading(true)
-      const csv = generateBoqCsv(rows)
-      const sanitizedProject = projectSlug(projectName)
-      downloadText(csv, `${sanitizedProject}-boq.csv`)
+      const saved = await downloadBoqCsv(projectId, boqResult.id, projectName)
+      if (!saved) {
+        showErrorToast('That BoQ could not be downloaded.', { id: 'boq-csv-failed' })
+      }
+    } catch (thrown) {
+      showErrorToast(thrown?.message || 'That BoQ could not be downloaded.', {
+        id: 'boq-csv-failed',
+      })
     } finally {
       setDownloading(false)
     }
@@ -74,13 +76,31 @@ export default function OutputBoQSection({
             </h2>
           </div>
 
-          <span className="inline-flex items-center gap-1.5 rounded-xs bg-emerald-500/10 px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-wider text-emerald-700 font-display">
-            <CheckCircle size={13} weight="fill" className="text-emerald-600" />
-            LATEST
-          </span>
+          {/* The badge states an APPROVAL, so it appears only when there is
+              one. It used to read "LATEST" over whatever rows were on screen,
+              including the sample ones. */}
+          {boqResult && (
+            <span className="inline-flex items-center gap-1.5 rounded-xs bg-emerald-500/10 px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-wider text-emerald-700 font-display">
+              <CheckCircle size={13} weight="fill" className="text-emerald-600" />
+              {OUTPUT_COPY.boqApprovedBadge}
+            </span>
+          )}
         </div>
 
-        {/* ── Structured Table View ── */}
+        {/* ── Structured Table View, or the honest absence of one ── */}
+        {rows.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center">
+            <h3
+              className="text-[0.8125rem] font-bold uppercase tracking-[0.12em] text-[var(--tone-ink)]"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              {OUTPUT_COPY.noBoqHeading}
+            </h3>
+            <p className="mx-auto mt-2 max-w-sm text-[0.8125rem] leading-relaxed text-[var(--tone-muted-dark)]">
+              {OUTPUT_COPY.noBoqBlurb}
+            </p>
+          </div>
+        ) : (
         <div className="overflow-x-auto rounded-md border border-slate-200">
           <table className="w-full text-left text-[0.8125rem]">
             <thead className="border-b border-slate-200 bg-slate-50 text-[0.6875rem] font-bold uppercase tracking-wider text-slate-500 font-display">
@@ -109,6 +129,7 @@ export default function OutputBoQSection({
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* ── Bottom Controls ── */}
@@ -139,8 +160,10 @@ export default function OutputBoQSection({
           <button
             type="button"
             onClick={handleDownloadCsv}
-            disabled={downloading}
-            className="flex cursor-pointer items-center gap-2 rounded-sm border border-emerald-500/40 bg-emerald-50 px-4 py-2 text-[0.75rem] font-bold text-emerald-800 shadow-2xs hover:bg-emerald-100/70 transition-colors"
+            disabled={downloading || !boqResult}
+            aria-busy={downloading || undefined}
+            title={boqResult ? undefined : 'Approve a Bill of Quantities to export it.'}
+            className="flex cursor-pointer items-center gap-2 rounded-sm border border-emerald-500/40 bg-emerald-50 px-4 py-2 text-[0.75rem] font-bold text-emerald-800 shadow-2xs hover:bg-emerald-100/70 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           >
             <FileCsv size={15} weight="bold" className="text-emerald-600" />
             <span>Download CSV</span>

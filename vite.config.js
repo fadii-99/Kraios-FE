@@ -21,6 +21,15 @@ export default defineConfig({
           'ngrok-skip-browser-warning': 'true',
         },
       },
+      // Job progress channel. REST polling is the contract and works without
+      // this; the socket is the optional faster path in local development,
+      // where the app and the backend share an origin through this proxy.
+      '/ws': {
+        target: 'wss://bdf7-182-182-224-98.ngrok-free.app',
+        changeOrigin: true,
+        secure: true,
+        ws: true,
+      },
     },
   },
 })

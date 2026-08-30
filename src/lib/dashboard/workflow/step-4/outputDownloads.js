@@ -1,12 +1,37 @@
 /**
- * Step 4 — Client-side export and ZIP packaging utilities.
+ * Step 4 — downloading deliverables.
  *
- * Provides standalone, zero-dependency CSV generation, single asset downloads,
- * and a standards-compliant PKZIP 2.0 package bundler.
+ * Every file this stage offers is an authenticated backend asset, so nothing
+ * here builds a file in the browser. That is a deliberate reversal: this module
+ * used to hold a hand-rolled PKZIP 2.0 writer (CRC32, local headers, central
+ * directory, EOCD) that assembled the project package from whatever the browser
+ * happened to be holding, in browser memory, from client-side state. The
+ * backend now creates real archives from the stored project files, so the
+ * package is built where the files actually live and a large project is no
+ * longer limited by a tab's heap.
+ *
+ * What remains is the honest half:
+ *
+ *   - name normalization, so a user-supplied project or document name becomes a
+ *     safe filename,
+ *   - authenticated single-asset and CSV downloads,
+ *   - the archive flow — queue the job, watch it, download what it produced.
+ *
+ * Two rules every function keeps: a download is announced only when a file was
+ * actually produced, and an HTTP error response is never saved as a file.
  */
 
+import { downloadApiFile } from '@/lib/api/files'
+import { jobIdFromResponse, waitForJob } from '@/lib/api/jobs'
+import { PROJECT_ENDPOINTS, queueProjectArchive } from '@/lib/api/projects'
+
 /**
- * Generates an RFC 4180 compliant CSV string from BoQ table rows.
+ * An RFC 4180 CSV string from BoQ table rows.
+ *
+ * Kept for the inspection modal, which exports exactly the rows on screen. The
+ * project's own BoQ export does NOT use this — it downloads the backend's
+ * rendering of the approved version (`downloadBoqCsv`), so the project CSV is
+ * always the version that was approved rather than a re-derivation of it.
  */
 export function generateBoqCsv(rows = []) {
   const headers = ['Item', 'Description', 'Quantity', 'Unit', 'Rate', 'Amount']
@@ -14,10 +39,7 @@ export function generateBoqCsv(rows = []) {
   const escapeCell = (val) => {
     if (val === null || val === undefined) return '""'
     const str = String(val).trim()
-    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
-      return `"${str.replace(/"/g, '""')}"`
-    }
-    return `"${str}"`
+    return `"${str.replace(/"/g, '""')}"`
   }
 
   const headerLine = headers.map(escapeCell).join(',')
@@ -30,18 +52,32 @@ export function generateBoqCsv(rows = []) {
   return [headerLine, ...dataLines].join('\r\n')
 }
 
+/** Saves a string as a file. */
+export function downloadText(content, filename, mimeType = 'text/csv;charset=utf-8') {
+  const blob = new Blob([content], { type: mimeType })
+  const objectUrl = URL.createObjectURL(blob)
+
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = safeFileName(filename, { fallback: 'export' })
+  anchor.rel = 'noopener'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0)
+}
+
 /** Forward slash and backslash — `String.fromCharCode(92)` is the latter. */
 const PATH_SEPARATORS = ['/', String.fromCharCode(92)]
 
 /**
- * Normalizes a user-supplied name into ONE safe path segment.
+ * Normalizes a user-supplied name into ONE safe filename.
  *
- * Document names and project names reach the ZIP builder verbatim, and a ZIP
- * entry path is not a string the archive validates for you: a name containing
- * `/`, `\` or `..` writes a directory structure — or escapes the package
- * folder entirely — when the archive is extracted. Everything outside a
- * conservative set is replaced, and an empty result falls back rather than
- * producing a nameless entry.
+ * Document names and project names reach a download verbatim, and a name
+ * containing `/`, `\` or `..` is not something to hand a filesystem.
+ * Everything outside a conservative set is replaced, and an empty result falls
+ * back rather than producing a nameless file.
  *
  * `keepExtension` preserves a single trailing `.ext` so a sanitized document
  * still opens in the right application.
@@ -50,9 +86,6 @@ export function safeFileName(name, { fallback = 'file', keepExtension = true } =
   const raw = String(name ?? '').trim()
 
   // Take the last segment: a name that arrived as a path keeps only its leaf.
-  // Both separators are listed as plain characters rather than a regex class,
-  // so the backslash needs no escaping and cannot be mis-edited into a
-  // different pattern later.
   const leaf = PATH_SEPARATORS.reduce((value, separator) => value.split(separator).pop(), raw)
 
   let base = leaf
@@ -77,289 +110,97 @@ export function safeFileName(name, { fallback = 'file', keepExtension = true } =
   return extension ? `${safeBase}.${extension}` : safeBase
 }
 
-/** The project name as a lowercase slug — folder names and download filenames. */
+/** The project name as a lowercase slug — used for download filenames. */
 export function projectSlug(name, fallback = 'kraios-project') {
-  const slug = String(name ?? '')
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
+  const safe = safeFileName(name, { fallback, keepExtension: false })
 
-  return slug || fallback
+  return (
+    safe
+      .toLowerCase()
+      .replace(/[\s_]+/g, '-')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-+|-+$/g, '') || fallback
+  )
 }
 
 /**
- * Triggers a browser download for a Blob object.
- */
-export function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
-/**
- * Downloads a text or CSV string as a file.
- */
-export function downloadText(content, filename, mimeType = 'text/csv;charset=utf-8') {
-  const blob = new Blob([content], { type: mimeType })
-  downloadBlob(blob, filename)
-}
-
-/**
- * Downloads an asset from a URL (e.g. SVG or image or PDF).
+ * Downloads one asset by url.
  *
- * Returns TRUE only when the file was fetched and handed to the browser as a
- * blob — the one outcome that is definitely a saved file. A failed fetch still
- * gets the existing best-effort direct link, but that path cannot be verified
- * from here, so it reports FALSE: the caller must not announce a download it
- * cannot confirm happened.
+ * Kept under its original name because four Step 4 sections call it. What
+ * changed is underneath: the request carries the session cookie and the
+ * response is verified, so a 401 or a 404 returns `false` instead of being
+ * saved as a file named like a floor plan.
+ *
+ * @returns {Promise<boolean>} whether a file was actually produced
  */
 export async function downloadAssetUrl(url, filename) {
-  try {
-    const res = await fetch(url)
-    if (!res.ok) throw new Error('Fetch failed')
-    const blob = await res.blob()
-    downloadBlob(blob, filename)
-    return true
-  } catch {
-    // Fallback: direct navigation download
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.target = '_blank'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    return false
-  }
+  if (!url) return false
+  return downloadApiFile(url, filename ? safeFileName(filename) : undefined)
 }
 
-/* ---------------------------------------------------------------------------
-   CRC32 & Lightweight Pure-JS ZIP Builder (PKZIP 2.0 Store Mode)
-   --------------------------------------------------------------------------- */
-
-let crcTable = null
-function getCrcTable() {
-  if (crcTable) return crcTable
-  crcTable = new Uint32Array(256)
-  for (let i = 0; i < 256; i++) {
-    let c = i
-    for (let k = 0; k < 8; k++) {
-      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
-    }
-    crcTable[i] = c
-  }
-  return crcTable
-}
-
-function crc32(bytes) {
-  const table = getCrcTable()
-  let crc = 0 ^ -1
-  for (let i = 0; i < bytes.length; i++) {
-    crc = (crc >>> 8) ^ table[(crc ^ bytes[i]) & 0xff]
-  }
-  return (crc ^ -1) >>> 0
+/** Downloads one project asset by id. */
+export async function downloadAsset(projectId, assetId, filename) {
+  if (!projectId || !assetId) return false
+  return downloadApiFile(
+    PROJECT_ENDPOINTS.assetDownload(projectId, assetId),
+    filename ? safeFileName(filename) : undefined,
+  )
 }
 
 /**
- * Builds a valid standard .zip archive Blob from an array of files.
- * @param {Array<{ path: string, data: Uint8Array | string }>} entries
- * @returns {Blob}
+ * Downloads one BOQ version as CSV.
+ *
+ * The backend renders it (`text/csv`, not JSON) from the stored version, so the
+ * file matches the version exactly — a browser-side CSV built from the rows on
+ * screen could differ from the version that was approved.
  */
-export function buildZipArchive(entries) {
-  const encoder = new TextEncoder()
-  const fileRecords = []
-  let localOffset = 0
+export async function downloadBoqCsv(projectId, versionId, projectName) {
+  if (!projectId || !versionId) return false
 
-  // 1. Local File Headers + File Data
-  const localChunks = []
-
-  for (const entry of entries) {
-    const filenameBytes = encoder.encode(entry.path)
-    const dataBytes =
-      typeof entry.data === 'string' ? encoder.encode(entry.data) : entry.data
-
-    const crc = crc32(dataBytes)
-    const size = dataBytes.length
-    const fnLen = filenameBytes.length
-
-    // Local file header (30 bytes)
-    const localHeader = new Uint8Array(30 + fnLen)
-    const view = new DataView(localHeader.buffer)
-
-    view.setUint32(0, 0x04034b50, true) // Local header signature
-    view.setUint16(4, 20, true) // Version needed (2.0)
-    view.setUint16(6, 0, true) // General purpose bit flag
-    view.setUint16(8, 0, true) // Compression method (0 = store)
-    view.setUint16(10, 0, true) // File mod time
-    view.setUint16(12, 0, true) // File mod date
-    view.setUint32(14, crc, true) // CRC-32
-    view.setUint32(18, size, true) // Compressed size
-    view.setUint32(22, size, true) // Uncompressed size
-    view.setUint16(26, fnLen, true) // Filename length
-    view.setUint16(28, 0, true) // Extra field length
-
-    localHeader.set(filenameBytes, 30)
-
-    localChunks.push(localHeader)
-    localChunks.push(dataBytes)
-
-    fileRecords.push({
-      pathBytes: filenameBytes,
-      crc,
-      size,
-      offset: localOffset,
-    })
-
-    localOffset += localHeader.length + dataBytes.length
-  }
-
-  // 2. Central Directory Entries
-  const cdOffset = localOffset
-  const cdChunks = []
-  let cdSize = 0
-
-  for (const rec of fileRecords) {
-    const fnLen = rec.pathBytes.length
-    const cdHeader = new Uint8Array(46 + fnLen)
-    const view = new DataView(cdHeader.buffer)
-
-    view.setUint32(0, 0x02014b50, true) // Central directory signature
-    view.setUint16(4, 20, true) // Version made by
-    view.setUint16(6, 20, true) // Version needed
-    view.setUint16(8, 0, true) // General purpose bit flag
-    view.setUint16(10, 0, true) // Compression method (store)
-    view.setUint16(12, 0, true) // Mod time
-    view.setUint16(14, 0, true) // Mod date
-    view.setUint32(16, rec.crc, true) // CRC-32
-    view.setUint32(20, rec.size, true) // Compressed size
-    view.setUint32(24, rec.size, true) // Uncompressed size
-    view.setUint16(28, fnLen, true) // Filename length
-    view.setUint16(30, 0, true) // Extra field length
-    view.setUint16(32, 0, true) // File comment length
-    view.setUint16(34, 0, true) // Disk number start
-    view.setUint16(36, 0, true) // Internal file attributes
-    view.setUint32(38, 0, true) // External file attributes
-    view.setUint32(42, rec.offset, true) // Relative offset of local header
-
-    cdHeader.set(rec.pathBytes, 46)
-    cdChunks.push(cdHeader)
-    cdSize += cdHeader.length
-  }
-
-  // 3. End of Central Directory Record (22 bytes)
-  const eocd = new Uint8Array(22)
-  const eocdView = new DataView(eocd.buffer)
-  const numFiles = fileRecords.length
-
-  eocdView.setUint32(0, 0x06054b50, true) // EOCD signature
-  eocdView.setUint16(4, 0, true) // Disk number
-  eocdView.setUint16(6, 0, true) // Start disk
-  eocdView.setUint16(8, numFiles, true) // Number of central dir records on this disk
-  eocdView.setUint16(10, numFiles, true) // Total number of central dir records
-  eocdView.setUint32(12, cdSize, true) // Size of central directory
-  eocdView.setUint32(16, cdOffset, true) // Offset of start of central directory
-  eocdView.setUint16(20, 0, true) // ZIP comment length
-
-  return new Blob([...localChunks, ...cdChunks, eocd], { type: 'application/zip' })
+  return downloadApiFile(
+    PROJECT_ENDPOINTS.step3VersionCsv(projectId, versionId),
+    `${projectSlug(projectName)}-boq.csv`,
+  )
 }
 
 /**
- * Packages project deliverables into a standard ZIP and triggers download.
+ * The deliverables archive: queue it, watch it, download it.
+ *
+ * `POST /download-all/` answers the job DIRECTLY rather than nesting it under a
+ * version, and re-queuing a scope that is already running returns that same job
+ * instead of a duplicate — so a second click joins the first archive rather
+ * than starting another.
+ *
+ * @param {object} options
+ * @param {string} options.projectId
+ * @param {string} [options.projectName] used for the saved filename
+ * @param {'ALL'|'FLOOR_PLANS'|'THREE_D'|'BOQ'|'DOCUMENTS'} [options.scope]
+ * @param {(job: object) => void} [options.onProgress]
+ * @param {AbortSignal} [options.signal]
+ * @returns {Promise<boolean>} whether a ZIP was actually produced and saved
  */
-export async function downloadProjectPackageZip({
-  projectName = 'Kraios-Project',
-  plan2DSource,
-  render3DSource,
-  boqRows = [],
-  uploadedDocs = [],
-}) {
-  const folderName = projectSlug(projectName)
-  const entries = []
+export async function downloadProjectArchive({
+  projectId,
+  projectName,
+  scope = 'ALL',
+  onProgress,
+  signal,
+} = {}) {
+  if (!projectId) return false
 
-  /**
-   * Fetches an asset, or reports it unavailable.
-   *
-   * `response.ok` is the whole point: `fetch` resolves for a 404 as happily as
-   * for a 200, so without this check the SPA's HTML error body was packaged as
-   * the user's floor plan — a file that opens as a broken image inside an
-   * otherwise plausible deliverables ZIP. A missing asset is now simply left
-   * out of the archive.
-   */
-  const fetchBytes = async (url) => {
-    try {
-      const res = await fetch(url)
-      if (!res.ok) return null
-      const buffer = await res.arrayBuffer()
-      return new Uint8Array(buffer)
-    } catch {
-      return null
-    }
-  }
+  const queued = await queueProjectArchive(projectId, { scope })
+  const jobId = jobIdFromResponse(queued) ?? queued?.id
 
-  // 1. 2D Floor Plan
-  const plan2DUrl = plan2DSource?.previewUrl || plan2DSource?.imageUrl || '/assets/plan-2d-primary.svg'
-  const plan2DBytes = await fetchBytes(plan2DUrl)
-  if (plan2DBytes) {
-    const ext = plan2DSource?.extension ? `.${plan2DSource.extension.toLowerCase()}` : '.svg'
-    const name = safeFileName(plan2DSource?.name || `2d-floor-plan${ext}`, {
-      fallback: '2d-floor-plan',
-    })
-    entries.push({ path: `${folderName}/${name}`, data: plan2DBytes })
-  }
+  if (!jobId) return false
 
-  // 2. Approved 3D Design
-  const render3DUrl = render3DSource?.imageUrl || '/assets/plan-3d-light.svg'
-  const render3DBytes = await fetchBytes(render3DUrl)
-  if (render3DBytes) {
-    const ext = render3DSource?.extension ? `.${render3DSource.extension.toLowerCase()}` : '.svg'
-    const name = safeFileName(render3DSource?.name || `approved-3d-design${ext}`, {
-      fallback: 'approved-3d-design',
-    })
-    entries.push({ path: `${folderName}/${name}`, data: render3DBytes })
-  }
+  const job = await waitForJob(jobId, { signal, onProgress })
+  const assetId = job?.output_asset
 
-  // 3. Final BoQ CSV
-  if (boqRows && boqRows.length > 0) {
-    const csvContent = generateBoqCsv(boqRows)
-    entries.push({
-      path: `${folderName}/boq/${folderName}-boq.csv`,
-      data: csvContent,
-    })
-  }
+  // A completed archive job with no asset produced no file. Saying so is the
+  // whole point of returning a boolean.
+  if (!assetId) return false
 
-  // 4. Uploaded Supporting Documents. Names come from the user's filesystem,
-  //    so every one of them is normalized before it becomes a ZIP path.
-  for (const doc of uploadedDocs) {
-    const name = safeFileName(doc.name, { fallback: 'document' })
+  const suffix = scope === 'ALL' ? 'deliverables' : scope.toLowerCase().replace(/_/g, '-')
 
-    if (doc.file) {
-      try {
-        const buffer = await doc.file.arrayBuffer()
-        entries.push({
-          path: `${folderName}/documents/${name}`,
-          data: new Uint8Array(buffer),
-        })
-      } catch {
-        // Skip on unreadable blob
-      }
-    } else if (doc.previewUrl || doc.url) {
-      const bytes = await fetchBytes(doc.previewUrl || doc.url)
-      if (bytes) {
-        entries.push({
-          path: `${folderName}/documents/${name}`,
-          data: bytes,
-        })
-      }
-    }
-  }
-
-  // Build and trigger ZIP download
-  const zipBlob = buildZipArchive(entries)
-  downloadBlob(zipBlob, `${folderName}-deliverables.zip`)
+  return downloadAsset(projectId, assetId, `${projectSlug(projectName)}-${suffix}.zip`)
 }

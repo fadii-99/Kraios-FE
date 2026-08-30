@@ -1,23 +1,27 @@
-import { createContext, useCallback, useContext } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo } from 'react'
 
+import { CACHE_KEYS } from '@/lib/dashboard/projects/projectShape'
+import { RESOURCE_STATUS } from '@/lib/dashboard/projects/useResourceCache'
 import { createFloorPlanAssistantState } from '@/lib/dashboard/workflow/step-1/floorPlanAssistantState'
 import { createDesignAssistantState } from '@/lib/dashboard/workflow/step-2/designAssistantState'
 import { createBoqAssistantState } from '@/lib/dashboard/workflow/step-3/boqAssistantState'
+import { sourceFromApprovedVersion } from '@/lib/dashboard/workflow/step-1/floorPlanSource'
 
 /**
- * Session-scoped project store.
+ * The project store's public surface.
  *
- * Context + `useState` in `ProjectsProvider` — no state library, no backend, no
- * localStorage. Projects created in this session live in memory and are gone on
- * refresh, which is the honest behaviour until an API exists: persisting them
- * locally would fake durability the product does not have yet.
+ * `ProjectsProvider` talks to the KRAIOS project API and holds one keyed
+ * request cache; these hooks are how the dashboard reads it. Two rules keep
+ * that boundary honest:
  *
- * The context value is shaped like the API that will replace it —
- * `{ projects, createProject, getProject }` — so swapping the provider for a
- * data-fetching one needs no change in any consuming component.
+ *   - a component reads what it needs and asks for it to be loaded, rather than
+ *     the shell prefetching everything a project might one day want,
+ *   - nothing a component derives is written back into the store. Approval,
+ *     progress and version lists come from the backend, and the questions asked
+ *     of them are answered by selectors.
  *
- * The context and hook live in this plain `.js` module (not beside the
- * provider component) so the provider file exports only a component.
+ * The context and hooks live in this plain `.js` module, not beside the
+ * provider component, so the provider file exports only a component.
  */
 export const ProjectsContext = createContext(null)
 
@@ -32,28 +36,19 @@ export function useProjects() {
 }
 
 /**
- * One project's active 2D floor-plan source, as a `useState`-shaped pair.
- *
- * Step 1 reads and writes exactly one value through this — there is no second
- * copy of the source anywhere, which is what keeps "upload OR generated, never
- * both" true by construction rather than by discipline.
+ * The value an untouched project reads. Frozen and shared rather than built per
+ * call: a fresh object every render would be a new dependency identity for
+ * every consumer and re-run their effects on each render.
  */
-export function useFloorPlanSource(projectId) {
-  const { floorPlanSources, setFloorPlanSource } = useProjects()
+const FALLBACK_FLOOR_PLAN_ASSISTANT_STATE = Object.freeze(createFloorPlanAssistantState())
+const FALLBACK_ASSISTANT_STATE = Object.freeze(createDesignAssistantState())
+const FALLBACK_BOQ_ASSISTANT_STATE = Object.freeze(createBoqAssistantState())
 
-  const source = projectId ? floorPlanSources[projectId] ?? null : null
+/* ---------------------------------------------------------------------------
+   Assistant view models
+   --------------------------------------------------------------------------- */
 
-  const setSource = useCallback(
-    (next) => setFloorPlanSource(projectId, next),
-    [projectId, setFloorPlanSource],
-  )
-
-  return [source, setSource]
-}
-
-/**
- * One project's 2D Floor Plan Assistant state, as a `[state, dispatch]` pair.
- */
+/** One project's 2D Floor Plan Assistant state, as a `[state, dispatch]` pair. */
 export function useFloorPlanAssistant(projectId) {
   const { floorPlanAssistantStates, dispatchFloorPlanAssistant } = useProjects()
 
@@ -68,19 +63,11 @@ export function useFloorPlanAssistant(projectId) {
   return [state, dispatch]
 }
 
-/**
- * One project's Design Assistant state, as a `[state, dispatch]` pair.
- *
- * Step 2's two views — the normal `/rendering` page and the full-screen
- * `/rendering/assistant` workspace — both read Step 2 through this hook and
- * nothing else, which is what keeps them operating on the SAME state instead of
- * two component-local copies. A default state is returned for a project that
- * has not been touched yet, so neither view has to null-check.
- */
+/** One project's Design Assistant state, as a `[state, dispatch]` pair. */
 export function useDesignAssistant(projectId) {
   const { designAssistantStates, dispatchDesignAssistant } = useProjects()
 
-  const state = (projectId && designAssistantStates[projectId]) || FALLBACK_ASSISTANT_STATE
+  const state = (projectId && designAssistantStates?.[projectId]) || FALLBACK_ASSISTANT_STATE
 
   const dispatch = useCallback(
     (action) => dispatchDesignAssistant(projectId, action),
@@ -90,12 +77,7 @@ export function useDesignAssistant(projectId) {
   return [state, dispatch]
 }
 
-/**
- * One project's BoQ Assistant state, as a `[state, dispatch]` pair.
- *
- * Step 3's two views — the normal `/boq` page and the full-screen
- * `/boq/assistant` workspace — both read Step 3 through this hook.
- */
+/** One project's BoQ Assistant state, as a `[state, dispatch]` pair. */
 export function useBoqAssistant(projectId) {
   const { boqAssistantStates, dispatchBoqAssistant } = useProjects()
 
@@ -109,22 +91,98 @@ export function useBoqAssistant(projectId) {
   return [state, dispatch]
 }
 
-/**
- * The value an untouched project reads. Frozen and shared rather than built per
- * call: a fresh object every render would be a new dependency identity for
- * every consumer and re-run their effects on each render.
- *
- * This fallback is for a project that EXISTS but has not been touched — not for
- * an id that does not exist at all. That case is settled before any of these
- * hooks run, by `RequireProject` at the route boundary, so a made-up project id
- * cannot reach a stage and start writing state against it.
- */
-const FALLBACK_FLOOR_PLAN_ASSISTANT_STATE = Object.freeze(createFloorPlanAssistantState())
-const FALLBACK_ASSISTANT_STATE = Object.freeze(createDesignAssistantState())
-const FALLBACK_BOQ_ASSISTANT_STATE = Object.freeze(createBoqAssistantState())
+/* ---------------------------------------------------------------------------
+   Derived reads
+   --------------------------------------------------------------------------- */
 
-/** Sequential, human-readable ids: project-001, project-002, … */
-export function nextProjectId(count) {
-  return `project-${String(count + 1).padStart(3, '0')}`
+/**
+ * The project's active 2D floor-plan source.
+ *
+ * DERIVED from the approved Step 1 version rather than stored: the backend's
+ * `selected_floor_plan` is the record of which plan this project is working
+ * from, and a second local copy could only ever disagree with it. The returned
+ * shape is the one Step 1 always used — `{ type, kind, previewUrl, … }` — so
+ * `modeForSource`, `lockedModeForSource` and every preview read it unchanged.
+ *
+ * It is null until Step 1 has been loaded (`useStep1Data`), which is exactly
+ * what "no plan yet" looks like, so no view has to distinguish the two.
+ */
+export function useFloorPlanSource(projectId) {
+  const [state] = useFloorPlanAssistant(projectId)
+
+  return useMemo(() => {
+    const approved = state?.approvedResultId ? state.results?.[state.approvedResultId] : null
+    return sourceFromApprovedVersion(approved)
+  }, [state])
 }
 
+/** One project, from the detail cache or the list. */
+export function useProject(projectId) {
+  const { getProject } = useProjects()
+  return getProject(projectId)
+}
+
+/* ---------------------------------------------------------------------------
+   Loaders
+   --------------------------------------------------------------------------- */
+
+/**
+ * Loads one resource when the component that needs it mounts, and reports its
+ * status — the ONE pattern every stage and assistant uses.
+ *
+ * The cache behind it de-duplicates, so mounting two components that need the
+ * same step costs one request, and returning to a stage already loaded costs
+ * none. `reload` is the deliberate refetch a mutation asks for.
+ */
+function useResource(projectId, cacheKey, loader) {
+  const { stepEntry } = useProjects()
+
+  useEffect(() => {
+    if (!projectId) return
+    loader(projectId).catch(() => {
+      // The failure is on the entry below; the view renders it.
+    })
+  }, [projectId, loader])
+
+  const entry = stepEntry(projectId, cacheKey)
+
+  const reload = useCallback(
+    () => loader(projectId, { force: true }),
+    [loader, projectId],
+  )
+
+  return {
+    status: entry.status,
+    error: entry.error,
+    data: entry.data,
+    isLoading: entry.status === RESOURCE_STATUS.loading && !entry.data,
+    isReady: entry.status === RESOURCE_STATUS.ready,
+    reload,
+  }
+}
+
+/** Step 1's conversation and version history. */
+export function useStep1Data(projectId) {
+  const { loadStep1 } = useProjects()
+  return useResource(projectId, 'step1', loadStep1)
+}
+
+/** Step 2's conversation and version history. */
+export function useStep2Data(projectId) {
+  const { loadStep2 } = useProjects()
+  return useResource(projectId, 'step2', loadStep2)
+}
+
+/** Step 3's conversation, BOQ versions and supporting documents. */
+export function useStep3Data(projectId) {
+  const { loadStep3 } = useProjects()
+  return useResource(projectId, 'step3', loadStep3)
+}
+
+/** Step 4's whole deliverables bundle, in one request. */
+export function useProjectOutput(projectId) {
+  const { loadOutput } = useProjects()
+  return useResource(projectId, 'output', loadOutput)
+}
+
+export { CACHE_KEYS, RESOURCE_STATUS }

@@ -56,6 +56,27 @@ export const VIEW_ANGLES = [
 
 export const DEFAULT_VIEW_ANGLE_ID = null
 
+/**
+ * What a failed 3D run says.
+ *
+ * This and the cancel capability below used to live in a `modelGeneration.js`
+ * seam that also held a frontend mock returning a fixed local SVG as if it were
+ * a render. Step 2 calls `POST /step-2/generate/` for real, so the mock is gone
+ * and only what the UI still needs is declared here.
+ */
+export const GENERATION_FAILED_MESSAGE =
+  'That 3D model could not be generated. Try again in a moment.'
+
+/**
+ * Whether an in-flight generation can genuinely be aborted.
+ *
+ * False, and honestly so: the contract has no endpoint that cancels a queued
+ * job. Leaving the workspace stops the polling, but the work continues on the
+ * server and the version appears when it finishes. The composer shows no Cancel
+ * action rather than one that only stops watching.
+ */
+export const THREE_D_GENERATION_SUPPORTS_CANCEL = false
+
 export function renderStyleById(id) {
   return RENDER_STYLES.find((style) => style.id === id) ?? RENDER_STYLES[0]
 }

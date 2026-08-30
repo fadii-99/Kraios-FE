@@ -6,6 +6,7 @@ import {
 } from '@phosphor-icons/react'
 import TechnicalIconFrame from '@/components/dashboard/TechnicalIconFrame'
 import Logo from '@/components/ui/Logo'
+import { projectResumePath } from '@/lib/dashboard/projects/projectShape'
 import { formatProjectDate } from '@/lib/date'
 import { cn } from '@/lib/cn'
 
@@ -104,6 +105,20 @@ export default function ProjectCard({ project, onDelete, className }) {
   const isFullyReady = rendered && priced
   const dateFormatted = formatProjectDate(createdAt)
 
+  /**
+   * Project ids are backend UUIDs now. The chip shows the leading segment,
+   * which is enough to tell two cards apart and to quote in a support message,
+   * where a full 36-character id would wrap the whole identity row.
+   */
+  const idLabel = `#${String(id).split('-')[0]}`
+
+  /**
+   * Where "Open Workspace" goes: the stage the BACKEND says this project is on
+   * (`workflow_state.current_step`), not the first stage and not whatever the
+   * browser last remembered. Reopening a project resumes it.
+   */
+  const resumeTo = projectResumePath(project)
+
   return (
     <article
       className={cn(
@@ -143,7 +158,7 @@ export default function ProjectCard({ project, onDelete, className }) {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="label-ui inline-flex items-center rounded-xs border border-slate-200 bg-slate-100/90 px-2 py-0.5 text-[0.625rem] font-semibold tracking-[0.14em] text-[var(--tone-muted-dark)]">
-                {id}
+                {idLabel}
               </span>
 
               {dateFormatted && (
@@ -207,7 +222,7 @@ export default function ProjectCard({ project, onDelete, className }) {
       {/* ── Lower Action: Full-Width Open Project Link ── */}
       <div className="mt-8 border-t border-[var(--tone-line)]">
         <Link
-          to={`/dashboard/projects/${id}`}
+          to={resumeTo}
           aria-label={`Open project ${name}`}
           className={cn(
             'label-ui mx-6 flex min-h-12 items-center justify-between gap-3 py-3.5 sm:mx-8',

@@ -9,26 +9,59 @@
    Document Types — available in the BOQ Assistant header
    --------------------------------------------------------------------------- */
 
+/**
+ * The supporting-document classifications, one per value the backend's
+ * `document_type` enum accepts.
+ *
+ * `apiValue` is why this list is exactly seven long. It used to offer MEP
+ * Drawing, HVAC Drawing and Door and Window Schedule, which read well but have
+ * no counterpart in the document API: sending one would have been stored as
+ * something else, so the classification the user chose would quietly not be the
+ * one saved. Labels are ours; the values are the contract's, and the two are
+ * declared together so they cannot drift apart.
+ */
 export const DOCUMENT_TYPES = [
   {
     id: 'general',
+    apiValue: 'GENERAL',
     label: 'General Document',
     description: 'General project reference or supporting information.',
   },
   {
-    id: 'mep',
-    label: 'MEP Drawing',
-    description: 'Mechanical, electrical and plumbing specifications.',
+    id: 'project-brief',
+    apiValue: 'PROJECT_BRIEF',
+    label: 'Project Brief',
+    description: 'Scope, requirements and client brief documents.',
   },
   {
-    id: 'hvac',
-    label: 'HVAC Drawing',
-    description: 'Heating, ventilation and air conditioning layouts.',
+    id: 'structural-drawing',
+    apiValue: 'STRUCTURAL_DRAWING',
+    label: 'Structural Drawing',
+    description: 'Structural, MEP, HVAC and technical drawings.',
   },
   {
-    id: 'door-window',
-    label: 'Door and Window Schedule',
-    description: 'Itemized door, window, and glazing schedules.',
+    id: 'estimation',
+    apiValue: 'ESTIMATION',
+    label: 'Estimation',
+    description: 'Existing estimates, rates and cost schedules.',
+  },
+  {
+    id: 'material-specification',
+    apiValue: 'MATERIAL_SPECIFICATION',
+    label: 'Material Specification',
+    description: 'Material schedules, finishes and specifications.',
+  },
+  {
+    id: 'three-d-model',
+    apiValue: 'THREE_D_MODEL',
+    label: '3D Model',
+    description: 'Supplied 3D model files and exports.',
+  },
+  {
+    id: 'other',
+    apiValue: 'OTHER',
+    label: 'Other',
+    description: 'Anything that does not fit the categories above.',
   },
 ]
 
@@ -36,6 +69,11 @@ export const DEFAULT_DOCUMENT_TYPE_ID = DOCUMENT_TYPES[0].id
 
 export function documentTypeById(id) {
   return DOCUMENT_TYPES.find((doc) => doc.id === id) ?? DOCUMENT_TYPES[0]
+}
+
+/** The reverse lookup, for a document coming back from the API. */
+export function documentTypeByApiValue(value) {
+  return DOCUMENT_TYPES.find((doc) => doc.apiValue === value) ?? DOCUMENT_TYPES[0]
 }
 
 

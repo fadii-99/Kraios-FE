@@ -10,7 +10,13 @@ import {
   approvedResult,
   renderingStatusNote,
 } from '@/lib/dashboard/workflow/step-2/designAssistantSelectors'
-import { useDesignAssistant, useFloorPlanSource } from '@/lib/dashboard/projects/projectsContext'
+import PageLoader from '@/components/ui/PageLoader'
+import {
+  useDesignAssistant,
+  useFloorPlanSource,
+  useStep1Data,
+  useStep2Data,
+} from '@/lib/dashboard/projects/projectsContext'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { designAssistantPath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
@@ -44,7 +50,14 @@ import { cn } from '@/lib/cn'
  * it stops the sheet from stretching into a banner.
  */
 export default function RenderingStage({ projectId }) {
-  const [source] = useFloorPlanSource(projectId)
+  // The gateway's two facts are backend state: which 2D plan this project works
+  // from, and whether a 3D design has been approved. Each step owns its own
+  // request, and both are cached, so returning from the assistant costs
+  // nothing.
+  const step1 = useStep1Data(projectId)
+  const step2 = useStep2Data(projectId)
+
+  const source = useFloorPlanSource(projectId)
   const [assistant] = useDesignAssistant(projectId)
 
   const scope = useRef(null)
@@ -60,6 +73,10 @@ export default function RenderingStage({ projectId }) {
    * they are not in.
    */
   const note = renderingStatusNote(assistant)
+
+  // Held while either half is still arriving: showing "no design approved" to a
+  // project that has one is worse than showing a loader for a moment.
+  const loading = step1.isLoading || step2.isLoading
 
   // One restrained settle, re-run when the stage changes state so returning
   // from the assistant with an approval reads as the page resolving.
@@ -79,7 +96,7 @@ export default function RenderingStage({ projectId }) {
         },
       )
     },
-    { scope, dependencies: [reduced, approved?.id ?? 'none'] },
+    { scope, dependencies: [reduced, approved?.id ?? 'none', loading] },
   )
 
   return (
@@ -92,15 +109,18 @@ export default function RenderingStage({ projectId }) {
           from the drawing above it. The small bottom pad is optical centring —
           a composition sitting on the true centre line reads low. */}
       <div className="mx-auto w-full max-w-[64rem] lg:max-w-[68rem] pt-2 sm:pt-3 pb-4 sm:pb-8">
-        <div data-stage-reveal>
-
-          <DesignAssistantGateway
-            source={source}
-            to={assistantPath}
-            note={note}
-            approved={Boolean(approved)}
-          />
-        </div>
+        {loading ? (
+          <PageLoader variant="inline" label="Loading 3D Rendering" className="min-h-56" />
+        ) : (
+          <div data-stage-reveal>
+            <DesignAssistantGateway
+              source={source}
+              to={assistantPath}
+              note={note}
+              approved={Boolean(approved)}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

@@ -298,6 +298,76 @@ POST  /profile/delete-account/confirm/
 `phone`. `updateProfile` strips everything else, so `email`, `role`, `id`,
 `date_joined` and any password field can never be sent.
 
+`src/lib/api/projects.js` -> `PROJECT_ENDPOINTS` — every path under
+`/projects`:
+
+```
+GET  POST            /projects/
+GET  PATCH  DELETE   /projects/{id}/
+GET                  /projects/{id}/output/
+POST                 /projects/{id}/finish/
+
+GET   /step-1/conversation/   GET  /step-1/history/
+POST  /step-1/upload/         POST /step-1/generate/   POST /step-1/edit/
+POST  /step-1/versions/{id}/approve/
+
+GET   /step-2/conversation/   GET  /step-2/history/
+POST  /step-2/generate/       POST /step-2/edit/       POST /step-2/angle/
+POST  /step-2/versions/{id}/approve/
+
+GET POST  /step-3/conversation/     POST /step-3/generate/
+GET       /step-3/versions/         POST /step-3/versions/manual/
+POST      /step-3/versions/{id}/approve/
+GET       /step-3/versions/{id}/download-csv/
+POST      /step-3/skip/
+GET POST                /step-3/documents/
+GET PATCH DELETE        /step-3/documents/{id}/
+
+DELETE /projects/{id}/conversations/messages/{messageId}/
+GET    /projects/jobs/{jobId}/
+GET    /projects/{id}/assets/            (optional ?kind=)
+GET    /projects/{id}/assets/{assetId}/download/
+POST   /projects/{id}/download-all/
+```
+
+Enum values belong to the backend and are declared beside the endpoints:
+`RENDER_STYLE_VALUES`, `ANGLE_VALUES`, `DOCUMENT_TYPE_VALUES`,
+`ARCHIVE_SCOPES`. A component never types one — the UI's own lowercase ids are
+translated in the step's adapter module (§14).
+
+### Background jobs
+
+Generation, edit and archive endpoints answer `202 Accepted` with a
+`ProcessingJob`. `src/lib/api/jobs.js` is the ONE place that waits for one:
+
+- `waitForJob(jobId, { signal, onProgress })` polls `GET /projects/jobs/{id}/`
+- one loop per job however many watchers — a second watcher subscribes, it does
+  not start a second poll
+- the interval backs off (1.2s -> 2s -> 3.5s -> 5s), pauses while the tab is
+  hidden, and stops on COMPLETED / FAILED or when the last watcher leaves
+- `jobIdFromResponse` reads the job whether it is nested under a version or
+  returned directly (the archive endpoint)
+
+Never open a second polling loop in a component. Leaving a workspace stops the
+WATCH, never the job: the version list carries the running job back, and
+`useResumedJob` re-attaches. There is no cancel endpoint, so nothing in the UI
+may offer to cancel a queued job.
+
+### Files and assets
+
+`src/lib/api/files.js` owns authenticated file access. Assets sit behind the
+session cookie, so a bare `<a href>` to an absolute backend URL gets a 401
+rendered as a broken image:
+
+- `assetSrc(assetOrUrl, projectId)` — a SAME-ORIGIN url for `src` / `href`; an
+  absolute backend url is rewritten onto this origin so the cookie travels
+- `downloadApiFile(path, filename)` — fetch with credentials, verify the
+  response, then save the blob. Returns whether a file was really produced
+- `dataUrlToFile` — the canvas mask as the `File` the edit endpoints require
+
+Never put a backend `download_url` straight into `src`, and never save an
+unverified response as a file.
+
 OTP rules are the backend's and the UI must not overstate them: six digits,
 10-minute expiry, a new request invalidates the previous code, five wrong
 attempts maximum, five requests per hour per user. The ONLY thing sessionStorage
@@ -339,12 +409,26 @@ on purpose. `mergeUserData` keeps both the backend spelling (`full_name`,
 `firm_name`, `job_title`) and the UI spelling (`name`, `firm`/`company`,
 `jobTitle`) in sync in ONE place rather than per component.
 
-> **Development bypass — currently present.** `AuthContext` also contains a
-> temporary frontend authentication bypass (`DUMMY_USER`, a dummy fallback in
-> `verifySession`, and a dummy login path). It is documented in PROGRESS.md as
-> current development behaviour and must be removed before production
-> authentication enforcement. Nothing in this section describes it as the
-> intended long-term contract.
+> **No development bypass.** The dummy-identity fallbacks that once made the
+> dashboard reachable without a session (`DUMMY_USER`, a dummy fallback in
+> `verifySession`, and a blank-credential login path) have been REMOVED. Do not
+> reintroduce them in any form. The rules that replace them:
+>
+> - `verifySession()` resolves `true` only when `GET /auth/me/` succeeds. Any
+>   rejection — 401, CORS, 500, unreachable backend — clears the client session
+>   and sets the status to `anonymous`, which is what makes the boundary render
+>   the caution modal. An unreachable backend is "not signed in", never
+>   "signed in as somebody".
+> - `login()` reaches the dashboard only on a successful `POST /auth/login/`.
+>   On failure it clears the session, sets `anonymous`, and RETHROWS the
+>   normalized message so the Login page stays put and raises one error toast.
+> - When the login response carries no user payload, `login()` leaves the status
+>   `unknown` rather than guessing. The dashboard boundary then runs its ONE
+>   `GET /auth/me/` to load the account, so `/auth/me/` stays owned by the
+>   boundary and off the login page.
+> - `sessionExpired` is derived from `wasAuthenticatedRef`: a session that
+>   existed and was lost gets the "Session Expired" copy; a cold visit to a
+>   dashboard URL gets "Access Required".
 
 ### API calling boundaries — WHERE a request may fire
 
@@ -366,9 +450,16 @@ API request must never fire merely because the application mounted.
 - **SIGN OUT** (sidebar / mobile nav) owns `POST /auth/logout/`.
 - **DASHBOARD FEATURES** own their own data requests where their data is needed.
   `/auth/me/` is the session bootstrap, not the only dashboard API.
+- **PROJECTS** — `ProjectsProvider` owns the ONE `GET /projects/` when the
+  dashboard mounts. Each stage and assistant then loads ITS OWN step, through
+  the cache in §13: the Step 1 stage and its assistant read Step 1, Step 2's
+  gateway and assistant read Steps 1 and 2, Step 3 reads Steps 1–3, and Step 4
+  reads only `GET /projects/{id}/output/`. Nothing prefetches a step the user
+  is not on.
 
-No dashboard page fetches `/auth/me/` again. Overview → Projects → Subscription
-costs zero requests, and Profile costs exactly one `GET /profile/`.
+No dashboard page fetches `/auth/me/` again. Overview → Subscription costs zero
+requests, Projects costs the one list, and Profile costs exactly one
+`GET /profile/`.
 
 Never delete an API service because a page stopped calling it. Move the call
 site; keep the function.
@@ -503,36 +594,56 @@ requests a redesign.
 
 ## 13. Project state
 
-`ProjectsProvider` (`src/lib/dashboard/projects/ProjectsProvider.jsx`) is mounted
-in the dashboard shell and coordinates, keyed by project id:
+`ProjectsProvider` (`src/lib/dashboard/projects/ProjectsProvider.jsx`) is
+mounted in the dashboard shell and is BACKED BY THE PROJECT API. It holds three
+things and nothing else:
 
-- `projects` — the list; ids come from a monotonic counter via `nextProjectId`,
-  never from `projects.length`
-- `floorPlanSources` — Step 1's active 2D source
-- `floorPlanAssistantStates` — Step 1's 2D Floor Plan Assistant state
-- `designAssistantStates` — Step 2's Design Assistant state
-- `boqAssistantStates` — Step 3's BoQ Assistant state (including uploaded
-  documents)
+1. **The project list** — one `GET /projects/` when the dashboard mounts,
+   de-duplicated through a promise ref. `createProject`, `renameProject` and
+   `deleteProject` are real requests whose responses are written straight back,
+   so the library never refetches to show what just happened.
+2. **A keyed request cache** — `useResourceCache.js`, about a hundred lines and
+   no dependency. It de-duplicates concurrent reads of the same key, serves a
+   cache hit without a request, keeps `status` / `data` / `error` together per
+   key, and invalidates by key or by prefix. A FORCED read chains onto an
+   in-flight one rather than joining it, so a refetch after a mutation cannot
+   resolve with pre-mutation state.
+3. **The three assistant view models** — the same pure reducers as before,
+   HYDRATED FROM THE SERVER. `hydrate` REPLACES the transcript with what the
+   backend holds; the optimistic `startGeneration` block only covers the gap
+   between sending a request and the refetch that answers it.
 
-Consumed through the hooks in `projectsContext.js`: `useProjects`,
-`useFloorPlanSource`, `useFloorPlanAssistant`, `useDesignAssistant`,
-`useBoqAssistant`. Each per-project hook returns a shared FROZEN default state
-for a project that exists but has not been touched, so no view has to
-null-check.
+Cache keys live in `projectShape.js` (`CACHE_KEYS`), one naming scheme
+(`project:{id}:…`) so a deleted project's data drops by prefix.
 
-`has3DRender` and `hasBoQ` are DERIVED on read in `projectsWithStageState`, from
-`designAssistantStates[id].approvedResultId` and
-`boqAssistantStates[id].approvedResultId`. Do not write duplicate status truth
-into `ProjectCard` or another store.
+Consumed through the hooks in `projectsContext.js`:
 
-Blob-URL ownership lives in the provider: `setFloorPlanSource` releases a
-replaced source, `deleteProject` releases the project's source and documents,
-and an unmount effect releases everything left. Reducers stay pure — a finished
-record (`createUploadSource`, `createBoqDocument`) is handed in, never minted
-inside a transition.
+- `useProjects` — the store
+- `useProject(id)` — one project, from the detail cache or the list
+- `useStep1Data` / `useStep2Data` / `useStep3Data` / `useProjectOutput` — load
+  on mount and report `{ status, data, error, isLoading, isReady, reload }`
+- `useFloorPlanAssistant` / `useDesignAssistant` / `useBoqAssistant` —
+  `[state, dispatch]`
+- `useFloorPlanSource(projectId)` — returns the SOURCE OBJECT, not a
+  `[source, setSource]` pair. There is no setter: the source is DERIVED from
+  the approved Step 1 version (`sourceFromApprovedVersion`), because
+  `selected_floor_plan` on the project is the record of which plan the project
+  works from and a second local copy could only disagree with it
 
-Current state is **session-memory frontend state**. There is no project
-API/database/localStorage persistence; a refresh loses the project session.
+Each per-project hook returns a shared FROZEN default state for a project that
+has not been read yet, so no view has to null-check.
+
+`has3DRender` and `hasBoQ` are DERIVED on read in `normalizeProject`, from
+`selected_three_d` and `selected_boq`. Do not write duplicate status truth into
+`ProjectCard` or another store.
+
+**Ids are backend UUIDs.** The `nextProjectId` counter that minted
+`project-001` is gone; do not reintroduce a client-side id.
+
+**Project state is now persistent** — it is the backend's. A refresh reloads
+the project, its conversations and its versions. The blob-URL bookkeeping the
+provider used to do is gone with the browser-only records that needed it: every
+image and document is a backend url.
 
 Do not add Redux/Zustand merely to restructure this provider. If high-frequency
 assistant updates become a performance issue, first consider narrower
@@ -573,6 +684,9 @@ src/lib/
 │   ├── client.js               # fetch wrapper, CSRF, 401 refresh, error parsing
 │   ├── auth.js                 # AUTH_ENDPOINTS + auth services
 │   ├── profile.js              # PROFILE_ENDPOINTS + profile / OTP services
+│   ├── projects.js             # PROJECT_ENDPOINTS + every workflow service
+│   ├── jobs.js                 # the ONE job poller (shared, backing off)
+│   ├── files.js                # authenticated asset urls and downloads
 │   └── tokenStorage.js         # legacy-storage cleanup only
 ├── toast.js                    # the toast API (NOT in the toast component module)
 ├── countries.js                # country list + aliases + search ranking
@@ -583,16 +697,31 @@ src/lib/
     ├── layout.js  motion.js  subscriptionPlans.js
     ├── projects/
     │   ├── ProjectsProvider.jsx
-    │   └── projectsContext.js
+    │   ├── projectsContext.js
+    │   ├── projectShape.js        # Project normalization, CACHE_KEYS, resume
+    │   └── useResourceCache.js    # the keyed request cache
     └── workflow/
-        ├── projectWorkflow.js
-        ├── step-1/  floorPlanSource.js · floorPlanGeneration.js
+        ├── projectWorkflow.js     # stages, paths, stageGateMessage
+        ├── apiShapes.js           # what all three steps share of the payloads
+        ├── step-1/  floorPlanSource.js · floorPlanAdapters.js
         │             floorPlanAssistantConfig.js · …State.js · …Selectors.js
         ├── step-2/  designAssistantConfig.js · …State.js · …Selectors.js
-        │             modelGeneration.js
+        │             designAdapters.js
         ├── step-3/  boqAssistantConfig.js · …State.js · …Selectors.js
-        │             boqGeneration.js · boqDemoData.js · boqDocuments.js
+        │             boqAdapters.js
         └── step-4/  outputConfig.js · outputDownloads.js
+```
+
+**Adapters are the seam.** A `…Adapters.js` module is the ONE translation
+between a step's backend payloads and the view model its components already
+render: versions to results, a conversation to a transcript, and the step's own
+enum spellings. A component never sees `snake_case` or an uppercase enum, and a
+request never carries a lowercase UI id. `apiShapes.js` holds only what is
+genuinely identical across the three steps — timestamps, version status, the
+role map, the pending-job lookup — and must never become a switch on the step
+number.
+
+```
 ```
 
 Project routes are guarded once, not per stage:
@@ -661,14 +790,28 @@ belonging to Steps 1, 2 and 3.
 
 ### Stage gating
 
-`ProjectWorkspace` asks the active stage's domain for a reason the next stage is
-not reachable, and hands it to the shared bottom navigation, which explains via
-one info toast instead of navigating:
+`ProjectWorkspace` asks `stageGateMessage(stageId, project)` in
+`projectWorkflow.js` for a reason the next stage is not reachable, and hands it
+to the shared bottom navigation, which explains via one info toast instead of
+navigating.
 
-- `upload` → `floorPlanGateMessage(source)` — blocks until a source exists
-- `rendering` → `renderingGateMessage(assistant)` — blocks until a render is
-  approved
-- `boq` → `boqGateMessage()` — always `null`, because BoQ is optional
+The answer is read from the PROJECT's `workflow_state`, which is the backend's
+own record of progress. That matters twice: it is the same answer the API will
+give when the next stage's endpoint is called, so the nav cannot promise what
+the server then refuses; and it costs no request, so the bottom bar never has to
+load a step's history to decide whether Next is allowed.
+
+- `upload` → blocked until `step_1_complete`
+- `rendering` → blocked until `step_2_complete`
+- `boq` → always `null`, because BoQ is optional
+
+Nothing is gated while `workflow_state` is unknown — a nav that blocks on
+missing data blocks a user who has in fact finished the stage.
+
+**Finish** is `POST /finish/` from the bottom navigation on the Output stage,
+gated by `canFinishProject(project)`: a 2D plan approved, a 3D render approved,
+and a BoQ either approved or explicitly skipped. Those are the backend's rules,
+so the button explains rather than firing a request it knows will 400.
 
 ---
 
@@ -700,9 +843,18 @@ Components: `FloorPlanInputStage`, `FloorPlanModeToggle`, `FloorPlanBrief`,
 
 **Upload mode** — `UploadFloorPlanPanel` is a drafted dropzone: file input +
 drag & drop with refcounted drag depth, one plan only (extra files raise an info
-toast), `FLOOR_PLAN_ACCEPT` = PNG · JPG · JPEG · PDF validated by mime AND
-extension (`fileKind`). On success the source is stored and the stage shows a
-full-area processing loader before navigating to `/rendering`.
+toast), `FLOOR_PLAN_ACCEPT` = PNG · JPG · JPEG · WEBP · PDF validated by mime
+AND extension (`fileKind`), and a 25 MB ceiling (`FLOOR_PLAN_MAX_BYTES`) checked
+before the upload rather than after it. The list mirrors what
+`POST /step-1/upload/` accepts; adding a format the backend rejects only moves
+the refusal from the dropzone to a 400.
+
+The panel validates and hands the raw `File` UP. `FloorPlanInputStage` owns the
+request, because the upload creates a version, an approval and a workflow move
+on the backend and only the stage can wait for that: it uploads, invalidates
+Step 1, refetches the project, and navigates to `/rendering` only once
+`workflow_state.step_1_complete` confirms it. The loader covers real work, not a
+timer. A failure leaves the user on Step 1 with an explanation.
 
 **Generate mode** — `GenerateFloorPlanPanel` is a gateway card: heading,
 description, a centred "GENERATE NOW" CTA into the 2D Floor Plan Assistant, and
@@ -726,14 +878,15 @@ build the record; `ownsPreviewUrl` marks a blob URL as ours and
 (`UPLOAD_BRIEF`, `GENERATE_BRIEF`, `MODE_LOCK_MESSAGES`, `NEXT_STEP_*`) and
 `formatFileSize`.
 
-### Generation seam — `step-1/floorPlanGeneration.js`
+### Generation
 
-`FLOOR_PLAN_GENERATION_ENABLED` (real service) and
-`FLOOR_PLAN_GENERATION_MOCK_ENABLED` (frontend mock) gate
-`requestFloorPlanGeneration`. When no path resolves it throws
-`FloorPlanGenerationUnavailableError`, and the assistant states plainly that the
-service is not connected. Connecting the real service is a change to this file
-alone — no component changes.
+There is no generation seam module any more. `floorPlanGeneration.js` held a
+frontend mock that returned a fixed local SVG as if it were a generated plan,
+behind two flags; Step 1 calls `POST /step-1/generate/` directly and the module
+is deleted. Its only surviving export, `GENERATION_FAILED_MESSAGE`, moved to
+`floorPlanAssistantConfig.js`.
+
+Do not reintroduce a mock generation path in any step.
 
 ---
 
@@ -752,17 +905,31 @@ Approve, `FloorPlanAssistantResult` (Full View overlay rail), and Step 2's
 State: `step-1/floorPlanAssistantState.js` (reducer) +
 `floorPlanAssistantSelectors.js`, held per project in `ProjectsProvider`.
 
+Every turn is a real backend round trip, in three beats:
+
+1. `POST /step-1/generate/` — or `/step-1/edit/` when the canvas produced a mask
+   — answers `202` with a version and a nested job.
+2. The job is watched, and its `progress` / `message` written onto the pending
+   block (`generationProgress`) so the wait is legible.
+3. The step is refetched and the transcript REPLACED with what the server holds.
+
 Rules:
 
-- Generating a new result **clears the previous approval** and the editing
-  pointer.
-- Approval is explicit. Approving sets `approvedResultId`, builds a
-  `generated` source via `createGeneratedSource`, writes it as Step 1's active
-  source and returns to the Step 1 stage. Toggling approval off clears the
-  source.
+- A result's `id` IS the backend version id, so approval points at a real
+  `FloorPlanVersion` rather than at a local flag that happens to match one.
+- Approval is `POST /step-1/versions/{id}/approve/`. It sets
+  `selected_floor_plan`, completes Step 1, and returns to the Step 1 stage.
+- **There is no un-approve.** The contract has no such endpoint, so the control
+  does not toggle: approving the plan that is already approved says so and
+  returns to the stage rather than pretending to clear a record the backend
+  still holds. The way to change the approved plan is to approve another
+  version.
 - Editing a result opens `KraiosDesignCanvas` (after a deliberate transition
-  loader); a canvas "Proceed" runs the SAME generation path with the composite
-  snapshot attached, producing a new, unapproved result.
+  loader); a canvas "Proceed" sends the annotation MASK to `/step-1/edit/` and
+  shows the composite in the transcript (§22).
+- A version still QUEUED or PROCESSING comes back from the history as a pending
+  block carrying its job, and `useResumedJob` re-attaches — so a refresh mid-run
+  resumes rather than stalling.
 
 ---
 
@@ -806,27 +973,41 @@ Result actions split by intent, and the split must be preserved:
 
 Configuration (`designAssistantConfig.js`):
 
-- `RENDER_STYLES` — SketchUp, Photo Realistic
-- `VIEW_ANGLES` — Isometric 45° (`DEFAULT_VIEW_ANGLE_ID` is `null`)
-- Both lists are the single source of truth for the control AND the request.
+- `RENDER_STYLES` — SketchUp, Photo Realistic. Both are real backend values
+  (`SKETCHUP`, `PHOTOREALISTIC`); the translation lives in `designAdapters.js`
+- `VIEW_ANGLES` — Isometric 45° (`DEFAULT_VIEW_ANGLE_ID` is `null`, which is the
+  backend's `ORIGINAL`)
+- Both lists are the single source of truth for the control AND the request
+- `THREE_D_GENERATION_SUPPORTS_CANCEL` is `false`, and honestly so: the contract
+  has no endpoint that cancels a queued job. Leaving the workspace stops the
+  polling, not the work. The composer shows no Cancel action rather than one
+  that only stops watching. `modelGeneration.js` — the mock seam that returned a
+  fixed local SVG — is deleted; do not reintroduce it.
 
-Generation seam (`step-2/modelGeneration.js`): `MODEL_GENERATION_ENABLED`,
-`MODEL_GENERATION_MOCK_ENABLED`, `MODEL_GENERATION_SUPPORTS_CANCEL`, and the
-typed `ModelGenerationUnavailableError` / `ModelGenerationCancelledError`.
-Connecting the real service is a change to this file alone.
+Three endpoints, one `runGeneration` path:
+
+- `POST /step-2/generate/` for an instruction, carrying `render_style` and the
+  approved 2D plan's version id
+- `POST /step-2/edit/` for a canvas edit, carrying the annotation mask
+- `POST /step-2/angle/` for a view angle
 
 Approval rules:
 
-- A newly generated result **clears** the previous approval — approval belongs
-  to one render and must never silently transfer.
-- Only an explicitly approved result represents Step 2 completion.
+- Approval is `POST /step-2/versions/{id}/approve/`, which sets
+  `selected_three_d` and completes Step 2. A new version arrives unapproved, so
+  approval never silently transfers.
+- Approving a different render clears an existing BoQ approval or skip — that is
+  the backend's rule, and why approving invalidates Step 3's cache too.
+- There is no un-approve endpoint; the control does not toggle (§19).
 - Approving navigates back to `/rendering`.
 
 **View Angle rule.** Selecting a view angle is a generation request, not a
-display setting. It moves the header to the chosen angle and then runs the SAME
-`runGeneration` path a typed instruction runs, producing a new, unapproved
-result. Do not add a second generation implementation for it, and do not fake a
-viewpoint by transforming an existing image.
+display setting. `POST /step-2/angle/` creates ANOTHER version with
+`source: 'ANGLE'` from a completed one, leaving the original untouched. It goes
+through the SAME `runGeneration` path a typed instruction takes. Do not add a
+second generation implementation for it, and do not fake a viewpoint by
+transforming an existing image. It needs a version to convert, so choosing an
+angle before anything has been rendered explains itself instead of failing.
 
 ---
 
@@ -846,9 +1027,15 @@ Current capability, stated exactly:
   while focus is in an editable field).
 - History is capped at `MAX_HISTORY = 30` full-canvas `toDataURL()` snapshots;
   past the cap the oldest is dropped and the index clamped.
-- "Proceed" composites the base image and the annotation layer into one PNG data
-  URL and hands it to `onRegenerate(promptText, result, compositeSnapshotUrl)`,
-  which runs a normal generation.
+- "Proceed" produces TWO images from the same canvases and passes both:
+  `onRegenerate(promptText, result, compositeSnapshotUrl, maskSnapshotUrl)`.
+  The COMPOSITE (base image + annotations) is what the conversation shows, so
+  the user's turn looks like what they drew on. The MASK is the annotation layer
+  alone — transparent everywhere the user did not draw — and is what the
+  `/step-1/edit/` and `/step-2/edit/` endpoints take. Sending the composite as
+  the mask would tell the service the whole image was selected.
+- If the base image cannot be read back into a canvas (a cross-origin asset
+  without CORS headers), the mask is still valid and the edit still goes.
 
 Honesty rule: do not advertise a tool or a shortcut that is not implemented. A
 future cheaper history representation is allowed, but must not redesign the
@@ -865,7 +1052,13 @@ capability chips (`BOQ_COPY.buildOutputs`), the current approval state, entry
 into the BoQ Assistant, and the bottom strip offering the optional
 skip-to-Output path.
 
-`boqGateMessage()` returns `null` — BoQ never blocks Next.
+BoQ never blocks Next.
+
+**Skip is an action, not a link.** `POST /step-3/skip/` clears any selected BoQ,
+records `boq_skipped_at` and makes Step 4 the current step, so Output is reached
+because the backend agrees the stage was skipped — not because the browser
+navigated past it. It is confirmed with a modal first (a toast cannot ask a
+question), and the navigation happens only after the response.
 
 The route page uses `StepPlaceholder` as a shell wrapper; the content is
 `BoQStage` / `BoQAssistantGateway`. Do not describe Step 3 as a placeholder.
@@ -884,47 +1077,64 @@ rendering assistant markdown through `react-markdown` + `remark-gfm`,
 pending/failure/retry blocks, `BoQResult` → `BoQTable`), and `BoQComposer`
 (input + `DocumentTypeDropdown` + send).
 
-`DOCUMENT_TYPES` (`boqAssistantConfig.js`): General Document · MEP Drawing ·
-HVAC Drawing · Door and Window Schedule.
+`DOCUMENT_TYPES` (`boqAssistantConfig.js`) is exactly the seven values the
+backend's `document_type` enum accepts, each carrying its `apiValue`: General
+Document · Project Brief · Structural Drawing · Estimation · Material
+Specification · 3D Model · Other. It previously offered MEP Drawing, HVAC
+Drawing and Door and Window Schedule, which read well but had no counterpart in
+the document API — the classification the user chose would quietly not be the
+one saved. Labels are ours; values are the contract's, and the two are declared
+together so they cannot drift apart.
 
-Generation is the frontend mock `step-3/boqGeneration.js`: a deliberate 1400ms
-wait (so pending/cancel states stay observable), then one of the declared
-fixtures chosen by keyword. It deliberately does NOT take a document type,
-because nothing in it analyses a document.
+Generation is `POST /step-3/generate/`, watched and refetched like every other
+step. `boqGeneration.js` — the keyword-matched fixture mock — and
+`boqDemoData.js` are deleted.
 
-Do not claim the table was calculated from the user's floor plan, approved 3D
-geometry, uploaded files or live market prices.
+The backend's current BOQ task returns a placeholder table. Do not claim the
+table was calculated from the user's floor plan, approved 3D geometry, uploaded
+files or live market prices.
 
 ### Document record contract
 
-A supporting document is built by `createBoqDocument`
-(`workflow/step-3/boqDocuments.js`) and carries
-`{ id, name, size, mime, extension, kind, typeId, typeLabel, file, previewUrl,
-ownsPreviewUrl, addedAt }` — the shape Step 4 needs to list, preview, download
-and package it. The reducer takes a finished record and stays pure;
-`ProjectsProvider` revokes `previewUrl` when a document leaves the list, when the
-project is deleted, and on unmount. `canPreviewDocument` requires BOTH a
-previewable kind and a usable source. Mirror `step-1/floorPlanSource.js` rather
-than inventing a second file-record shape.
+A supporting document is a backend `ProjectDocument`, mapped by
+`boqAdapters.documentToRecord` into
+`{ id, name, title, size, mime, extension, kind, typeId, typeLabel,
+documentType, assetId, previewUrl, downloadUrl, addedAt }` — the shape Step 4
+needs to list, preview and download it. `previewUrl` and `downloadUrl` are
+same-origin asset urls from `assetSrc`, so nothing here is a blob this app must
+revoke, and `boqDocuments.js` (which minted them) is deleted.
 
-**Known gap:** the reducer has `uploadDocument` and the header has
-uploaded-document UI, but no component exposes an attachment control, so nothing
-ever calls `createBoqDocument` or dispatches `uploadDocument`. Supporting-document
-upload is not reachable end to end. Do not document it as functional, and do not
-write UI copy directing users to an upload action that does not exist.
+Documents are deliberately separate from conversation attachments: BOQ
+generation records the document ids that exist when the job is submitted, so a
+file must be uploaded through the document API before it can inform a BOQ. Never
+send a file to the conversation or generation endpoints.
+
+The previously documented gap — a reducer and a header dropdown for documents
+with no way to add one — is CLOSED. `BoQComposer` has an attachment control; the
+page uploads through `POST /step-3/documents/` classified by the document-type
+dropdown beside it, deletes through `DELETE /step-3/documents/{id}/`, and
+refetches the list after either, because the backend decides the title and the
+stored asset.
 
 ---
 
 ## 25. BoQ approval rules
 
-Approval belongs to one specific BoQ version/result.
+Approval belongs to one specific BoQ version.
 
-- Generating a new BoQ result clears the previous approval.
-- Any material change to an approved BoQ also clears it. Add Row and Delete Row
-  both go through the one `withRowEdit` write helper in the reducer, so a future
-  edit action cannot keep an approval it invalidated.
-- `approvedResultId` is the single approval flag. Do not add a component-local
-  `isApproved`.
+- Approval is `POST /step-3/versions/{id}/approve/`. It sets `selected_boq`,
+  completes Step 3 and clears a previous skip. There is no un-approve endpoint.
+- A BOQ version is IMMUTABLE on the backend, so a table edit is not a mutation:
+  Add Row and Delete Row compute the amended rows (`withAddedRow` /
+  `withDeletedRow` in `boqAdapters.js`), post them to
+  `POST /step-3/versions/manual/` parented on the version they were edited from,
+  and refetch. The new `MANUAL` version arrives unapproved.
+  That preserves the old rule — an edited table is not the table anybody signed
+  off — without a browser-only copy the server would never agree with. The
+  reducer's in-place `addRow` / `deleteRow` / `withRowEdit` are gone; do not
+  reintroduce them.
+- `approvedResultId` mirrors `selected_boq` and is the single approval flag in
+  the view model. Do not add a component-local `isApproved`.
 
 ---
 
@@ -948,8 +1158,17 @@ OutputBoQModal            full-screen BoQ inspection
 FloorPlanFullscreenModal  shared lightbox for plans and renders
 ```
 
-Domain modules: `step-4/outputConfig.js` (copy + `DEMO_ASSETS`) and
-`step-4/outputDownloads.js`.
+Domain modules: `step-4/outputConfig.js` (copy) and `step-4/outputDownloads.js`.
+
+**ONE request builds this page**: `GET /projects/{id}/output/` returns the
+project, a summary, and the floor plans, 3D renders, BOQ versions and documents
+together. Step 4 never reassembles itself from four step caches, and never
+re-derives what was approved — the backend marks the approved item with
+`selected: true`.
+
+`DEMO_ASSETS` is gone. It was a local 2D SVG and a local 3D SVG that every
+section fell back to when the real asset was missing, so an empty project
+displayed two drawings it did not own.
 
 Step 4 should remain **View · Review · Download**. Do not add upstream editing
 behaviour to Output (the BoQ "edit" control navigates to the BoQ Assistant; it
@@ -957,13 +1176,18 @@ does not edit in place).
 
 ### Step 4 data truth
 
-Step 4 reads:
+Step 4 reads, all from the one output bundle:
 
-- Step 1's current 2D source
-- Step 2's explicitly approved 3D result
-- Step 3's explicitly approved BoQ — `approvedBoqResult(boqState)`, and nothing
-  else
-- Step 3's uploaded documents
+- the 2D floor-plan version marked `selected`, plus the project's other
+  completed plans as its version list
+- the 3D version marked `selected`, plus the project's other completed renders
+- the BOQ version marked `selected`, and nothing else
+- the project's documents
+
+**Every count is COUNTED**, from `summary` or from the lists themselves. The
+page used to declare 45 deliverables — 18 renders, 2 plans, 1 BoQ, 24 documents
+— as constants regardless of what the project contained. A project with one
+render says one.
 
 **Final BoQ rule.** There is no fallback to the latest result: an unapproved
 draft is not a deliverable, must not appear under an approved badge, must not be
@@ -974,38 +1198,47 @@ without it.
 
 **Fixture rule.** A fixture may stand in for a *picture* while a real asset is
 missing; it must never stand in for an *approval*, a *count*, or a *cost*.
-PROGRESS.md records where the current Step 4 source violates this and what needs
-correcting.
+Step 4 now holds no fixtures at all — the invented render gallery
+(3D_Model_v6/v7/v8), the invented 2D version, the four invented documents
+(Project Brief.pdf, Structural Drawings.zip …) and the five invented costed BoQ
+rows are all removed, along with the placeholder Blob that Download produced
+when it could not find a real file. Where there is nothing, the page says so.
 
 ---
 
 ## 27. Downloads
 
-`outputDownloads.js` provides, with no zip dependency:
+Every file Step 4 offers is an authenticated backend asset, so nothing is built
+in the browser. `outputDownloads.js` provides:
 
-- `generateBoqCsv` — RFC 4180 CSV from BoQ rows
-- `downloadBlob` / `downloadText` / `downloadAssetUrl`
-- `safeFileName` / `projectSlug`
-- `buildZipArchive` — a hand-rolled PKZIP 2.0 store-mode builder (CRC32, local
-  headers, central directory, EOCD)
-- `downloadProjectPackageZip` — the deliverables package
+- `safeFileName` / `projectSlug` — name normalization
+- `downloadAssetUrl` / `downloadAsset` — one authenticated asset
+- `downloadBoqCsv` — `GET /step-3/versions/{id}/download-csv/`
+- `downloadProjectArchive` — queue `POST /download-all/` with a scope, watch the
+  job, download the asset it produced
+- `generateBoqCsv` / `downloadText` — kept ONLY for the inspection modal, which
+  exports exactly the rows on screen
+
+The hand-rolled PKZIP 2.0 writer (`buildZipArchive`, `downloadProjectPackageZip`)
+is DELETED. It assembled the package in browser memory from client-side state;
+the backend creates real archives from the stored project files, so the package
+is built where the files actually live and a large project is no longer limited
+by a tab's heap. Do not reintroduce client-side zipping.
 
 Download rules:
 
-- Verify `response.ok` before packaging any fetched asset; a failed fetch is
-  *unavailable*, never a file.
-- Normalize every user-supplied name with `safeFileName` before it becomes a ZIP
-  path (no `/`, `\`, `..`, or empty names).
-- Use the shared `projectSlug` helper for folder/file naming rather than an
-  inline copy.
-- Use real available data where possible; do not hardcode fake external URLs.
-- Never package an HTTP error response as a project file.
-- `downloadAssetUrl` returns whether the file was actually produced. Never
-  announce a download it reported false for, and never substitute generated
-  placeholder content for a file the user asked to download.
-
-Large real architectural packages may eventually require backend packaging rather
-than holding all data in browser memory.
+- A download is announced ONLY when a file was actually produced. Every download
+  helper returns a boolean, and `downloadProjectArchive` returns false when a
+  completed archive job produced no asset.
+- Never save an unverified response as a file — an HTTP error body is not a
+  floor plan.
+- Never substitute generated placeholder content for a file the user asked for.
+- Normalize every user-supplied name with `safeFileName` (no `/`, `\`, `..`, or
+  empty names) and use `projectSlug` for filenames rather than an inline copy.
+- The project's BoQ export is the BACKEND's rendering of the approved version,
+  not a browser-side CSV of whatever rows are on screen.
+- Re-queuing an archive scope that is already running returns that same job, so
+  a second click joins the first archive rather than starting another.
 
 ---
 
@@ -1170,11 +1403,23 @@ Workflow state must belong to a real project. A direct URL with an invalid
 `projectId` must not silently create a usable fake workflow session.
 
 Implemented as `src/pages/dashboard/projects/RequireProject.jsx`, wrapping the
-`ProjectWorkspace` route and all four assistant routes. An unknown `:projectId`
-redirects (`replace`) to `/dashboard/projects`. The per-project state hooks still
-return a shared frozen default for a project that EXISTS but is untouched — that
-is the fallback's only job, and the guard is what stops it being reached with an
-id that does not exist.
+`ProjectWorkspace` route and all four assistant routes. It asks the store to
+load the project — a cache read when the library has already listed it, one
+`GET /projects/{id}/` when the address was opened directly — holds the surface
+with the shared loader while that is in flight, and redirects (`replace`) to
+`/dashboard/projects` when it fails. That is what makes a refresh ON a project
+workspace work: the project is fetched again, not lost with the tab.
+
+The three outcomes are read from the store's own request state rather than
+mirrored into local state — one source of truth, and no setState inside an
+effect to keep a copy of it in step. One error toast per rejected id, not one
+per render.
+
+Without the guard, an unknown id would mount the whole workflow and every stage
+would fire its own request and show its own 404 — four failures for one missing
+project. The per-project state hooks still return a shared frozen default for a
+project that EXISTS but has not been read yet; the guard is what stops that
+being reached with an id that does not exist.
 
 Three cases, and they must never be confused:
 
@@ -1277,10 +1522,27 @@ Do not redesign the UI while optimizing these.
 Do not keep unused source indefinitely. Before deleting anything, verify once —
 dynamic usage/import patterns can exist.
 
-The current tree DOES contain unused modules, listed in PROGRESS.md. Note that
-the ESLint rule `no-unused-vars` uses `varsIgnorePattern: '^[A-Z_]'`, so an
-unused PascalCase component import is NOT reported — lint passing is not evidence
-that a component is used.
+Note that the ESLint rule `no-unused-vars` uses
+`varsIgnorePattern: '^[A-Z_]'`, so an unused PascalCase component import is NOT
+reported — lint passing is not evidence that a component is used.
+
+Removed during the project-API integration, all verified unreferenced first:
+
+```
+lib/dashboard/workflow/step-1/floorPlanGeneration.js   mock 2D generation
+lib/dashboard/workflow/step-2/modelGeneration.js       mock 3D generation
+lib/dashboard/workflow/step-3/boqGeneration.js         mock BoQ generation
+lib/dashboard/workflow/step-3/boqDemoData.js           BoQ fixtures
+lib/dashboard/workflow/step-3/boqDocuments.js          browser-blob documents
+components/.../step-1/FloorPlanSourcePreview.jsx
+components/.../step-4/PlansAndRendersSection.jsx
+components/.../step-4/OutputPlanCard.jsx
+components/.../step-4/FinalBoQSection.jsx
+components/.../step-4/FinalBoQTable.jsx
+components/.../step-4/UploadedDocumentsSection.jsx
+```
+
+PROGRESS.md records what remains.
 
 Unused-code cleanup must not change visible UI.
 
@@ -1332,11 +1594,18 @@ Most important current facts:
 
 - All four workflow stage UIs and all three assistant workspaces are implemented
   in the current source. Step 3 and Step 4 are not placeholders.
-- The auth/profile API layer is a real cookie-based integration, **but a
-  temporary frontend authentication bypass is currently active in
-  `AuthContext`.** Keep those two facts distinct and never describe the current
-  auth as production-ready.
-- Project workflow data is session-memory only. There is no project API,
-  database or localStorage persistence.
-- 2D generation, 3D generation and BoQ generation are all frontend mocks. The UI
-  around them is real.
+- The auth/profile API layer is a real cookie-based integration and is now
+  genuinely enforced: the dashboard is reachable only after `POST /auth/login/`
+  or `GET /auth/me/` succeeds. The dummy-identity bypass is gone — see the note
+  in §9 and do not reintroduce it.
+- **The project workflow is a real backend integration.** Projects, versions,
+  conversations, approvals, documents, jobs and the deliverables bundle all come
+  from `/api/v1/projects`. Project data PERSISTS across a refresh, ids are
+  backend UUIDs, and progress is the backend's `workflow_state`.
+- Every frontend generation mock and every Step 4 fixture is REMOVED. Nothing in
+  the workflow fabricates a result, a count, an approval or a file any more.
+- The AI pipelines themselves are not implemented on the backend yet: the Celery
+  tasks return placeholder images and a placeholder BOQ table, with simulated
+  progress. The API contract, persistence and job flow around them are real.
+  Do not present a placeholder result as finished AI output — and do not add a
+  frontend mock back to compensate for one.

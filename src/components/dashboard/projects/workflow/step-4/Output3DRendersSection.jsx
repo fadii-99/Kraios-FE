@@ -5,62 +5,66 @@ import {
   Eye,
 } from '@phosphor-icons/react'
 
-import { DEMO_ASSETS } from '@/lib/dashboard/workflow/step-4/outputConfig'
-import { downloadAssetUrl } from '@/lib/dashboard/workflow/step-4/outputDownloads'
+import { downloadAssetUrl, downloadProjectArchive } from '@/lib/dashboard/workflow/step-4/outputDownloads'
+import { formatProjectDate } from '@/lib/date'
+import { showErrorToast, showSuccessToast } from '@/lib/toast'
 
 /**
- * Sample 3D render versions list for display demonstration,
- * augmenting the active approved render from Step 2.
- */
-const DEFAULT_3D_VERSIONS = [
-  {
-    id: 'render-v8',
-    name: '3D_Model_v8',
-    date: 'May 20, 2026',
-    imageUrl: '/assets/plan-3d-light.svg',
-    isApproved: false,
-  },
-  {
-    id: 'render-v7',
-    name: '3D_Model_v7',
-    date: 'May 18, 2026',
-    imageUrl: '/assets/plan-3d-light.svg',
-    isApproved: false,
-  },
-  {
-    id: 'render-v6',
-    name: '3D_Model_v6',
-    date: 'May 15, 2026',
-    imageUrl: '/assets/plan-3d-light.svg',
-    isApproved: false,
-  },
-]
-
-/**
- * Output3DRendersSection — Displays approved 3D model with historical renders gallery.
+ * Output3DRendersSection — the approved 3D model, and the project's other
+ * renders.
+ *
+ * The gallery used to be three hardcoded cards — 3D_Model_v6/v7/v8, dated May
+ * 2026, all pointing at the same local SVG — shown whatever the project
+ * actually contained. It lists the project's real `ThreeDVersion` history now,
+ * and a project with only one render shows one.
  */
 export default function Output3DRendersSection({
+  projectId,
+  projectName,
   render3DSource,
+  versions = [],
   onViewSource,
 }) {
-  const approvedName = render3DSource?.title || 'Approved_3D_Model_v9'
-  const approvedImageUrl = render3DSource?.imageUrl || DEMO_ASSETS.render3DUrl
+  const approvedName = render3DSource?.assetName || 'approved-3d-model.png'
+  const approvedImageUrl = render3DSource?.imageUrl || null
+  // The real approval date, not the hardcoded "May 24, 2026" that used to sit
+  // under every approved card whatever the project's history.
+  const approvedAt = render3DSource?.at ? formatProjectDate(render3DSource.at) : null
+
+  // The approved render has its own card above; this is everything else.
+  const otherVersions = versions.filter((version) => version.id !== render3DSource?.id)
 
   const handlePreview = (item) => {
     onViewSource?.({
       previewUrl: item.imageUrl,
       imageUrl: item.imageUrl,
       name: item.name,
-      extension: 'SVG',
+      extension: (item.name?.split('.').pop() || 'PNG').toUpperCase(),
     })
   }
 
   const handleDownload = async (item) => {
-    await downloadAssetUrl(item.imageUrl, `${item.name}.svg`)
+    const saved = await downloadAssetUrl(item.imageUrl, item.name)
+    if (!saved) {
+      showErrorToast('That render could not be downloaded.', { id: 'render-download-failed' })
+    }
   }
 
   const handleDownloadAll = async () => {
-    await downloadAssetUrl(approvedImageUrl, `${approvedName}.svg`)
+    try {
+      const saved = await downloadProjectArchive({
+        projectId,
+        projectName,
+        scope: 'THREE_D',
+      })
+
+      if (saved) showSuccessToast('3D renders downloaded.', { id: 'archive-THREE_D' })
+      else showErrorToast('There are no 3D renders to download yet.', { id: 'archive-empty-3d' })
+    } catch (thrown) {
+      showErrorToast(thrown?.message || 'That download could not be prepared.', {
+        id: 'archive-failed-3d',
+      })
+    }
   }
 
   return (
@@ -94,9 +98,28 @@ export default function Output3DRendersSection({
         </div>
       </div>
 
+      {/* Nothing approved and nothing generated is a real state for a project
+          that has not reached this stage — said plainly rather than shown as an
+          empty grid. */}
+      {!render3DSource && otherVersions.length === 0 && (
+        <div className="rounded-lg border border-dashed border-[var(--tone-line-strong)] bg-white p-8 text-center">
+          <h3
+            className="text-[0.875rem] font-bold uppercase tracking-[0.12em] text-[var(--tone-ink)]"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            No 3D Renders Yet
+          </h3>
+          <p className="mx-auto mt-2 max-w-md text-[0.8125rem] leading-relaxed text-[var(--tone-muted-dark)]">
+            Generate and approve a 3D design in the 3D Rendering stage to see it here.
+          </p>
+        </div>
+      )}
+
       {/* ── Cards Grid (4 Columns Layout) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
-        {/* Card 1: Approved Latest Render */}
+        {/* Card 1: the APPROVED render — rendered only when there is one. It
+            used to render unconditionally, badge and all, with a null image. */}
+        {render3DSource && (
         <div className="group relative flex flex-col justify-between overflow-hidden rounded-lg border-2 border-[var(--color-brand-deep)]/60 bg-white p-4 sm:p-5 shadow-2xs transition-all hover:shadow-md">
           {/* Top Approved Tag */}
           <div className="mb-3 flex items-center justify-between">
@@ -124,7 +147,7 @@ export default function Output3DRendersSection({
               {approvedName}
             </h3>
             <p className="text-[0.6875rem] font-medium text-slate-400 mt-1">
-              Approved on May 24, 2026
+              {approvedAt ? `Approved ${approvedAt}` : 'Approved'}
             </p>
 
               {/* Action Buttons Row */}
@@ -148,9 +171,10 @@ export default function Output3DRendersSection({
               </div>
             </div>
           </div>
+        )}
 
-        {/* Cards 2, 3, 4: Historical Renders */}
-        {DEFAULT_3D_VERSIONS.map((item) => (
+        {/* The project's other renders */}
+        {otherVersions.map((item) => (
           <div
             key={item.id}
             className="group relative flex flex-col justify-between overflow-hidden rounded-lg border border-[var(--tone-line-strong)] bg-white p-4 sm:p-4.5 shadow-2xs transition-all hover:shadow-md"
@@ -175,7 +199,7 @@ export default function Output3DRendersSection({
                 {item.name}
               </h3>
               <p className="text-[0.625rem] font-medium text-slate-400 mt-0.5">
-                {item.date}
+                {formatProjectDate(item.at)}
               </p>
 
               {/* Action Buttons Row */}

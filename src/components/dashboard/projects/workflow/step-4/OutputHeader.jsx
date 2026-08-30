@@ -13,59 +13,78 @@ import {
 
 import {
   downloadAssetUrl,
-  downloadProjectPackageZip,
+  downloadProjectArchive,
 } from '@/lib/dashboard/workflow/step-4/outputDownloads'
-import { DEMO_ASSETS } from '@/lib/dashboard/workflow/step-4/outputConfig'
+import { showErrorToast, showSuccessToast } from '@/lib/toast'
 
 /**
  * OutputHeader — Hero banner with Project Deliverables summary chips on the left
  * and Quick Downloads command center on the right.
+ *
+ * Every count on this banner is now COUNTED, from the project's own output
+ * bundle. It used to fall back to fixed numbers — 18 renders, 2 plans, 24
+ * documents, 1 BoQ — whenever real data was missing, which meant a project with
+ * nothing in it advertised 45 deliverables. A project with no documents says
+ * zero.
+ *
+ * The three scoped downloads are real backend archives: each queues
+ * `POST /download-all/` with its own scope, waits for the job, and saves what
+ * it produced. Nothing is announced that did not download.
  */
 export default function OutputHeader({
+  projectId,
   projectName,
-  plan2DSource,
   render3DSource,
-  boqRows = [],
-  uploadedDocs = [],
-  renderCount = 18,
-  planCount = 2,
+  boqCount = 0,
+  docCount = 0,
+  renderCount = 0,
+  planCount = 0,
 }) {
-  const [downloadingZip, setDownloadingZip] = useState(false)
+  const [downloadingScope, setDownloadingScope] = useState(null)
+  const downloadingZip = downloadingScope !== null
 
-  const handleDownloadAllZip = async () => {
+  const runArchive = async (scope, label) => {
+    if (downloadingZip) return
+
+    setDownloadingScope(scope)
     try {
-      setDownloadingZip(true)
-      await downloadProjectPackageZip({
-        projectName,
-        plan2DSource,
-        render3DSource,
-        boqRows,
-        uploadedDocs,
+      const saved = await downloadProjectArchive({ projectId, projectName, scope })
+
+      if (saved) {
+        showSuccessToast(`${label} downloaded.`, { id: `archive-${scope}` })
+      } else {
+        showErrorToast(`There is nothing to download in ${label.toLowerCase()} yet.`, {
+          id: `archive-empty-${scope}`,
+        })
+      }
+    } catch (thrown) {
+      showErrorToast(thrown?.message || 'That download could not be prepared.', {
+        id: `archive-failed-${scope}`,
       })
     } finally {
-      setDownloadingZip(false)
+      setDownloadingScope(null)
     }
   }
 
+  const handleDownloadAllZip = () => runArchive('ALL', 'Project package')
+  const handleDownloadAll3DZip = () => runArchive('THREE_D', '3D renders')
+
   const handleDownloadLatest3D = async () => {
-    const url = render3DSource?.imageUrl || DEMO_ASSETS.render3DUrl
-    const name = render3DSource?.title ? `${render3DSource.title}.svg` : 'Approved-3D-Model.svg'
-    await downloadAssetUrl(url, name)
+    const url = render3DSource?.imageUrl
+    if (!url) {
+      showErrorToast('No approved 3D design to download yet.', { id: 'no-3d-download' })
+      return
+    }
+
+    const saved = await downloadAssetUrl(url, render3DSource.assetName || 'approved-3d-model.png')
+    if (!saved) {
+      showErrorToast('That 3D design could not be downloaded.', { id: 'download-3d-failed' })
+    }
   }
 
-  const handleDownloadAll3DZip = async () => {
-    // Downloads 3D package
-    await handleDownloadAllZip()
-  }
+  const handleDownloadAll2DZip = () => runArchive('FLOOR_PLANS', '2D plans')
 
-  const handleDownloadAll2DZip = async () => {
-    const url = plan2DSource?.previewUrl || plan2DSource?.imageUrl || DEMO_ASSETS.floorPlan2DUrl
-    const name = plan2DSource?.name || 'Approved-Floor-Plan.svg'
-    await downloadAssetUrl(url, name)
-  }
-
-  const docCount = uploadedDocs.length || 24
-  const boqCount = boqRows.length || 1
+  const hasDeliverables = planCount + renderCount + boqCount + docCount > 0
 
   return (
     <div className="relative overflow-hidden rounded-lg border border-[var(--tone-line-strong)] bg-white p-6 shadow-xs sm:p-8 lg:p-9">
@@ -90,10 +109,20 @@ export default function OutputHeader({
               </span>
             </div>
 
-            <div className="inline-flex items-center gap-1.5 rounded-xs border border-emerald-500/30 bg-emerald-50 px-3 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-emerald-800">
-              <CheckCircle size={13} weight="fill" className="text-emerald-600" />
-              <span>DELIVERABLES READY</span>
-            </div>
+            {/* A STATE, not decoration. This badge used to read "DELIVERABLES
+                READY" unconditionally, including on a project with nothing in
+                it at all. */}
+            {hasDeliverables ? (
+              <div className="inline-flex items-center gap-1.5 rounded-xs border border-emerald-500/30 bg-emerald-50 px-3 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-emerald-800">
+                <CheckCircle size={13} weight="fill" className="text-emerald-600" />
+                <span>DELIVERABLES READY</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 rounded-xs border border-[var(--tone-line-strong)] bg-white px-3 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-[var(--tone-muted-dark)]">
+                <ClockClockwise size={13} weight="bold" className="text-[var(--tone-muted)]" />
+                <span>NO DELIVERABLES YET</span>
+              </div>
+            )}
           </div>
 
           {/* Title */}

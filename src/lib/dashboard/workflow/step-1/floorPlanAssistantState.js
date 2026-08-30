@@ -2,8 +2,10 @@
  * Step 1 — 2D Floor Plan Assistant state model and transitions.
  */
 
-import { GENERATION_FAILED_MESSAGE } from '@/lib/dashboard/workflow/step-1/floorPlanGeneration'
-import { FLOOR_PLAN_ASSISTANT_COPY } from '@/lib/dashboard/workflow/step-1/floorPlanAssistantConfig'
+import {
+  FLOOR_PLAN_ASSISTANT_COPY,
+  GENERATION_FAILED_MESSAGE,
+} from '@/lib/dashboard/workflow/step-1/floorPlanAssistantConfig'
 
 export const GENERATION_STATUS = {
   idle: 'idle',
@@ -23,6 +25,13 @@ export function createFloorPlanAssistantState() {
     approvedResultId: null,
     /** The result currently selected for editing/refining. */
     editingResultId: null,
+    /**
+     * Whether the backend conversation and version history have been read at
+     * least once. The workspace holds its loader on this rather than on
+     * `messages.length`, so a project with no history yet shows its real empty
+     * state instead of a spinner that never resolves.
+     */
+    hydrated: false,
     /** Monotonic message counter. */
     issued: 0,
   }
@@ -58,6 +67,50 @@ function withoutPending(state) {
 
 export function floorPlanAssistantReducer(state, action) {
   switch (action.type) {
+    /**
+     * Replaces the whole transcript with what the backend holds.
+     *
+     * The server is the record of what happened in this stage, so a fetch
+     * REPLACES rather than merges: an optimistic pending block that the server
+     * has since answered must not survive alongside the real result. Only the
+     * two purely local pointers — what is being edited, and the monotonic
+     * counter — are carried across.
+     */
+    case 'hydrate': {
+      const results = action.results ?? {}
+
+      return {
+        ...state,
+        messages: action.messages ?? [],
+        results,
+        approvedResultId: action.approvedResultId ?? null,
+        editingResultId: results[state.editingResultId] ? state.editingResultId : null,
+        status: action.busy ? GENERATION_STATUS.generating : GENERATION_STATUS.idle,
+        error: null,
+        hydrated: true,
+      }
+    }
+
+    /**
+     * A running job's own progress line, written onto the pending block.
+     *
+     * The backend reports `progress` and `message` while a job runs; without
+     * this the workspace would show one frozen "Generating…" for the whole
+     * wait. Nothing else changes — it is the same pending message, relabelled.
+     */
+    case 'generationProgress': {
+      const index = state.messages.findIndex((m) => m.kind === MESSAGE_KINDS.pending)
+      if (index === -1) return state
+
+      const current = state.messages[index]
+      if (current.text === action.text) return state
+
+      const messages = [...state.messages]
+      messages[index] = { ...current, text: action.text }
+
+      return { ...state, messages }
+    }
+
     case 'editResult':
       return state.editingResultId === action.resultId
         ? state

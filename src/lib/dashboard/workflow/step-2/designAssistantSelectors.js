@@ -11,10 +11,8 @@
 
 import {
   GENERATION_FAILED_MESSAGE,
-  ModelGenerationCancelledError,
-  ModelGenerationUnavailableError,
-} from '@/lib/dashboard/workflow/step-2/modelGeneration'
-import { RENDERING_COPY } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
+  RENDERING_COPY,
+} from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
 import {
   GENERATION_STATUS,
   MESSAGE_KINDS,
@@ -103,19 +101,15 @@ export function renderingStatusNote(state) {
 }
 
 /**
- * Why BoQ is not reachable yet, or `null` when it is.
+ * The user-facing sentence for a thrown generation error.
  *
- * The bottom navigation is shared and untouched in its design; it simply asks
- * this question and, when it gets an answer, explains instead of navigating.
+ * API failures reach here already normalized by `parseApiError`, so the thrown
+ * message is a real sentence — a validation reason such as "A completed 2D
+ * floor plan is required for Step 2." is far more useful than a generic line.
+ * Anything without one falls back to the stage's own copy; a raw fetch string
+ * or a backend field name never reaches the user either way.
  */
-export function renderingGateMessage(state) {
-  return isApproved(state) ? null : RENDERING_COPY.boqGateMessage
-}
-
-/** The user-facing sentence for a thrown generation error. */
 export function generationErrorMessage(thrown) {
-  if (thrown instanceof ModelGenerationUnavailableError) return thrown.message
-  if (thrown instanceof ModelGenerationCancelledError) return thrown.message
-
-  return GENERATION_FAILED_MESSAGE
+  const message = typeof thrown?.message === 'string' ? thrown.message.trim() : ''
+  return message || GENERATION_FAILED_MESSAGE
 }

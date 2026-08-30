@@ -6,16 +6,13 @@ import ProjectWorkflowNav from '@/components/dashboard/projects/workflow/shared/
 import ProjectStepNavigation from '@/components/dashboard/projects/workflow/shared/ProjectStepNavigation'
 import PageLoader from '@/components/ui/PageLoader'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
-import { renderingGateMessage } from '@/lib/dashboard/workflow/step-2/designAssistantSelectors'
-import { boqGateMessage } from '@/lib/dashboard/workflow/step-3/boqAssistantSelectors'
-import { floorPlanGateMessage } from '@/lib/dashboard/workflow/step-1/floorPlanSource'
-import {
-  useBoqAssistant,
-  useDesignAssistant,
-  useFloorPlanSource,
-} from '@/lib/dashboard/projects/projectsContext'
+import { useProject } from '@/lib/dashboard/projects/projectsContext'
 import { DASHBOARD_GUTTER } from '@/lib/dashboard/layout'
-import { WORKFLOW_STAGES, workflowIndexForPath } from '@/lib/dashboard/workflow/projectWorkflow'
+import {
+  WORKFLOW_STAGES,
+  stageGateMessage,
+  workflowIndexForPath,
+} from '@/lib/dashboard/workflow/projectWorkflow'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { cn } from '@/lib/cn'
 
@@ -28,18 +25,16 @@ export default function ProjectWorkspace() {
   const scope = useRef(null)
   const reduced = usePrefersReducedMotion()
 
-  const [source] = useFloorPlanSource(projectId)
-  const [assistant] = useDesignAssistant(projectId)
-  const [boqState] = useBoqAssistant(projectId)
+  const project = useProject(projectId)
   const activeStage = WORKFLOW_STAGES[workflowIndexForPath(pathname)]
 
-  const stageGateMessages = {
-    upload: () => floorPlanGateMessage(source),
-    rendering: () => renderingGateMessage(assistant),
-    boq: () => boqGateMessage(boqState),
-  }
-
-  const nextBlockedMessage = stageGateMessages[activeStage?.id]?.() ?? null
+  /**
+   * Why Next is not available yet, asked of the PROJECT rather than of a stage
+   * view model. `workflow_state` is what the backend will enforce anyway, so
+   * the nav and the API agree by construction, and no step's history has to be
+   * fetched to render this bar.
+   */
+  const nextBlockedMessage = stageGateMessage(activeStage?.id, project)
 
 
   useGSAP(

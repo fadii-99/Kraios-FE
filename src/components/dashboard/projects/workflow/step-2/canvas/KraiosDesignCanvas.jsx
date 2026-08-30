@@ -47,7 +47,8 @@ const MAX_HISTORY = 30
  * Full-featured interactive light-themed architectural markup studio:
  * - 2 specialized drawing tools: Markup Pen & Marker
  * - Dynamic Right-Side Edit Prompt Panel: automatically opens when drawing, with a cross (×) to return
- * - Captures composite marked canvas image snapshot on Proceed
+ * - Captures both the composite snapshot (for the transcript) and the
+ *   annotation-only mask (for the edit request) on Proceed
  * - Light-themed architectural viewport with zoom & reset
  */
 export default function KraiosDesignCanvas({
@@ -261,8 +262,16 @@ export default function KraiosDesignCanvas({
   }
 
   /**
-   * Generates a composite snapshot (merging base image + user drawing)
-   * and dispatches onRegenerate with prompt text, target result, and composite snapshot.
+   * Hands the annotation up in the two forms the workflow needs.
+   *
+   * The COMPOSITE (base image + annotations) is what the conversation shows, so
+   * the user's turn looks like what they drew on. The MASK — the annotation
+   * layer alone, transparent everywhere the user did not draw — is what the
+   * `/edit/` endpoints take: it is the marked region, and sending the composite
+   * instead would tell the service the whole image was selected.
+   *
+   * Both are produced from the same canvases, once, and passed together:
+   * `onRegenerate(promptText, result, compositeSnapshotUrl, maskSnapshotUrl)`.
    */
   const handleApplyRegenerate = () => {
     const promptText =
@@ -271,8 +280,16 @@ export default function KraiosDesignCanvas({
     const overlayCanvas = canvasRef.current
     const baseImageUrl = result?.imageUrl || result?.previewUrl
 
-    if (!overlayCanvas || !baseImageUrl) {
-      onRegenerate?.(promptText, result, null)
+    if (!overlayCanvas) {
+      onRegenerate?.(promptText, result, null, null)
+      return
+    }
+
+    // The annotation layer on its own — the mask the edit endpoints take.
+    const maskSnapshotUrl = overlayCanvas.toDataURL('image/png')
+
+    if (!baseImageUrl) {
+      onRegenerate?.(promptText, result, maskSnapshotUrl, maskSnapshotUrl)
       return
     }
 
@@ -314,13 +331,14 @@ export default function KraiosDesignCanvas({
       offCtx.drawImage(overlayCanvas, 0, 0)
 
       const compositeSnapshotUrl = offscreen.toDataURL('image/png')
-      onRegenerate?.(promptText, result, compositeSnapshotUrl)
+      onRegenerate?.(promptText, result, compositeSnapshotUrl, maskSnapshotUrl)
     }
 
     baseImg.onerror = () => {
-      // Fallback: use overlay canvas alone
-      const overlaySnapshotUrl = overlayCanvas.toDataURL('image/png')
-      onRegenerate?.(promptText, result, overlaySnapshotUrl)
+      // The base image could not be read back into a canvas — a cross-origin
+      // asset without CORS headers, most often. The mask is still valid and is
+      // the half the request actually needs, so the edit is not lost.
+      onRegenerate?.(promptText, result, maskSnapshotUrl, maskSnapshotUrl)
     }
   }
 

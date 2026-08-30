@@ -10,9 +10,14 @@
  *   { type: 'generated', … }   → an AI-generated plan is the source
  *
  * Which mode the toggle may switch into is *derived* from that value
- * (`lockedModeForSource`), so the two can never disagree. Nothing here discards
- * a source on its own — the user removes it deliberately, and the store
- * releases the object URL at that point.
+ * (`lockedModeForSource`), so the two can never disagree.
+ *
+ * The source itself is DERIVED too. It used to be stored in the provider and
+ * minted from a picked file; it is now read from the project's approved Step 1
+ * version (`sourceFromApprovedVersion`), because `selected_floor_plan` on the
+ * backend is the record of which plan the project works from and a second local
+ * copy could only disagree with it. Nothing here mints an object URL, so
+ * nothing here has one to free.
  */
 
 /** The two ways a user can provide the plan. Also the toggle's option ids. */
@@ -27,26 +32,44 @@ export const FLOOR_PLAN_SOURCE_TYPES = {
   generated: 'generated',
 }
 
-const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg']
+const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
 const PDF_MIME_TYPE = 'application/pdf'
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg']
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp']
 const PDF_EXTENSION = 'pdf'
 
 /**
  * `accept` carries extensions AND mime types on purpose: some browsers report
  * a JPEG with an empty `file.type`, so the extension is the fallback both here
  * and in `fileKind`.
+ *
+ * The list mirrors what `POST /step-1/upload/` accepts. Adding a format the
+ * backend rejects only moves the refusal from the dropzone to a 400.
  */
 export const FLOOR_PLAN_ACCEPT =
-  '.png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf'
+  '.png,.jpg,.jpeg,.webp,.pdf,image/png,image/jpeg,image/webp,application/pdf'
 
-export const FLOOR_PLAN_FORMATS_LABEL = 'PNG · JPG · JPEG · PDF'
+export const FLOOR_PLAN_FORMATS_LABEL = 'PNG · JPG · JPEG · WEBP · PDF'
+
+/**
+ * The backend's default maximum upload size. Checked here so an oversized file
+ * is refused before it is uploaded rather than after a 25 MB round trip; the
+ * server still enforces it, and may be configured differently.
+ */
+export const FLOOR_PLAN_MAX_BYTES = 25 * 1024 * 1024
+
+export const FILE_TOO_LARGE_ERROR =
+  'That file is larger than 25 MB. Upload a smaller floor plan.'
+
+/** Whether the file is within the upload size limit. */
+export function isWithinUploadLimit(file) {
+  return !file || file.size <= FLOOR_PLAN_MAX_BYTES
+}
 
 /** The label that introduces the format list in the stage brief. */
 export const FLOOR_PLAN_FORMATS_TERM = 'Supported Formats'
 
 export const UNSUPPORTED_FILE_ERROR =
-  'Unsupported file type. Upload a PNG, JPG, JPEG or PDF.'
+  'Unsupported file type. Upload a PNG, JPG, JPEG, WEBP or PDF.'
 
 export const MULTIPLE_FILES_NOTICE =
   'Only one floor plan is supported — the first file was used.'
@@ -83,47 +106,33 @@ export function isSupportedFloorPlanFile(file) {
 }
 
 /**
- * Wraps a picked file as an upload source.
+ * The active source, derived from the APPROVED Step 1 version.
  *
- * `ownsPreviewUrl` marks the blob URL as ours to revoke — the store releases it
- * when the source is replaced, removed, or the dashboard unmounts. A generated
- * source coming back from a future API will carry a remote URL and leave the
- * flag false, so the same release path stays correct for both.
+ * This is what replaced the session-memory source: the backend's
+ * `selected_floor_plan` is the record of which plan the project is working
+ * from, so Step 1's source is read from it rather than stored a second time.
+ * The shape is unchanged, so `modeForSource`, `lockedModeForSource` and every
+ * preview keep working exactly as they did.
+ *
+ * `UPLOADED` becomes an upload source; `GENERATED` and `EDITED` become a
+ * generated one, because both came out of the assistant.
  */
-export function createUploadSource(file) {
-  const kind = fileKind(file)
-  if (!kind) return null
+export function sourceFromApprovedVersion(result) {
+  if (!result?.imageUrl) return null
+
+  const uploaded = result.source === 'UPLOADED'
 
   return {
-    type: FLOOR_PLAN_SOURCE_TYPES.upload,
-    kind,
-    name: file.name,
-    size: file.size,
-    mime: file.type || (kind === 'pdf' ? PDF_MIME_TYPE : ''),
-    extension: fileExtension(file.name) || (kind === 'pdf' ? PDF_EXTENSION : ''),
-    previewUrl: kind === 'image' ? URL.createObjectURL(file) : null,
-    ownsPreviewUrl: kind === 'image',
-    addedAt: Date.now(),
-  }
-}
-
-/** The shape a completed generation must produce. */
-export function createGeneratedSource({ prompt, previewUrl, ownsPreviewUrl = false }) {
-  return {
-    type: FLOOR_PLAN_SOURCE_TYPES.generated,
+    type: uploaded ? FLOOR_PLAN_SOURCE_TYPES.upload : FLOOR_PLAN_SOURCE_TYPES.generated,
     kind: 'image',
-    name: 'Generated floor plan',
-    prompt,
-    previewUrl,
-    ownsPreviewUrl,
-    addedAt: Date.now(),
-  }
-}
-
-/** Frees the blob URL a source owns. Safe on null, and on a remote URL. */
-export function releaseFloorPlanSource(source) {
-  if (source?.ownsPreviewUrl && source.previewUrl) {
-    URL.revokeObjectURL(source.previewUrl)
+    name: result.assetName || (uploaded ? 'Uploaded floor plan' : 'Generated floor plan'),
+    prompt: result.prompt || '',
+    versionId: result.id,
+    assetId: result.assetId ?? null,
+    previewUrl: result.imageUrl,
+    // A backend url, never a blob this app minted, so there is nothing to free.
+    ownsPreviewUrl: false,
+    addedAt: result.at,
   }
 }
 
@@ -144,29 +153,6 @@ export function lockedModeForSource(source) {
   return source.type === FLOOR_PLAN_SOURCE_TYPES.upload
     ? FLOOR_PLAN_MODES.generate
     : FLOOR_PLAN_MODES.upload
-}
-
-/**
- * The validation boundary Step 1 hands to the rest of the workflow.
- */
-export function hasFloorPlanSource(source) {
-  return Boolean(source)
-}
-
-/**
- * Why 3D Rendering is not reachable yet, or `null` when it is.
- *
- * The same shape as Step 2's `renderingGateMessage`, and read the same way:
- * `ProjectWorkspace` asks the active stage's domain for a reason and hands it
- * to the shared bottom navigation, which explains instead of navigating. Step 2
- * has to have a plan to work from — its own gateway says so and offers "Go to
- * Upload" — so leaving Step 1 without one is a dead end, not a shortcut.
- *
- * The stepper and a typed URL still reach `/rendering` directly; that view
- * already handles a missing source, and this gate does not remove it.
- */
-export function floorPlanGateMessage(source) {
-  return hasFloorPlanSource(source) ? null : NEXT_STEP_PENDING
 }
 
 export function formatFileSize(bytes) {
@@ -241,8 +227,15 @@ export const MODE_LOCK_MESSAGES = {
     'An AI-generated floor plan is currently active. Please clear it first to upload a new 2D architectural file.',
 }
 
-export const NEXT_STEP_PENDING =
-  'Add or generate a 2D floor plan before continuing to 3D Rendering.'
-
-export const NEXT_STEP_READY =
-  '2D floor plan ready — continue to 3D Rendering when you are.'
+/*
+ * `NEXT_STEP_PENDING` / `NEXT_STEP_READY` moved to `STAGE_GATE_MESSAGES` in
+ * `projectWorkflow.js`, alongside `stageGateMessage` — the gate is read from
+ * the project's `workflow_state` now, so the copy belongs with the question
+ * rather than with this module's source model.
+ *
+ * `createUploadSource`, `createGeneratedSource`, `releaseFloorPlanSource`,
+ * `hasFloorPlanSource` and `floorPlanGateMessage` were removed with the
+ * session-memory source they served: a source is DERIVED from the approved
+ * backend version (`sourceFromApprovedVersion`), so nothing mints one, nothing
+ * owns a blob URL to free, and the gate does not ask this module.
+ */

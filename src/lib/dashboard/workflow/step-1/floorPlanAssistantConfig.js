@@ -24,4 +24,13 @@ export const FLOOR_PLAN_QUICK_PROMPTS = [
 ]
 
 /** The stand-in 2D floor plan asset. */
-export const MOCK_FLOOR_PLAN_IMAGE_URL = '/assets/plan-2d-primary.svg'
+/**
+ * What a failed 2D run says, in the transcript and in a toast alike.
+ *
+ * It lives here now. It used to live in a `floorPlanGeneration.js` seam that
+ * also held a frontend mock returning a fixed local SVG as if it were a
+ * generated plan; Step 1 calls `POST /step-1/generate/` for real, so the mock
+ * and the flags that gated it are gone and only the copy remains.
+ */
+export const GENERATION_FAILED_MESSAGE =
+  'That floor plan could not be generated. Try again in a moment.'
