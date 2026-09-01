@@ -27,12 +27,16 @@ export default function CreateProjectModal({ open, onClose }) {
   // A create that resolves after this modal's page unmounts must not set state
   // on a component that is gone.
   const activeRef = useRef(true)
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // React Strict Mode runs an effect cleanup once during development before
+    // mounting it again. Resetting here keeps the guard active for the real
+    // mounted modal after that development-only check.
+    activeRef.current = true
+
+    return () => {
       activeRef.current = false
-    },
-    [],
-  )
+    }
+  }, [])
 
   const handleClose = () => {
     if (creating) return

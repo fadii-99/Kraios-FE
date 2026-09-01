@@ -90,12 +90,16 @@ export default function ProjectsProvider({ children }) {
   const projectsRequestRef = useRef(null)
   const mountedRef = useRef(true)
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // React Strict Mode runs effect cleanup once during development before the
+    // real mount. Reset this guard when the provider mounts again so a valid
+    // API response can move the project list from loading to ready.
+    mountedRef.current = true
+
+    return () => {
       mountedRef.current = false
-    },
-    [],
-  )
+    }
+  }, [])
 
   /* -------------------------------------------------------------------------
      The project list

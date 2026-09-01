@@ -49,12 +49,13 @@ export default function FloorPlanInputStage({ projectId, defaultMode }) {
   const reduced = usePrefersReducedMotion()
   const activeRef = useRef(true)
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    activeRef.current = true
+
+    return () => {
       activeRef.current = false
-    },
-    [],
-  )
+    }
+  }, [])
 
   /**
    * The real upload.

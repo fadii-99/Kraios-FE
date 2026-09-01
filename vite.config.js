@@ -14,9 +14,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://bdf7-182-182-224-98.ngrok-free.app',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
         headers: {
           'ngrok-skip-browser-warning': 'true',
         },
@@ -25,9 +25,9 @@ export default defineConfig({
       // this; the socket is the optional faster path in local development,
       // where the app and the backend share an origin through this proxy.
       '/ws': {
-        target: 'wss://bdf7-182-182-224-98.ngrok-free.app',
+        target: 'ws://127.0.0.1:8000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
         ws: true,
       },
     },
