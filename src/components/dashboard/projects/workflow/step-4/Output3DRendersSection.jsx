@@ -24,6 +24,8 @@ export default function Output3DRendersSection({
   render3DSource,
   versions = [],
   onViewSource,
+  compact = false,
+  onViewAll,
 }) {
   const approvedName = render3DSource?.assetName || 'approved-3d-model.png'
   const approvedImageUrl = render3DSource?.imageUrl || null
@@ -115,16 +117,15 @@ export default function Output3DRendersSection({
         </div>
       )}
 
-      {/* ── Cards Grid (4 Columns Layout) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
-        {/* Card 1: the APPROVED render — rendered only when there is one. It
-            used to render unconditionally, badge and all, with a null image. */}
+      {/* ── Cards Grid ── */}
+      <div className={`grid gap-4 sm:gap-5 ${compact ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'}`}>
+        {/* Card 1: the APPROVED render */}
         {render3DSource && (
-        <div className="group relative flex flex-col justify-between overflow-hidden rounded-lg border-2 border-[var(--color-brand-deep)]/60 bg-white p-4 sm:p-5 shadow-2xs transition-all hover:shadow-md">
+        <div className="group relative flex flex-col justify-between overflow-hidden rounded-lg border-2 border-[var(--color-brand-deep)]/60 bg-white p-3 sm:p-3.5 shadow-2xs transition-all hover:shadow-md">
           {/* Top Approved Tag */}
-          <div className="mb-3 flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 rounded-xs bg-emerald-500/10 px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-wider text-emerald-700">
-              <CheckCircle size={13} weight="fill" className="text-emerald-600" />
+          <div className="mb-2 flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 rounded-xs bg-emerald-500/10 px-2 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wider text-emerald-700">
+              <CheckCircle size={12} weight="fill" className="text-emerald-600" />
               APPROVED LATEST
             </span>
           </div>
@@ -132,7 +133,7 @@ export default function Output3DRendersSection({
           {/* Image Viewport */}
           <div
             onClick={() => handlePreview({ imageUrl: approvedImageUrl, name: approvedName })}
-            className="relative flex h-44 sm:h-48 w-full cursor-pointer items-center justify-center overflow-hidden rounded-md bg-slate-50 p-4"
+            className="relative flex h-32 sm:h-36 w-full cursor-pointer items-center justify-center overflow-hidden rounded-md bg-slate-50 p-2.5"
           >
             <img
               src={approvedImageUrl}
@@ -142,49 +143,67 @@ export default function Output3DRendersSection({
           </div>
 
           {/* Details */}
-          <div className="mt-4">
-            <h3 className="truncate text-[0.8125rem] font-bold text-[var(--tone-ink)]" title={approvedName}>
+          <div className="mt-2.5">
+            <h3 className="truncate text-[0.75rem] font-bold text-[var(--tone-ink)]" title={approvedName}>
               {approvedName}
             </h3>
-            <p className="text-[0.6875rem] font-medium text-slate-400 mt-1">
+            <p className="text-[0.625rem] font-medium text-slate-400 mt-0.5">
               {approvedAt ? `Approved ${approvedAt}` : 'Approved'}
             </p>
 
-              {/* Action Buttons Row */}
-              <div className="mt-3.5 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handlePreview({ imageUrl: approvedImageUrl, name: approvedName })}
-                  className="min-w-0 flex-1 flex cursor-pointer items-center justify-center gap-1.5 rounded-sm border border-slate-200 bg-white px-2 py-1.5 text-[0.6875rem] font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
-                >
-                  <Eye size={13} weight="bold" className="shrink-0" />
-                  <span className="truncate">Preview</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDownload({ imageUrl: approvedImageUrl, name: approvedName })}
-                  className="min-w-0 flex-1 flex cursor-pointer items-center justify-center gap-1.5 rounded-sm border border-slate-200 bg-slate-50 px-2 py-1.5 text-[0.6875rem] font-bold text-slate-700 shadow-2xs hover:bg-slate-100 transition-colors"
-                >
-                  <DownloadSimple size={13} weight="bold" className="shrink-0" />
-                  <span className="truncate">Download</span>
-                </button>
-              </div>
+            {/* Action Buttons Row */}
+            <div className="mt-2.5 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handlePreview({ imageUrl: approvedImageUrl, name: approvedName })}
+                className="min-w-0 flex-1 flex cursor-pointer items-center justify-center gap-1.5 rounded-sm border border-slate-200 bg-white px-2 py-1 text-[0.6875rem] font-bold text-slate-700 shadow-2xs hover:bg-slate-50 transition-colors"
+              >
+                <Eye size={12} weight="bold" className="shrink-0" />
+                <span className="truncate">Preview</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownload({ imageUrl: approvedImageUrl, name: approvedName })}
+                className="min-w-0 flex-1 flex cursor-pointer items-center justify-center gap-1.5 rounded-sm border border-slate-200 bg-slate-50 px-2 py-1 text-[0.6875rem] font-bold text-slate-700 shadow-2xs hover:bg-slate-100 transition-colors"
+              >
+                <DownloadSimple size={12} weight="bold" className="shrink-0" />
+                <span className="truncate">Download</span>
+              </button>
             </div>
           </div>
+        </div>
         )}
 
-        {/* The project's other renders */}
-        {otherVersions.map((item) => (
+        {/* Compact Mode: Show "+ X More (View All)" card if there are extra versions */}
+        {compact && otherVersions.length > 0 && (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="group flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center transition-all hover:border-[var(--color-brand-deep)] hover:bg-blue-50/50 hover:shadow-xs cursor-pointer min-h-[220px]"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[var(--color-brand-deep)] shadow-2xs group-hover:scale-110 transition-transform">
+              <Cube size={20} weight="bold" />
+            </div>
+            <span className="mt-3 text-[0.8125rem] font-bold text-[var(--tone-ink)] group-hover:text-[var(--color-brand-deep)]">
+              +{otherVersions.length} More Render{otherVersions.length > 1 ? 's' : ''}
+            </span>
+            <span className="mt-1 text-[0.6875rem] text-slate-500 font-medium">
+              Click to View All Versions
+            </span>
+          </button>
+        )}
+
+        {/* Non-compact Mode: Render all other versions */}
+        {!compact && otherVersions.map((item) => (
           <div
             key={item.id}
-            className="group relative flex flex-col justify-between overflow-hidden rounded-lg border border-[var(--tone-line-strong)] bg-white p-4 sm:p-4.5 shadow-2xs transition-all hover:shadow-md"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-lg border border-[var(--tone-line-strong)] bg-white p-3 sm:p-3.5 shadow-2xs transition-all hover:shadow-md"
           >
-            <div className="h-6" />
+            <div className="h-4" />
 
-            {/* Image Viewport */}
             <div
               onClick={() => handlePreview(item)}
-              className="relative flex h-40 sm:h-44 w-full cursor-pointer items-center justify-center overflow-hidden rounded-md bg-slate-50 p-3.5"
+              className="relative flex h-32 sm:h-36 w-full cursor-pointer items-center justify-center overflow-hidden rounded-md bg-slate-50 p-2.5"
             >
               <img
                 src={item.imageUrl}
@@ -193,7 +212,6 @@ export default function Output3DRendersSection({
               />
             </div>
 
-            {/* Details */}
             <div className="mt-3.5">
               <h3 className="truncate text-[0.75rem] font-bold text-[var(--tone-ink)]" title={item.name}>
                 {item.name}
@@ -202,7 +220,6 @@ export default function Output3DRendersSection({
                 {formatProjectDate(item.at)}
               </p>
 
-              {/* Action Buttons Row */}
               <div className="mt-3.5 flex items-center gap-2">
                 <button
                   type="button"

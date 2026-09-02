@@ -428,13 +428,24 @@ the mode lock applied.
   is no "Approve Now" button in the header — approval is per result, in the
   result's header row.
 - Conversation: empty state with four `FLOOR_PLAN_QUICK_PROMPTS`, then one
-  **turn sheet** per exchange — `AssistantTurnCard` holding the instruction and
-  what it produced, with a red delete control in a reserved column OUTSIDE the
-  sheet's right edge.
-- The sheet and the delete control appear only on a SETTLED turn
-  (`isTurnSettled` — replies exist, none pending, none a failure notice). While
-  a job runs, and after one fails, the turn stays on the bare backdrop. The
-  sheet's border is `--tone-line-soft` (half a hairline).
+  **turn block** per exchange — `AssistantTurnCard` holding the instruction, the
+  red delete control in a reserved column beside it, and what the instruction
+  produced under a rule that spans the block's full inner width.
+- The block's boundary is drawn by its OUTER element, so the resting hairline
+  (`--tone-line`), the hover surface (slate line + white fill) and the
+  delete-hover warning all enclose the instruction, its replies and the action
+  column together. Every turn gets the block, running or settled, and only the
+  HOVERED one is filled — the transcript itself is transparent, with the
+  conversation's two blue setting-out lines running its whole height. The DELETE
+  control appears only on a SETTLED turn (`isTurnSettled` — replies exist, none
+  pending, none a failure notice).
+- A floating **scroll-to-bottom** control (`ScrollToBottomButton`, Step 2's,
+  shared by all three conversations) fades in over the foot of the transcript
+  once the reader is more than `JUMP_THRESHOLD_PX` (220) from the bottom, and
+  scrolls back to the latest message on click. Its visibility is read off the
+  same `handleScroll` measurement the auto-follow behaviour already takes; the
+  arrow bounces only while the control is offered, and drops that under reduced
+  motion. Hidden, it is out of the tab order and inert to the pointer.
 - **Delete is wired**: `DELETE /projects/{id}/conversations/messages/{messageId}/`
   with the prompt's `serverMessageId`. The backend deletes the whole block —
   message, version, job and stored files — so the client deletes no image
@@ -480,10 +491,18 @@ loads Step 1 and Step 2 and holds a loader while either is in flight.
 - Header: Back to 3D Rendering, brand block titled **"3D Rendering"**
   (`workspaceTitle`), `ProjectFilesPanel` in its compact variant (the 2D plan,
   with a full-screen preview), `ApprovalStatus`.
-- Conversation: `AssistantEmptyState` + four `QUICK_PROMPTS`, then turn sheets —
-  same settled-only sheet, same wired delete (Step 2's reload + project refresh)
-  and the same no-commentary / no-percentage rules as the 2D assistant above.
+- Conversation: `AssistantEmptyState` + four `QUICK_PROMPTS`, then turn blocks —
+  same block boundary, same settled-only delete (Step 2's reload + project
+  refresh) and the same no-commentary / no-percentage rules as the 2D assistant
+  above.
 - Result header controls: Edit, Approve (toggle, with tooltip), View Angle menu.
+- A PREVIEW result — a version whose backend `source` is in
+  `PREVIEW_RENDER_SOURCES` (`ANGLE`, i.e. the View Angle action's own output;
+  never inferred from the prompt text) — shows the render and a "Preview only"
+  label instead
+  of those three controls, is not clickable as the refinement base, and is
+  skipped by `latestResult`. It still appears in Step 4's render gallery, which
+  is view-and-download and offers no approval anyway.
 - Result rail: Full View always; DWG only when the result actually carries a
   `dwgUrl` (the mock never does, so no DWG button is shown).
 - Composer: single-line input on a white `--radius-field` bar over a transparent
@@ -568,10 +587,10 @@ state.
   A BOQ version is immutable on the backend, so an edit is a NEW unapproved
   version — which preserves the old rule without a browser-only copy.
 - Approve: `POST /step-3/versions/{id}/approve/`, then back to `/boq`.
-- Conversation: the SAME turn sheets as the two design assistants
-  (`AssistantTurnCard`), with the settled-only rule and the wired delete — the
-  BoQ assistant's own `BoQMessage` is what sits inside them, because here the
-  assistant's Markdown text is a real answer rather than commentary.
+- Conversation: the SAME turn blocks as the two design assistants
+  (`AssistantTurnCard`), with the settled-only delete — the BoQ assistant's own
+  `BoQMessage` is what sits inside them, because here the assistant's Markdown
+  text is a real answer rather than commentary.
 - Composer: single-line input + send, and nothing else. The paperclip and the
   document-type menu moved into `ProjectFilesPanel`, where the slot a file is
   dropped on IS its classification.
@@ -933,19 +952,19 @@ actually observed in a real browser:
   (`tabIndex -1`) and measured EXACTLY centred on the field (0px delta) with a
   14px inset. The first attempt was 6px low — the field's own `mt-3` collapses
   out of the wrapper — and was fixed and re-measured, not assumed.
-- **The assistant workspace pieces** — turn sheets, the delete control, the
-  Project Files panel (both variants), the composer and the sidebar toggle were
-  rendered in a THROWAWAY harness entry (`uiproof.html` + `src/uiproof.jsx`,
-  both deleted afterwards; nothing in `src/` still references them) with static
-  props, at 1440, 1280, 900 and 390 CSS px. Observed: a settled turn draws the
-  white sheet with the delete control outside its right edge; a pending turn and
-  a failed turn draw NEITHER; the pending block shows no percentage; no
-  horizontal overflow at 390 (`scrollWidth === innerWidth`); the sheet border
-  computes to `rgba(11,22,36,0.07)` and the composer field to a 12px radius;
+- **The assistant workspace pieces** — the Project Files panel (both variants),
+  the composer and the sidebar toggle were rendered in a THROWAWAY harness entry
+  (`uiproof.html` + `src/uiproof.jsx`, both deleted afterwards; nothing in
+  `src/` still references them) with static props, at 1440, 1280, 900 and 390
+  CSS px. Observed: no horizontal overflow at 390
+  (`scrollWidth === innerWidth`); the composer field computes to a 12px radius;
   the sidebar toggle's border computes to `rgba(11,22,36,0.3)`.
-- **The BoQ transcript** was rendered the same way through the real
-  `BoQConversation` with a mock state, and shows the same sheet, the same
-  external delete control and the same pending behaviour.
+- The turn-card measurements taken in that harness described the PREVIOUS
+  structure (a settled-only sheet with the delete control outside its right
+  edge) and no longer describe `AssistantTurnCard`. The current block — one
+  boundary around the instruction, its replies and the action column, on every
+  turn — has NOT been measured in a browser; it is verified only by lint and a
+  production build.
 
 NOT verified in a browser, because both need a live session and real project
 data: the delete REQUEST itself (`DELETE /conversations/messages/{id}/` and the

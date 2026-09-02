@@ -144,7 +144,8 @@ Current direction:
 - light application surface (`--color-light` `#f4f6f8`)
 - restrained neutral borders (`--tone-line`, `--tone-line-strong`, and
   `--tone-line-soft` — half a hairline, for surfaces that sit on the workspace
-  backdrop; the assistant turn sheets are its only current use)
+  backdrop; the rule under an assistant turn's instruction is its only current
+  use)
 - semantic colours: `--color-success` `#0a6c48`, `--color-danger` `#b42318`,
   `--color-warning` `#b54708`
 
@@ -757,6 +758,9 @@ Share only genuinely generic primitives. Current legitimate cross-step reuse:
 - `ProjectFilesPanel` (shared/) — the ONE files control, in Steps 2 and 3
 - `AssistantTurnCard` and `assistantTurns.js` — Step 2 modules reused by the
   Step 1 assistant
+- `ScrollToBottomButton` — Step 2's, in all three conversations: one floating
+  jump-to-latest control, shown from the scroll position the follow behaviour
+  already measures
 - `formatFileSize` from `step-1/floorPlanSource.js`
 
 Keep feature BEHAVIOUR separate.
@@ -938,22 +942,48 @@ Every turn is a real backend round trip, in three beats:
 
 Rules:
 
-- **A turn is one sheet.** `AssistantTurnCard` (Step 2's, reused by Steps 1 and
-  3) puts the instruction and everything it produced on ONE white sheet.
+- **A turn is one block.** `AssistantTurnCard` (Step 2's, reused by Steps 1 and
+  3) puts the instruction and everything it produced in ONE block.
   `assistantTurns.groupIntoTurns` derives the grouping on render — a user
   message opens a turn, every assistant block that follows belongs to it — so
   the reducers and adapters keep their flat message list and no second source of
   truth about ordering exists.
-- **The sheet appears only when the turn SETTLED** (`isTurnSettled`: it has
-  replies, none pending, none a failure notice). A running or failed turn stays
-  on the bare backdrop. A finished-looking container around unfinished work is a
-  lie, and there is nothing to keep — or delete — until there is a result. The
-  sheet's line is `--tone-line-soft`, half a hairline; it separates turns rather
-  than boxing them.
-- **Delete belongs to the turn, and sits OUTSIDE the sheet**, in a reserved
-  column to its right that exists in every state — so the sheet does not change
-  width when a turn settles, and the control cannot push the transcript into a
-  horizontal scroll. It calls
+- **The block encloses the WHOLE turn, action column included.** The resting
+  hairline, the hover highlight and the delete-hover warning are all drawn by
+  the block's outer element, so all three enclose the instruction, every reply
+  it produced and the delete control that removes them. A boundary that stopped
+  short of the action column ended the hover highlight in the middle of the row
+  and ran the rule under the instruction out before the button that belongs to
+  it, so a turn read as if its instruction belonged to the block above — the
+  opposite of what the delete-hover state was showing. Two consequences follow:
+  the instruction and the action column are a ROW inside the block, so the rule
+  under the instruction spans the block's full inner width and reaches under
+  that button; and the action column is RESERVED in every state, so the block
+  never changes width when a turn settles and the control can never push the
+  transcript into a horizontal scroll.
+- **Every turn gets the block, running or settled.** At rest it is a
+  `--tone-line` hairline and NO FILL — it separates turns rather than boxing
+  them, and it is the only thing on screen that says which instruction a result
+  answered, which a running turn needs as much as a finished one. What says the
+  work is unfinished is the pending block inside, not a missing edge.
+- **The FILL belongs to the pointer alone.** The transcript has no surface of
+  its own: the conversation's outer boundary is two setting-out lines with a
+  transparent middle, so the workspace backdrop reads straight through and
+  EXACTLY ONE block is filled at a time — the hovered one. A panel fill put the
+  first turns on white while later ones sat on the backdrop, and made a turn
+  between the two read as if it belonged to the block above it.
+- **The conversation's boundary lines run the WHOLE transcript.** The panel takes
+  `flex-1` and no min-height. `flex-1` is `flex: 1 1 0%`, so it fills the
+  scroller when the transcript is short while the column flex item's automatic
+  `min-height: auto` clamps it to its content when the transcript is long.
+  `min-h-full` OVERRIDES that automatic minimum, which sized the panel to
+  exactly one scroller height and let the rest of the transcript overflow
+  outside it — the lines then stopped partway down. Never put a min-height on
+  that element or its parent.
+- **Delete belongs to the turn**, and is offered only once the turn has SETTLED
+  (`isTurnSettled`: it has replies, none pending, none a failure notice) —
+  there is nothing to keep or delete until there is a result, and the endpoint
+  must not be pointed at a block the backend may still be writing. It calls
   `DELETE /projects/{id}/conversations/messages/{messageId}/` with the prompt's
   `serverMessageId`; the backend deletes the whole block (message, version, job,
   files), so nothing deletes an image separately. Afterwards the step is
@@ -968,6 +998,13 @@ Rules:
   speak — those come from the version, not the conversation. Step 3 is
   different on purpose: its assistant text IS the answer, and is rendered as
   Markdown.
+- **Scrolling up offers ONE control**: the floating `ScrollToBottomButton` over
+  the foot of the transcript, past `JUMP_THRESHOLD_PX`. Its visibility comes off
+  the SAME measurement `handleScroll` already takes for the auto-follow
+  behaviour — do not add a second scroll listener or an observer for it — and
+  clicking it calls the conversation's own `scrollToBottom`. The scroll that
+  follows fires `handleScroll`, which is what hides it again, so nothing else
+  sets that state.
 - The pending block shows the job's own `message` and NO percentage. The
   pipeline's `progress` is a simulated ramp, so a number on screen read as an
   estimate the backend cannot make (`jobProgressText`).
@@ -1018,11 +1055,11 @@ header), and `AssistantComposer` (single-line input, Enter to send,
 `RenderStyleDropdown` inline, Cancel gated on
 `MODEL_GENERATION_SUPPORTS_CANCEL`).
 
-The transcript follows Step 1's rules exactly — settled-only turn sheets, the
-delete control outside the sheet, no assistant commentary, no percentage on the
-pending block (§19). Step 3's transcript uses the same sheet and the same delete
-behaviour; only its message component differs, because its assistant text IS the
-answer.
+The transcript follows Step 1's rules exactly — one block per turn enclosing
+its action column, delete on settled turns only, no assistant commentary, no
+percentage on the pending block (§19). Step 3's transcript uses the same block
+and the same delete behaviour; only its message component differs, because its
+assistant text IS the answer.
 
 Result actions split by intent, and the split must be preserved:
 
@@ -1070,6 +1107,42 @@ through the SAME `runGeneration` path a typed instruction takes. Do not add a
 second generation implementation for it, and do not fake a viewpoint by
 transforming an existing image. It needs a version to convert, so choosing an
 angle before anything has been rendered explains itself instead of failing.
+
+**A view OF the design is not the design.** The classification is the BACKEND's,
+read from ONE field — `source` on the `ThreeDVersion`, set by the endpoint that
+created it. `PREVIEW_RENDER_SOURCES` (`designAdapters.js`) names the sources
+that are a view — `ANGLE` today, the contract's own value — and
+`isPreviewRender` reads everything else as the design. Never decide this from
+the user's words: an instruction is free text, and "make the floor colour pink"
+must be as approvable as "generate".
+
+A DENYLIST on purpose. Naming the design's own sources instead put the decision
+on spellings this repo had never been given: the generate source is not spelled
+`GENERATE`, so the project's real render lost Approve and Step 2 could never
+complete. The two mistakes are not equally cheap — an unrecognised source read
+as the design offers Approve on something that should not have it, recoverable
+by approving a proper version; read as a preview it is a dead end. A preview
+view the backend grows later is added to that list deliberately, and the
+`source` enum belongs beside the endpoints in `projects.js` (§9) once the
+backend's choices are known.
+
+A preview is SHOWN in the transcript, in full, and is a real deliverable in
+Step 4 — but it is not part of the approve/edit workflow:
+
+- no Approve, no Edit and no View Angle on it (`previewOnly` on
+  `ResultHeaderControls`, which says "Preview only" in their place, because an
+  empty header row reads as broken rather than as a preview). Approving one
+  would set `selected_three_d` to a camera angle and carry it into Step 3, the
+  BOQ and the deliverables as the design itself.
+- it cannot be SELECTED as the refinement base — `AssistantResult` draws no
+  selection target without an `onSelect` — and `latestResult` skips it, so a
+  bare instruction reaches past it to the model it was taken from. Without that,
+  choosing an angle would silently redirect the next instruction, and the next
+  angle request would convert its own output.
+
+A result with no `source` is one this client just issued and has not read back,
+so it is never a preview; the page always refetches, and a hydrated transcript
+carries the backend's own source on every result.
 
 ---
 
@@ -1136,7 +1209,7 @@ Workspace: `BoQAssistantHeader` (Back, brand — `workspaceTitle` "BOQ
 Generation" — `ProjectFilesPanel`, `ApprovalStatus`), `BoQConversation`
 (`BoQAssistantEmptyState`, `BoQMessage` rendering assistant markdown through
 `react-markdown` + `remark-gfm`, pending/failure/retry blocks, `BoQResult` →
-`BoQTable`, all grouped into the shared `AssistantTurnCard` sheets with the same
+`BoQTable`, all grouped into the shared `AssistantTurnCard` blocks with the same
 delete control — §19), and `BoQComposer` (input + send, and nothing else).
 
 `DOCUMENT_TYPES` (`boqAssistantConfig.js`) is exactly the seven values the
@@ -1241,14 +1314,20 @@ Approval belongs to one specific BoQ version.
 - Approval is `POST /step-3/versions/{id}/approve/`. It sets `selected_boq`,
   completes Step 3 and clears a previous skip. There is no un-approve endpoint.
 - A BOQ version is IMMUTABLE on the backend, so a table edit is not a mutation:
-  Add Row and Delete Row compute the amended rows (`withAddedRow` /
-  `withDeletedRow` in `boqAdapters.js`), post them to
-  `POST /step-3/versions/manual/` parented on the version they were edited from,
-  and refetch. The new `MANUAL` version arrives unapproved.
-  That preserves the old rule — an edited table is not the table anybody signed
-  off — without a browser-only copy the server would never agree with. The
-  reducer's in-place `addRow` / `deleteRow` / `withRowEdit` are gone; do not
-  reintroduce them.
+  the amended rows (`withAddedRow` / `withDeletedRow` / a changed cell) are
+  posted to `POST /step-3/versions/manual/` parented on the version they were
+  edited from, and the page refetches. The reducer's in-place `addRow` /
+  `deleteRow` / `withRowEdit` are gone; do not reintroduce them.
+- **The BoQ table is edited in Step 4, not in the assistant.** The assistant
+  shows the agent's own compiled table inside its markdown reply and holds the
+  structured one back (`BoQResult` renders a receipt, not a table), because
+  rendering both put two copies of the same figures on screen for one answer.
+  Step 3 is where a BoQ is discussed and approved; Step 4 is where its table is
+  worked on.
+- An edit made in Step 4 is saved AND approved: the new `MANUAL` version would
+  otherwise arrive unapproved, and Output only renders the version the backend
+  marked `selected`, so the edit would vanish on the next load. Approving it is
+  what carries the edit into the deliverables, the CSV and the archive.
 - `approvedResultId` mirrors `selected_boq` and is the single approval flag in
   the view model. Do not add a component-local `isApproved`.
 
@@ -1290,9 +1369,18 @@ re-derives what was approved — the backend marks the approved item with
 section fell back to when the real asset was missing, so an empty project
 displayed two drawings it did not own.
 
-Step 4 should remain **View · Review · Download**. Do not add upstream editing
-behaviour to Output (the BoQ "edit" control navigates to the BoQ Assistant; it
-does not edit in place).
+Step 4 is **View · Review · Download**, with ONE exception: the BoQ table is
+edited here. `OutputBoQModal` opens the full table with editable cells, add and
+delete row; `OutputStage` owns the draft and the debounced write (§25).
+
+That exception is deliberate and narrow. It replaced the old rule ("the BoQ
+edit control navigates to the BoQ Assistant; it does not edit in place"), which
+existed when the assistant was the only place the table was rendered. The
+assistant no longer renders it, so sending the user back there to edit would
+have sent them somewhere the table is not.
+
+Nothing else in Output edits upstream state: renders, plans and documents stay
+view-and-download.
 
 ### Step 4 data truth
 

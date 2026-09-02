@@ -87,39 +87,36 @@ export default function OutputHeader({
   const hasDeliverables = planCount + renderCount + boqCount + docCount > 0
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-[var(--tone-line-strong)] bg-white p-6 shadow-xs sm:p-8 lg:p-9">
+    <div className="relative overflow-hidden rounded-lg border border-[var(--tone-line-strong)] bg-white p-4 sm:p-5 lg:p-6 shadow-2xs">
       {/* Top Setting-Out Accent Line */}
       <span
         aria-hidden="true"
-        className="absolute -top-px left-0 h-1 w-64 rounded-tl-lg bg-[var(--color-brand-deep)] shadow-[0_0_14px_rgba(11,94,215,0.45)]"
+        className="absolute -top-px left-0 h-1 w-48 rounded-tl-lg bg-[var(--color-brand-deep)] shadow-[0_0_12px_rgba(11,94,215,0.4)]"
       />
 
-      <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
         {/* ── Left Column: Metadata, Title & Deliverables Stat Chips ── */}
-        <div className="min-w-0 flex-1 space-y-4 max-w-2xl">
+        <div className="min-w-0 flex-1 space-y-2.5 max-w-2xl">
           {/* Eyebrow Badges */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="inline-flex items-center gap-1.5 rounded-xs border border-[var(--color-brand-deep)]/25 bg-[var(--color-brand-deep)]/[0.06] px-3 py-1 text-[var(--color-brand-deep)]">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-1.5 rounded-xs border border-[var(--color-brand-deep)]/25 bg-[var(--color-brand-deep)]/[0.06] px-2.5 py-0.5 text-[var(--color-brand-deep)]">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand)] shadow-[0_0_6px_var(--color-brand)]" />
               <span
-                className="font-display text-[0.6875rem] font-bold uppercase tracking-[0.16em]"
+                className="font-display text-[0.625rem] font-bold uppercase tracking-[0.14em]"
                 style={{ fontFamily: 'var(--font-display)' }}
               >
                 PROJECT OUTPUT
               </span>
             </div>
 
-            {/* A STATE, not decoration. This badge used to read "DELIVERABLES
-                READY" unconditionally, including on a project with nothing in
-                it at all. */}
             {hasDeliverables ? (
-              <div className="inline-flex items-center gap-1.5 rounded-xs border border-emerald-500/30 bg-emerald-50 px-3 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-emerald-800">
-                <CheckCircle size={13} weight="fill" className="text-emerald-600" />
+              <div className="inline-flex items-center gap-1.5 rounded-xs border border-emerald-500/30 bg-emerald-50 px-2.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider text-emerald-800">
+                <CheckCircle size={12} weight="fill" className="text-emerald-600" />
                 <span>DELIVERABLES READY</span>
               </div>
             ) : (
-              <div className="inline-flex items-center gap-1.5 rounded-xs border border-[var(--tone-line-strong)] bg-white px-3 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-[var(--tone-muted-dark)]">
-                <ClockClockwise size={13} weight="bold" className="text-[var(--tone-muted)]" />
+              <div className="inline-flex items-center gap-1.5 rounded-xs border border-[var(--tone-line-strong)] bg-white px-2.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider text-[var(--tone-muted-dark)]">
+                <ClockClockwise size={12} weight="bold" className="text-[var(--tone-muted)]" />
                 <span>NO DELIVERABLES YET</span>
               </div>
             )}
@@ -127,43 +124,43 @@ export default function OutputHeader({
 
           {/* Title */}
           <h1
-            className="text-[1.75rem] font-black uppercase leading-tight tracking-tight text-[var(--tone-ink)] sm:text-[2rem] lg:text-[2.25rem]"
+            className="text-xl font-black uppercase leading-tight tracking-tight text-[var(--tone-ink)] sm:text-2xl lg:text-[1.625rem]"
             style={{ fontFamily: 'var(--font-display)' }}
           >
             YOUR PROJECT DELIVERABLES
           </h1>
 
           {/* Subtitle */}
-          <p className="text-[0.875rem] font-normal leading-relaxed text-[var(--tone-muted-dark)] sm:text-[0.9375rem]">
+          <p className="text-[0.8125rem] font-normal leading-relaxed text-[var(--tone-muted-dark)]">
             Review your approved plans, finalized BOQ and all supporting project documents. Download individual items or the complete project package.
           </p>
 
           {/* Deliverables Stat Badges Chips */}
-          <div className="flex flex-wrap items-center gap-2.5 pt-2">
-            <div className="inline-flex items-center gap-2 rounded-xs border border-slate-200/90 bg-slate-50/90 px-3.5 py-1.5 text-[0.75rem] font-semibold text-slate-700 shadow-2xs">
-              <Blueprint size={16} weight="bold" className="text-[var(--color-brand-deep)]" />
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <div className="inline-flex items-center gap-1.5 rounded-xs border border-slate-200/90 bg-slate-50/90 px-3 py-1 text-[0.6875rem] font-semibold text-slate-700 shadow-2xs">
+              <Blueprint size={14} weight="bold" className="text-[var(--color-brand-deep)]" />
               <span>{planCount} Architectural Plans</span>
             </div>
 
-            <div className="inline-flex items-center gap-2 rounded-xs border border-slate-200/90 bg-slate-50/90 px-3.5 py-1.5 text-[0.75rem] font-semibold text-slate-700 shadow-2xs">
-              <Cube size={16} weight="bold" className="text-[var(--color-brand-deep)]" />
+            <div className="inline-flex items-center gap-1.5 rounded-xs border border-slate-200/90 bg-slate-50/90 px-3 py-1 text-[0.6875rem] font-semibold text-slate-700 shadow-2xs">
+              <Cube size={14} weight="bold" className="text-[var(--color-brand-deep)]" />
               <span>{renderCount} 3D Images</span>
             </div>
 
-            <div className="inline-flex items-center gap-2 rounded-xs border border-slate-200/90 bg-slate-50/90 px-3.5 py-1.5 text-[0.75rem] font-semibold text-slate-700 shadow-2xs">
-              <Calculator size={16} weight="bold" className="text-emerald-600" />
+            <div className="inline-flex items-center gap-1.5 rounded-xs border border-slate-200/90 bg-slate-50/90 px-3 py-1 text-[0.6875rem] font-semibold text-slate-700 shadow-2xs">
+              <Calculator size={14} weight="bold" className="text-emerald-600" />
               <span>{boqCount} BOQ</span>
             </div>
 
-            <div className="inline-flex items-center gap-2 rounded-xs border border-slate-200/90 bg-slate-50/90 px-3.5 py-1.5 text-[0.75rem] font-semibold text-slate-700 shadow-2xs">
-              <FileText size={16} weight="bold" className="text-amber-600" />
+            <div className="inline-flex items-center gap-1.5 rounded-xs border border-slate-200/90 bg-slate-50/90 px-3 py-1 text-[0.6875rem] font-semibold text-slate-700 shadow-2xs">
+              <FileText size={14} weight="bold" className="text-amber-600" />
               <span>{docCount} Documents</span>
             </div>
           </div>
         </div>
 
         {/* ── Right Column: QUICK DOWNLOADS Command Center Card ── */}
-        <div className="w-full shrink-0 flex flex-col gap-4 rounded-lg border border-[var(--tone-line-strong)] bg-slate-50/80 p-5 sm:p-5.5 lg:w-[460px] xl:w-[490px] shadow-2xs">
+        <div className="w-full shrink-0 flex flex-col gap-3 rounded-lg border border-[var(--tone-line-strong)] bg-slate-50/80 p-3.5 sm:p-4 lg:w-[400px] xl:w-[430px] shadow-2xs">
           {/* Quick Downloads Card Header */}
           <div className="flex items-center gap-2 pb-2.5 border-b border-slate-200/80">
             <DownloadSimple size={16} weight="bold" className="text-[var(--color-brand-deep)]" />

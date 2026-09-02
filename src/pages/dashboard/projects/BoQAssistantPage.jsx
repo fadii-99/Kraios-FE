@@ -9,7 +9,6 @@ import BoQComposer from '@/components/dashboard/projects/workflow/step-3/assista
 import PageLoader from '@/components/ui/PageLoader'
 import { jobIdFromResponse, waitForJob } from '@/lib/api/jobs'
 import {
-  createManualBoqVersion,
   deleteBoqDocument,
   deleteConversationMessage,
   fetchBoqDocuments,
@@ -24,9 +23,6 @@ import {
 import {
   documentTypeToApi,
   documentsToRecords,
-  toStructuredData,
-  withAddedRow,
-  withDeletedRow,
 } from '@/lib/dashboard/workflow/step-3/boqAdapters'
 import {
   BOQ_ASSISTANT_COPY,
@@ -93,7 +89,6 @@ export default function BoQAssistantPage() {
   const [approving, setApproving] = useState(false)
   const [deletingTurnId, setDeletingTurnId] = useState(null)
   const [uploading, setUploading] = useState(false)
-  const [editingTable, setEditingTable] = useState(false)
 
   const composerRef = useRef(null)
   const abortRef = useRef(null)
@@ -314,56 +309,15 @@ export default function BoQAssistantPage() {
     [approveBoq, approving, navigate, projectId, state.approvedResultId],
   )
 
-  /**
-   * A table edit creates a NEW version.
+  /*
+   * Row editing moved to Output.
    *
-   * A BOQ version is immutable on the backend, and approval belongs to one set
-   * of quantities — so a row added or removed is a different BOQ, saved as a
-   * `MANUAL` version parented on the one it was edited from. The new version
-   * arrives unapproved, which preserves the old rule (an edited table is not
-   * the table anybody signed off) without a browser-only copy.
+   * The chat no longer renders the structured table (see `BoQResult`), so the
+   * add/delete-row handlers that lived here had no control to hang off. The
+   * table is edited in Step 4 now, where `OutputStage` owns the same
+   * "amend rows -> POST /step-3/versions/manual/ -> refetch" cycle this used
+   * to run, debounced across a burst of cell edits.
    */
-  const saveRowEdit = useCallback(
-    async (resultId, rows) => {
-      if (editingTable) return
-
-      setEditingTable(true)
-      try {
-        await createManualBoqVersion(projectId, {
-          structuredData: toStructuredData(rows),
-          parentVersionId: resultId,
-        })
-        if (!activeRef.current) return
-        await reloadStep3()
-      } catch (thrown) {
-        if (!activeRef.current) return
-        showErrorToast(thrown?.message || 'That BoQ change could not be saved.', {
-          id: 'boq-manual-version-failed',
-        })
-      } finally {
-        if (activeRef.current) setEditingTable(false)
-      }
-    },
-    [editingTable, projectId, reloadStep3],
-  )
-
-  const handleAddRow = useCallback(
-    (resultId) => {
-      const result = state.results[resultId]
-      if (!result) return
-      saveRowEdit(resultId, withAddedRow(result.rows))
-    },
-    [saveRowEdit, state.results],
-  )
-
-  const handleDeleteRow = useCallback(
-    (resultId, rowIndex) => {
-      const result = state.results[resultId]
-      if (!result) return
-      saveRowEdit(resultId, withDeletedRow(result.rows, rowIndex))
-    },
-    [saveRowEdit, state.results],
-  )
 
   /**
    * A version the backend was already working on when this page opened.
@@ -447,11 +401,9 @@ export default function BoQAssistantPage() {
       <div data-boq-body className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <BoQConversation
           state={state}
-          busy={busy || approving || editingTable}
+          busy={busy || approving}
           approvedResultId={state.approvedResultId}
           onApprove={handleApprove}
-          onAddRow={handleAddRow}
-          onDeleteRow={handleDeleteRow}
           onRetry={handleRetry}
           onDeleteTurn={handleDeleteTurn}
           deletingTurnId={deletingTurnId}

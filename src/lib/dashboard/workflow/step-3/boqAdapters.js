@@ -277,16 +277,35 @@ export function hydrateBoqState({
     else byMessage.set(messageId, [version])
   })
 
+  /*
+   * A completed version does not get a message of its own.
+   *
+   * The version and the agent's reply are two halves of ONE answer: the reply
+   * is the compiled table the user reads, the version is the same table in
+   * structured form. Emitting both as separate transcript entries showed the
+   * user two responses for one question. So the version is carried forward and
+   * attached to the reply it belongs to — the reply renders, and the version
+   * rides along as `resultId`, which is what puts Approve in that message's
+   * header.
+   */
+  let carriedResultId = null
+
   conversation.forEach((message) => {
     if (message.content) {
+      const role = messageRole(message)
+      const carries = role === 'assistant' && Boolean(carriedResultId)
+
       messages.push({
         id: message.id,
         at: toEpoch(message.created_at),
-        role: messageRole(message),
-        kind: MESSAGE_KINDS.text,
+        role,
+        kind: carries ? MESSAGE_KINDS.result : MESSAGE_KINDS.text,
         text: message.content,
+        resultId: carries ? carriedResultId : undefined,
         serverMessageId: message.id,
       })
+
+      if (carries) carriedResultId = null
     }
 
     ;(byMessage.get(message.id) ?? []).forEach((version) => {
@@ -316,32 +335,34 @@ export function hydrateBoqState({
       }
 
       if (results[version.id]) {
-        messages.push({
-          id: `result-${version.id}`,
-          at: toEpoch(version.completed_at || version.created_at),
-          role: 'assistant',
-          kind: MESSAGE_KINDS.result,
-          resultId: version.id,
-          text: null,
-        })
+        carriedResultId = version.id
       }
     })
   })
 
-  // A MANUAL version is created by the table editor, not by a conversation
-  // turn, so it has no message to sit under. It still belongs in the transcript
-  // — it is a real, approvable version — and is appended in creation order.
-  ordered.forEach((version) => {
-    if (version.source_message || !results[version.id]) return
+  /*
+   * A version whose reply never arrived still needs somewhere to be approved
+   * from, so it falls back to a message of its own. Without this a completed
+   * BoQ with no assistant reply would be unapprovable.
+   */
+  if (carriedResultId) {
     messages.push({
-      id: `result-${version.id}`,
-      at: toEpoch(version.completed_at || version.created_at),
+      id: `result-${carriedResultId}`,
+      at: results[carriedResultId]?.at ?? Date.now(),
       role: 'assistant',
       kind: MESSAGE_KINDS.result,
-      resultId: version.id,
+      resultId: carriedResultId,
       text: null,
     })
-  })
+  }
+
+  /*
+   * A MANUAL version has no conversation turn — it is a save from the Output
+   * table editor, which approves it as it writes. It is deliberately NOT added
+   * to the transcript: it would render as an empty assistant bubble per save.
+   * `approvedResultId` below still resolves to it, because approval is read
+   * from the versions list rather than from the messages.
+   */
 
   const approved = approvedVersionId(versions, project)
 

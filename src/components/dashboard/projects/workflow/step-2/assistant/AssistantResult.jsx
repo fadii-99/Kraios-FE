@@ -72,17 +72,23 @@ export default function AssistantResult({
         {/* The whole render is the selection target. A transparent button
             rather than a handler on the figure, so it is reachable by keyboard
             and announces its state; the inspection rail is a later sibling and
-            paints above it. */}
-        <button
-          type="button"
-          onClick={onSelect}
-          aria-pressed={isBase}
-          aria-label={`Use this ${description} render as the current design`}
-          className={cn(
-            'absolute inset-0 cursor-pointer rounded-md',
-            'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
-          )}
-        />
+            paints above it.
+
+            It exists only when there IS something to select. A preview view
+            cannot become the render the next instruction refines, so it gets no
+            target at all rather than a focusable overlay that does nothing. */}
+        {onSelect && (
+          <button
+            type="button"
+            onClick={onSelect}
+            aria-pressed={isBase}
+            aria-label={`Use this ${description} render as the current design`}
+            className={cn(
+              'absolute inset-0 cursor-pointer rounded-md',
+              'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
+            )}
+          />
+        )}
       </div>
 
       {/* Inspection rail: an overlay on a mouse, a real row on touch. */}

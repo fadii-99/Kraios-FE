@@ -70,6 +70,51 @@ export function viewAngleFromApi(value) {
    Versions and transcript
    --------------------------------------------------------------------------- */
 
+/**
+ * The version sources that are a view OF the design rather than the design.
+ *
+ * The classification is the BACKEND's, read from one field: `source` on the
+ * `ThreeDVersion`, which the backend sets from the endpoint that created the
+ * version. Nothing here reads the user's words — an instruction is free text,
+ * a person can type anything at any length, and a workflow decision taken by
+ * inspecting a prompt would be wrong the first time someone wrote a sentence
+ * instead of a keyword.
+ *
+ * `/step-2/angle/` is the one endpoint that produces a view: another version,
+ * `source: 'ANGLE'`, showing the SAME model from a different camera, with the
+ * original untouched. `/step-2/generate/` and `/step-2/edit/` both produce the
+ * render the project is deciding on, however long or short the instruction that
+ * asked for it, so both are approvable and editable.
+ *
+ * A DENYLIST on purpose, and the direction matters. This named the design's own
+ * sources first and read everything else as a preview, which put the whole
+ * decision on spellings this repo had never been given: the generate source is
+ * not spelled `GENERATE`, so the project's real render lost Approve, Step 2
+ * could never complete and the project could not be finished. The two mistakes
+ * are not equally cheap — an unrecognised source read as the design offers
+ * Approve on something that should not have it, which the user recovers from by
+ * approving a proper version, while an unrecognised source read as a preview is
+ * a dead end. So only KNOWN preview sources are listed, and anything else is
+ * the design.
+ *
+ * `'ANGLE'` is the contract's own value (see `generateThreeDAngle` in
+ * `lib/api/projects.js`). A preview view the backend grows later must be added
+ * here deliberately — and the `source` enum belongs beside the endpoints in
+ * `projects.js` as soon as the backend's choices are known, per §9.
+ */
+export const PREVIEW_RENDER_SOURCES = ['ANGLE']
+
+/**
+ * Whether a result is a view OF the design rather than the design.
+ *
+ * A result with no `source` — one this client just issued and has not read
+ * back — is the design. The page always refetches, so every result in a
+ * hydrated transcript carries the backend's own source.
+ */
+export function isPreviewRender(result) {
+  return PREVIEW_RENDER_SOURCES.includes(result?.source)
+}
+
 /** One `ThreeDVersion` as a result the transcript can render. */
 export function versionToResult(version, projectId) {
   if (!version) return null

@@ -12,7 +12,8 @@
  * above it — the sidebar leaves ~1590px at 1920 — it stops the transcript from
  * running into a banner and keeps a comfortable line length for prose.
  */
-export const ASSISTANT_GRID = 'mx-auto w-full max-w-[64rem]'
+export const ASSISTANT_GRID =
+  'mx-auto w-full max-w-[64rem] lg:max-w-[76rem] xl:max-w-[86rem] 2xl:max-w-[96rem]'
 
 /**
  * The workspace gutters — the dashboard's shared scale, not a third one.

@@ -9,6 +9,7 @@
  * Pure reads — nothing here mutates state or knows about React.
  */
 
+import { isPreviewRender } from '@/lib/dashboard/workflow/step-2/designAdapters'
 import {
   GENERATION_FAILED_MESSAGE,
   RENDERING_COPY,
@@ -52,14 +53,24 @@ export function resultCount(state) {
   return Object.keys(state?.results ?? {}).length
 }
 
-/** The most recent render, which is what a bare instruction refines. */
+/**
+ * The most recent render, which is what a bare instruction refines.
+ *
+ * PREVIEW views are skipped (`isPreviewRender`). A view-angle version is the
+ * newest result in the transcript the moment it lands, but it is a view of the
+ * design rather than the design, so refining "the latest render" must reach
+ * past it to the model it was taken from — otherwise choosing a camera angle
+ * would silently redirect the next instruction, and the angle request itself
+ * would start converting its own output.
+ */
 export function latestResult(state) {
   const messages = state?.messages ?? []
 
   for (let i = messages.length - 1; i >= 0; i -= 1) {
-    if (messages[i].kind === MESSAGE_KINDS.result) {
-      return state.results[messages[i].resultId] ?? null
-    }
+    if (messages[i].kind !== MESSAGE_KINDS.result) continue
+
+    const result = state.results[messages[i].resultId] ?? null
+    if (result && !isPreviewRender(result)) return result
   }
 
   return null

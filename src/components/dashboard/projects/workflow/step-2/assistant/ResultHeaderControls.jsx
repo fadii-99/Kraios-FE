@@ -8,6 +8,14 @@ import { cn } from '@/lib/cn'
  * - View Angle dropdown (isometric camera perspective selector)
  * - Edit Plan (sets this render as active base and focuses composer)
  * - Approve Plan button
+ *
+ * `previewOnly` is for a result that is a view OF the design rather than the
+ * design — a `/step-2/angle/` version, and whatever preview views the contract
+ * grows later (`isPreviewRender`). None of these three actions may be offered
+ * on one: approving it would set `selected_three_d` to a camera angle, and
+ * editing or re-angling it would refine a view instead of the model. It says
+ * what it is instead, because a render with a silently empty header row reads
+ * as broken rather than as a preview.
  */
 export default function ResultHeaderControls({
   viewAngleId,
@@ -16,7 +24,16 @@ export default function ResultHeaderControls({
   busy,
   onApprove,
   onEdit,
+  previewOnly = false,
 }) {
+  if (previewOnly) {
+    return (
+      <span className="label-ui ml-auto inline-flex h-7 shrink-0 items-center rounded-xs border border-[var(--tone-line)] bg-[var(--color-light)] px-2 text-[0.5625rem] text-[var(--tone-muted-dark)]">
+        Preview only
+      </span>
+    )
+  }
+
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 ml-auto">
       {/* 1. Edit Button */}

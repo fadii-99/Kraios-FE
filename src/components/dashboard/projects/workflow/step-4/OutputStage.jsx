@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 
@@ -13,7 +13,14 @@ import OutputFinishBar from '@/components/dashboard/projects/workflow/step-4/Out
 import FloorPlanFullscreenModal from '@/components/dashboard/projects/workflow/shared/FloorPlanFullscreenModal'
 import PageLoader from '@/components/ui/PageLoader'
 
-import { useProject, useProjectOutput } from '@/lib/dashboard/projects/projectsContext'
+import {
+  useProject,
+  useProjectOutput,
+  useProjects,
+} from '@/lib/dashboard/projects/projectsContext'
+import { createManualBoqVersion } from '@/lib/api/projects'
+import { useDebouncedSave } from '@/hooks/useDebouncedSave'
+import { showErrorToast } from '@/lib/toast'
 import {
   completedVersions as completedPlanVersions,
   versionToResult as planVersionToResult,
@@ -25,7 +32,10 @@ import {
 } from '@/lib/dashboard/workflow/step-2/designAdapters'
 import {
   documentsToRecords,
+  toStructuredData,
   versionToResult as boqVersionToResult,
+  withAddedRow,
+  withDeletedRow,
 } from '@/lib/dashboard/workflow/step-3/boqAdapters'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
@@ -50,6 +60,7 @@ export default function OutputStage({ projectId }) {
 
   const project = useProject(projectId)
   const output = useProjectOutput(projectId)
+  const { approveBoq } = useProjects()
   const projectName = project?.name || output.data?.project?.name || 'Project-Deliverables'
 
   // Active Tab state (default: 'all')
@@ -61,6 +72,17 @@ export default function OutputStage({ projectId }) {
 
   // BoQ Full Modal state
   const [boqModalOpen, setBoqModalOpen] = useState(false)
+  const [boqEditing, setBoqEditing] = useState(false)
+
+  /**
+   * The rows the modal is editing.
+   *
+   * Held here rather than in the modal because a save has to outlive the modal
+   * closing: `flush` on close, and the unmount flush inside `useDebouncedSave`,
+   * both need the payload to still exist. `null` means "not editing" — the
+   * modal then reads straight from the server rows.
+   */
+  const [boqDraftRows, setBoqDraftRows] = useState(null)
 
   /**
    * The whole page's data, derived once from the output bundle.
@@ -115,7 +137,99 @@ export default function OutputStage({ projectId }) {
     setPreviewOpen(true)
   }
 
-  const finalBoqRows = deliverables.finalizedBoq?.rows ?? []
+  const serverBoqRows = useMemo(
+    () => deliverables.finalizedBoq?.rows ?? [],
+    [deliverables.finalizedBoq],
+  )
+  const finalBoqRows = boqDraftRows ?? serverBoqRows
+  const boqVersionId = deliverables.finalizedBoq?.id ?? null
+
+  /**
+   * Persist an edited BoQ.
+   *
+   * A BOQ version is immutable on the backend, so an edit is a new `MANUAL`
+   * version parented on the one it was edited from (CLAUDE.md §25). That new
+   * version arrives UNAPPROVED, and Output only ever renders the version the
+   * backend marked `selected` — so without approving it too, the edit would
+   * disappear on the next load. Approving it is what carries the edit forward
+   * into the deliverables, the CSV and the archive.
+   */
+  const persistBoqRows = useCallback(
+    async (rows) => {
+      if (!projectId || !boqVersionId) return
+
+      try {
+        const version = await createManualBoqVersion(projectId, {
+          structuredData: toStructuredData(rows),
+          parentVersionId: boqVersionId,
+        })
+        if (version?.id) await approveBoq(projectId, version.id)
+        await output.reload()
+      } catch (thrown) {
+        showErrorToast(thrown?.message || 'That BoQ change could not be saved.', {
+          id: 'boq-manual-version-failed',
+        })
+      }
+    },
+    [approveBoq, boqVersionId, output, projectId],
+  )
+
+  const { schedule: scheduleBoqSave, flush: flushBoqSave, saving: boqSaving } =
+    useDebouncedSave(persistBoqRows)
+
+  const editBoqRows = useCallback(
+    (nextRows) => {
+      setBoqDraftRows(nextRows)
+      scheduleBoqSave(nextRows)
+    },
+    [scheduleBoqSave],
+  )
+
+  const handleBoqCellChange = useCallback(
+    (rowIndex, field, value) => {
+      editBoqRows(
+        finalBoqRows.map((row, index) =>
+          index === rowIndex ? { ...row, [field]: value } : row,
+        ),
+      )
+    },
+    [editBoqRows, finalBoqRows],
+  )
+
+  const handleBoqAddRow = useCallback(() => {
+    editBoqRows(withAddedRow(finalBoqRows))
+  }, [editBoqRows, finalBoqRows])
+
+  const handleBoqDeleteRow = useCallback(
+    (rowIndex) => {
+      editBoqRows(withDeletedRow(finalBoqRows, rowIndex))
+    },
+    [editBoqRows, finalBoqRows],
+  )
+
+  const handleOpenBoqModal = useCallback(
+    ({ editing = false } = {}) => {
+      setBoqEditing(editing)
+      setBoqDraftRows(editing ? serverBoqRows : null)
+      setBoqModalOpen(true)
+    },
+    [serverBoqRows],
+  )
+
+  const handleCloseBoqModal = useCallback(async () => {
+    setBoqModalOpen(false)
+    setBoqEditing(false)
+    // Send whatever the debounce is still holding before the draft is dropped.
+    await flushBoqSave()
+    setBoqDraftRows(null)
+  }, [flushBoqSave])
+
+  /*
+   * Editing needs a parent version to save against. If the approved BoQ goes
+   * away while the modal is open, this falls back to read-only rather than
+   * leaving the user typing into rows that have nowhere to be written.
+   */
+  const boqEditable = boqEditing && Boolean(boqVersionId)
 
   // GSAP Entrance Animation
   useGSAP(
@@ -150,9 +264,9 @@ export default function OutputStage({ projectId }) {
   return (
     <div
       ref={scope}
-      className="flex w-full flex-1 flex-col pt-6 sm:pt-8 pb-20 sm:pb-28 px-3 sm:px-6 lg:px-8"
+      className="flex w-full flex-1 flex-col py-4 sm:py-6 px-3 sm:px-6 lg:px-8"
     >
-      <div className="mx-auto w-full max-w-[88rem] space-y-10 sm:space-y-12 lg:space-y-14">
+      <div className="mx-auto w-full max-w-[88rem] space-y-6 sm:space-y-7 lg:space-y-8">
         {/* ── 1. Page Hero Banner & Quick Downloads Center ── */}
         <div data-output-section>
           <OutputHeader
@@ -176,7 +290,44 @@ export default function OutputStage({ projectId }) {
         </div>
 
         {/* ── 3. Deliverables Sections Content ── */}
-        {(activeTab === 'all' || activeTab === 'renders') && (
+        {activeTab === 'all' && (
+          <>
+            {/* Row 1: Side-by-Side 2D Floor Plans and 3D Renders (Approved Cards + View All) */}
+            <div data-output-section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Output2DPlansSection
+                plan2DSource={deliverables.source}
+                versions={deliverables.planVersions}
+                onViewSource={handleOpenPreview}
+                compact={true}
+                onViewAll={() => setActiveTab('plans')}
+              />
+              <Output3DRendersSection
+                projectId={projectId}
+                projectName={projectName}
+                render3DSource={deliverables.approvedRender}
+                versions={deliverables.renderVersions}
+                onViewSource={handleOpenPreview}
+                compact={true}
+                onViewAll={() => setActiveTab('renders')}
+              />
+            </div>
+
+            {/* Row 2: Full Width BOQ (Bill of Quantities) + Integrated Supporting Documents */}
+            <div data-output-section className="w-full">
+              <OutputBoQSection
+                projectId={projectId}
+                projectName={projectName}
+                boqResult={deliverables.finalizedBoq}
+                documents={deliverables.documents}
+                onOpenFullModal={() => handleOpenBoqModal()}
+                onEditBoq={() => handleOpenBoqModal({ editing: true })}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Tab: 3D Renders Full Gallery View */}
+        {activeTab === 'renders' && (
           <div data-output-section>
             <Output3DRendersSection
               projectId={projectId}
@@ -184,51 +335,36 @@ export default function OutputStage({ projectId }) {
               render3DSource={deliverables.approvedRender}
               versions={deliverables.renderVersions}
               onViewSource={handleOpenPreview}
+              compact={false}
             />
           </div>
         )}
 
-        {(activeTab === 'all' || activeTab === 'plans' || activeTab === 'boq') && (
-          <div data-output-section className={activeTab === 'all' ? 'grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10' : ''}>
-            {/* 2D Floor Plans */}
-            {(activeTab === 'all' || activeTab === 'plans') && (
-              <div className={activeTab === 'all' ? 'lg:col-span-6' : ''}>
-                <Output2DPlansSection
-                  plan2DSource={deliverables.source}
-                  versions={deliverables.planVersions}
-                  onViewSource={handleOpenPreview}
-                />
-              </div>
-            )}
-
-            {/* BoQ (Bill of Quantities) */}
-            {(activeTab === 'all' || activeTab === 'boq') && (
-              <div className={activeTab === 'all' ? 'lg:col-span-6' : ''}>
-                <OutputBoQSection
-                  projectId={projectId}
-                  projectName={projectName}
-                  boqResult={deliverables.finalizedBoq}
-                  onOpenFullModal={() => setBoqModalOpen(true)}
-                />
-              </div>
-            )}
+        {/* Tab: 2D Plans Full Gallery View */}
+        {activeTab === 'plans' && (
+          <div data-output-section>
+            <Output2DPlansSection
+              plan2DSource={deliverables.source}
+              versions={deliverables.planVersions}
+              onViewSource={handleOpenPreview}
+              compact={false}
+            />
           </div>
         )}
 
-        {(activeTab === 'all' || activeTab === 'documents') && (
-          <div data-output-section>
-            <OutputDocumentsSection
+        {/* Tab: BOQ & Documents View */}
+        {(activeTab === 'boq' || activeTab === 'documents') && (
+          <div data-output-section className="w-full">
+            <OutputBoQSection
               projectId={projectId}
               projectName={projectName}
+              boqResult={deliverables.finalizedBoq}
               documents={deliverables.documents}
+              onOpenFullModal={() => handleOpenBoqModal()}
+              onEditBoq={() => handleOpenBoqModal({ editing: true })}
             />
           </div>
         )}
-
-        {/* ── 4. Close of the page: finish the project ── */}
-        <div data-output-section>
-          <OutputFinishBar projectId={projectId} />
-        </div>
       </div>
 
       {/* ── Fullscreen Lightbox Preview Modal ── */}
@@ -241,9 +377,14 @@ export default function OutputStage({ projectId }) {
       {/* ── BoQ Inspection Fullscreen Modal ── */}
       <OutputBoQModal
         open={boqModalOpen}
-        onClose={() => setBoqModalOpen(false)}
+        onClose={handleCloseBoqModal}
         projectName={projectName}
         rows={finalBoqRows}
+        editable={boqEditable}
+        saving={boqSaving}
+        onCellChange={handleBoqCellChange}
+        onAddRow={handleBoqAddRow}
+        onDeleteRow={handleBoqDeleteRow}
       />
     </div>
   )

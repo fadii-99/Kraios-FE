@@ -5,8 +5,7 @@ const DELIVERABLE_TABS = [
   { id: 'all', label: 'All Deliverables', icon: SquaresFour },
   { id: 'renders', label: '3D Renders', icon: Cube },
   { id: 'plans', label: '2D Floor Plans', icon: Blueprint },
-  { id: 'boq', label: 'BOQ', icon: Calculator },
-  { id: 'documents', label: 'Documents', icon: FileText },
+  { id: 'boq', label: 'BOQ & Documents', icon: Calculator },
 ]
 
 /**

@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'https://aee5-39-47-179-85.ngrok-free.app/api/'
+const BACKEND_BASE_URL = 'http://127.0.0.1:8000/api/'
 
 /**
  * Vercel's body parser is OFF for this function, deliberately.

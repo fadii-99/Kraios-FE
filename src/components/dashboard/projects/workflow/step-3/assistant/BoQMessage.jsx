@@ -141,8 +141,6 @@ export default function BoQMessage({ message, busy, onRetry, headerActions, chil
               'w-fit max-w-[24rem] sm:max-w-[28rem] border border-[var(--color-brand-deep)] bg-[var(--color-brand-deep)] text-white shadow-[0_2px_12px_rgba(22,119,255,0.22)]',
             !isUser &&
               'w-full max-w-[44rem] ml-[2.375rem] sm:ml-10 border border-[var(--tone-line)] bg-white shadow-2xs',
-            !isUser && isFailure && 'border-l-3 border-l-[var(--color-danger)]',
-            !isUser && !isFailure && 'border-l-3 border-l-[var(--color-brand-deep)]',
           )}
         >
           {isPending ? (
