@@ -11,10 +11,7 @@
  * the gap between sending a request and the refetch that answers it.
  */
 
-import {
-  BOQ_ASSISTANT_COPY,
-  DEFAULT_DOCUMENT_TYPE_ID,
-} from '@/lib/dashboard/workflow/step-3/boqAssistantConfig'
+import { BOQ_ASSISTANT_COPY } from '@/lib/dashboard/workflow/step-3/boqAssistantConfig'
 
 export const GENERATION_STATUS = {
   idle: 'idle',
@@ -39,7 +36,6 @@ export function createBoqAssistantState() {
     results: {},
     status: GENERATION_STATUS.idle,
     error: null,
-    documentTypeId: DEFAULT_DOCUMENT_TYPE_ID,
     /**
      * Supporting documents, as `ProjectDocument` records mapped by
      * `boqAdapters.documentToRecord`. Backend records with backend urls — the
@@ -122,11 +118,6 @@ export function boqAssistantReducer(state, action) {
     /** Just the document list, after an upload or a delete. */
     case 'setDocuments':
       return { ...state, uploadedDocuments: action.documents ?? [] }
-
-    case 'setDocumentType':
-      return state.documentTypeId === action.documentTypeId
-        ? state
-        : { ...state, documentTypeId: action.documentTypeId }
 
     /** One turn: the user's instruction, then the pending assistant block. */
     case 'startGeneration': {

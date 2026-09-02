@@ -3,6 +3,15 @@
  */
 
 export const FLOOR_PLAN_ASSISTANT_COPY = {
+  /**
+   * The workspace header's own name for this stage.
+   *
+   * `assistantTitle` names the PRODUCT and is what a gateway card says when it
+   * offers to open the workspace. Once the user is inside it, the header's job
+   * is to say which stage of the project they are standing in — so it carries
+   * the stage's name, matching the stepper above the workflow.
+   */
+  workspaceTitle: '2D Rendering',
   assistantTitle: 'KRAIOS 2D FLOOR PLAN ASSISTANT',
   assistantSubtitle: 'AI 2D Floor Plan Studio · Describe, refine & generate architectural plans',
   emptyHeading: 'DESCRIBE THE FLOOR PLAN YOU NEED',

@@ -423,7 +423,18 @@ export async function deleteBoqDocument(projectId, documentId, options = {}) {
    Messages, jobs, assets
    --------------------------------------------------------------------------- */
 
-/** Deletes one conversation message — 2D, 3D or BOQ, user or assistant. */
+/**
+ * Deletes one conversation message — 2D, 3D or BOQ.
+ *
+ * The backend deletes the whole BLOCK: the message, the version it produced,
+ * that version's job, and the stored image/mask files. So nothing else has to
+ * be deleted afterwards, and the caller's only remaining job is to refetch —
+ * deleting the selected version also clears that selection on the project.
+ *
+ * `messageId` is the USER message that opened the block. A later version built
+ * on the deleted one survives with its own image; only its "based on" link is
+ * unset.
+ */
 export async function deleteConversationMessage(projectId, messageId, options = {}) {
   return apiClient(PROJECT_ENDPOINTS.message(projectId, messageId), {
     method: 'DELETE',

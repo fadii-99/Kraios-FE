@@ -78,6 +78,115 @@ export function documentTypeByApiValue(value) {
 
 
 /* ---------------------------------------------------------------------------
+   Project file slots — what the Project Files panel offers to fill
+   --------------------------------------------------------------------------- */
+
+/**
+ * The four supporting documents a fit-out BoQ is normally built from.
+ *
+ * These are SLOTS in the panel, not a second document-type enum. The backend's
+ * `document_type` accepts exactly the seven values in `DOCUMENT_TYPES`, and
+ * three of these four slots have no member of their own there — so each slot
+ * declares the contract value it is stored as, right beside its label, and the
+ * two cannot drift apart. `STRUCTURAL_DRAWING` is the honest home for the three
+ * drawing slots: its own description already covers structural, MEP, HVAC and
+ * technical drawings.
+ *
+ * Because three slots share one enum value, the enum alone cannot say WHICH
+ * slot a file was dropped on — and a file that reappeared in a different slot
+ * after a refresh read as a bug, not as a contract limit. So the slot is
+ * recorded in the document's own `title`, which is a free-text field the
+ * backend stores and returns: `titleTag` is written in front of the file name
+ * on upload and read back off it on load (`slotIdFromTitle`).
+ *
+ * Nothing user-facing shows the tag: the panel and Step 4 both display `name`,
+ * which is the asset's `original_name`. This is a labelling convention, not a
+ * second classification — `document_type` remains the contract's, and a real
+ * per-slot type is still a backend enum change.
+ */
+export const PROJECT_DOCUMENT_SLOTS = [
+  {
+    id: 'general-document',
+    label: 'General Document',
+    typeId: 'general',
+    titleTag: 'General Document',
+  },
+  { id: 'mep-drawing', label: 'MEP Drawing', typeId: 'structural-drawing', titleTag: 'MEP Drawing' },
+  {
+    id: 'hvac-drawing',
+    label: 'HVAC Drawing',
+    typeId: 'structural-drawing',
+    titleTag: 'HVAC Drawing',
+  },
+  {
+    id: 'door-window-schedule',
+    label: 'Door & Window Schedule',
+    typeId: 'structural-drawing',
+    titleTag: 'Door & Window Schedule',
+  },
+]
+
+/** The separator between the slot tag and the file name in a document title. */
+const SLOT_TITLE_SEPARATOR = ' · '
+
+/** The `title` an upload through one slot is saved under. */
+export function slotDocumentTitle(slot, fileName) {
+  if (!slot?.titleTag) return fileName
+  return `${slot.titleTag}${SLOT_TITLE_SEPARATOR}${fileName}`
+}
+
+/** The slot a stored document was uploaded through, or null. */
+export function slotIdFromTitle(title) {
+  if (!title) return null
+
+  const slot = PROJECT_DOCUMENT_SLOTS.find((candidate) =>
+    title.startsWith(`${candidate.titleTag}${SLOT_TITLE_SEPARATOR}`),
+  )
+
+  return slot?.id ?? null
+}
+
+/**
+ * Documents laid out across the four slots.
+ *
+ * Three passes, most specific first:
+ *
+ *   1. the slot the document was actually uploaded through, read off its title,
+ *   2. failing that, the first free slot matching its `document_type` — which
+ *      is what a document uploaded before this convention, or through another
+ *      client, still gets,
+ *   3. failing that, the first free slot at all, so no uploaded file is
+ *      invisible.
+ *
+ * Anything past four is returned in `extra` rather than dropped — a panel that
+ * silently stops showing a file the user uploaded is worse than one with a
+ * fifth row.
+ */
+export function assignDocumentsToSlots(documents = []) {
+  const remaining = [...documents]
+  const take = (predicate) => {
+    const index = remaining.findIndex(predicate)
+    return index === -1 ? null : remaining.splice(index, 1)[0]
+  }
+
+  const slots = PROJECT_DOCUMENT_SLOTS.map((slot) => ({
+    ...slot,
+    document: take((document) => slotIdFromTitle(document.title) === slot.id),
+  }))
+
+  slots.forEach((slot) => {
+    if (!slot.document) slot.document = take((document) => document.typeId === slot.typeId)
+  })
+
+  slots.forEach((slot) => {
+    if (!slot.document) slot.document = take(Boolean)
+  })
+
+  return { slots, extra: remaining }
+}
+
+
+/* ---------------------------------------------------------------------------
    Stage & Workspace Copy
    --------------------------------------------------------------------------- */
 
@@ -142,11 +251,22 @@ export const BOQ_COPY = {
    --------------------------------------------------------------------------- */
 
 export const BOQ_ASSISTANT_COPY = {
+  /**
+   * The workspace header's own name for this stage.
+   *
+   * `assistantTitle` names the PRODUCT and is what a gateway card says when it
+   * offers to open the workspace. Once the user is inside it, the header's job
+   * is to say which stage of the project they are standing in — so it carries
+   * the stage's name, matching the stepper above the workflow.
+   */
+  workspaceTitle: 'BOQ Generation',
   assistantTitle: 'Kraios BoQ Assistant',
   assistantSubtitle: 'Generate, review and finalize your Bill of Quantities.',
   emptyHeading: 'Generate Your Bill of Quantities',
+  // The copy names the control that actually exists: documents are added from
+  // PROJECT FILES in the header now, not from the composer.
   emptyBody:
-    "Hello! I'm your AI BOQ Specialist. Please upload your project documents (PDFs) and I'll help you generate a detailed Bill of Quantities. Once uploaded, just ask me to 'analyze the files' or 'generate BOQ'.",
+    "Hello! I'm your AI BOQ Specialist. Add your project documents under PROJECT FILES in the header, then ask me to 'analyze the files' or 'generate BOQ' and I'll build a detailed Bill of Quantities.",
   composerPlaceholder:
     'Ask about BOQ, quantities, materials or project documents…',
   generating: 'Compiling Bill of Quantities…',

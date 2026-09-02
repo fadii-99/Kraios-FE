@@ -12,7 +12,11 @@ import PageLoader from '@/components/ui/PageLoader'
 import { dataUrlToFile } from '@/lib/api/files'
 import { jobIdFromResponse, waitForJob } from '@/lib/api/jobs'
 import { jobProgressText } from '@/lib/dashboard/workflow/apiShapes'
-import { editFloorPlan, generateFloorPlan } from '@/lib/api/projects'
+import {
+  deleteConversationMessage,
+  editFloorPlan,
+  generateFloorPlan,
+} from '@/lib/api/projects'
 import {
   isApproved,
   isGenerating,
@@ -25,8 +29,9 @@ import {
   useProjects,
   useStep1Data,
 } from '@/lib/dashboard/projects/projectsContext'
+import { CACHE_KEYS } from '@/lib/dashboard/projects/projectShape'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
-import { showErrorToast, showInfoToast } from '@/lib/toast'
+import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { useResumedJob } from '@/hooks/useResumedJob'
 
@@ -58,12 +63,13 @@ export default function FloorPlanAssistantPage() {
 
   const step1 = useStep1Data(projectId)
   const reloadStep1 = step1.reload
-  const { approveFloorPlan } = useProjects()
+  const { approveFloorPlan, invalidateStep, refreshProject } = useProjects()
   const [state, dispatch] = useFloorPlanAssistant(projectId)
 
   const [prompt, setPrompt] = useState('')
   const [expanded, setExpanded] = useState(null)
   const [approving, setApproving] = useState(false)
+  const [deletingTurnId, setDeletingTurnId] = useState(null)
 
   // Canvas Mode and Loader Transition states
   const [isOpeningCanvas, setIsOpeningCanvas] = useState(false)
@@ -184,6 +190,49 @@ export default function FloorPlanAssistantPage() {
       runGeneration({ text })
     },
     [runGeneration],
+  )
+
+  /**
+   * Deleting one whole turn.
+   *
+   * `DELETE /projects/{id}/conversations/messages/{messageId}/` removes the
+   * user message AND the version, job and files it produced — the backend
+   * deletes the block, so nothing here deletes an image separately. The id is
+   * the prompt's own `serverMessageId`, which only a hydrated (server-backed)
+   * message carries; an optimistic local turn is still pending, and a pending
+   * turn offers no delete control.
+   *
+   * Afterwards the step is refetched and the project reloaded, because deleting
+   * the selected version clears that selection on the backend and the header's
+   * approval state has to follow. Step 4's bundle is invalidated for the same
+   * reason: a deliverable just stopped existing.
+   */
+  const handleDeleteTurn = useCallback(
+    async (turn) => {
+      const message = turn?.prompt
+      const messageId = message?.serverMessageId
+      if (!messageId || deletingTurnId) return
+
+      setDeletingTurnId(message.id)
+      try {
+        await deleteConversationMessage(projectId, messageId)
+        if (!activeRef.current) return
+
+        invalidateStep(CACHE_KEYS.output(projectId))
+        await Promise.all([reloadStep1(), refreshProject(projectId)])
+        if (!activeRef.current) return
+
+        showSuccessToast('Request deleted.', { id: 'floor-plan-turn-deleted' })
+      } catch (thrown) {
+        if (!activeRef.current) return
+        showErrorToast(thrown?.message || 'That request could not be deleted.', {
+          id: 'floor-plan-turn-delete-failed',
+        })
+      } finally {
+        if (activeRef.current) setDeletingTurnId(null)
+      }
+    },
+    [deletingTurnId, invalidateStep, projectId, refreshProject, reloadStep1],
   )
 
   const handleRetry = useCallback(
@@ -381,6 +430,8 @@ export default function FloorPlanAssistantPage() {
           onSelect={handleSelect}
           onApprove={handleApprove}
           onRetry={handleRetry}
+          onDeleteTurn={handleDeleteTurn}
+          deletingTurnId={deletingTurnId}
         />
       </div>
 

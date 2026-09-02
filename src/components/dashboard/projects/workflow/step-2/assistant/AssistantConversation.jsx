@@ -3,7 +3,12 @@ import { useCallback, useEffect, useRef } from 'react'
 import AssistantEmptyState from '@/components/dashboard/projects/workflow/step-2/assistant/AssistantEmptyState'
 import AssistantMessage from '@/components/dashboard/projects/workflow/step-2/assistant/AssistantMessage'
 import AssistantResult from '@/components/dashboard/projects/workflow/step-2/assistant/AssistantResult'
+import AssistantTurnCard from '@/components/dashboard/projects/workflow/step-2/assistant/AssistantTurnCard'
 import ResultHeaderControls from '@/components/dashboard/projects/workflow/step-2/assistant/ResultHeaderControls'
+import {
+  groupIntoTurns,
+  isTurnSettled,
+} from '@/components/dashboard/projects/workflow/step-2/assistant/assistantTurns'
 import {
   ASSISTANT_GRID,
   ASSISTANT_GUTTER,
@@ -44,12 +49,15 @@ export default function AssistantConversation({
   onApprove,
   onRetry,
   onViewAngleChange,
+  onDeleteTurn,
+  deletingTurnId = null,
   className,
 }) {
   const scrollRef = useRef(null)
   const endRef = useRef(null)
   const followRef = useRef(true)
   const count = state.messages.length
+  const turns = groupIntoTurns(state.messages)
 
   const scrollToBottom = useCallback((smooth = true) => {
     const el = scrollRef.current
@@ -123,48 +131,63 @@ export default function AssistantConversation({
             'flex flex-col gap-6 py-6 sm:gap-7 sm:py-7',
           )}
         >
-          {state.messages.map((message) => {
-            /* A result turn is the message AND the render it points at. Both
-               the header controls and the figure are handed the same object,
-               so they cannot disagree about which render they act on. */
-            const result =
-              message.kind === MESSAGE_KINDS.result
-                ? (state.results[message.resultId] ?? null)
-                : null
+          {turns.map((turn) => (
+            <AssistantTurnCard
+              key={turn.id}
+              settled={isTurnSettled(turn)}
+              onDelete={onDeleteTurn && (() => onDeleteTurn(turn))}
+              deleting={deletingTurnId === turn.prompt?.id}
+              prompt={
+                turn.prompt && (
+                  <AssistantMessage message={turn.prompt} busy={busy} onRetry={onRetry} />
+                )
+              }
+            >
+              {turn.replies.map((message) => {
+                /* A result turn is the message AND the render it points at.
+                   Both the header controls and the figure are handed the same
+                   object, so they cannot disagree about which render they act
+                   on. */
+                const result =
+                  message.kind === MESSAGE_KINDS.result
+                    ? (state.results[message.resultId] ?? null)
+                    : null
 
-            const approved = Boolean(result) && approvedResultId === result.id
+                const approved = Boolean(result) && approvedResultId === result.id
 
-            return (
-              <AssistantMessage
-                key={message.id}
-                message={message}
-                busy={busy}
-                onRetry={onRetry}
-                headerActions={
-                  result && (
-                    <ResultHeaderControls
-                      viewAngleId={result.viewAngleId || state.viewAngleId}
-                      onViewAngleChange={onViewAngleChange}
-                      approved={approved}
-                      busy={busy}
-                      onApprove={() => onApprove(result)}
-                      onEdit={() => onEdit(result)}
-                    />
-                  )
-                }
-              >
-                {result && (
-                  <AssistantResult
-                    result={result}
-                    approved={approved}
-                    isBase={baseResultId === result.id}
-                    onExpand={() => onExpand(result)}
-                    onSelect={() => onSelect(result)}
-                  />
-                )}
-              </AssistantMessage>
-            )
-          })}
+                return (
+                  <AssistantMessage
+                    key={message.id}
+                    message={message}
+                    busy={busy}
+                    onRetry={onRetry}
+                    headerActions={
+                      result && (
+                        <ResultHeaderControls
+                          viewAngleId={result.viewAngleId || state.viewAngleId}
+                          onViewAngleChange={onViewAngleChange}
+                          approved={approved}
+                          busy={busy}
+                          onApprove={() => onApprove(result)}
+                          onEdit={() => onEdit(result)}
+                        />
+                      )
+                    }
+                  >
+                    {result && (
+                      <AssistantResult
+                        result={result}
+                        approved={approved}
+                        isBase={baseResultId === result.id}
+                        onExpand={() => onExpand(result)}
+                        onSelect={() => onSelect(result)}
+                      />
+                    )}
+                  </AssistantMessage>
+                )
+              })}
+            </AssistantTurnCard>
+          ))}
 
           <div ref={endRef} aria-hidden="true" />
         </div>

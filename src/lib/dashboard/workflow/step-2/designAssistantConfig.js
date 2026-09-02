@@ -100,6 +100,15 @@ export const RENDERING_COPY = {
   approvedParagraph:
     'This design was approved in Design Assistant and is ready for the BoQ stage.',
 
+  /**
+   * The workspace header's own name for this stage.
+   *
+   * `assistantTitle` names the PRODUCT and is what a gateway card says when it
+   * offers to open the workspace. Once the user is inside it, the header's job
+   * is to say which stage of the project they are standing in — so it carries
+   * the stage's name, matching the stepper above the workflow.
+   */
+  workspaceTitle: '3D Rendering',
   assistantTitle: 'Kraios Design Assistant',
   assistantSubtitle: 'Generate, refine and approve your 3D floor model.',
   assistantBlurb:

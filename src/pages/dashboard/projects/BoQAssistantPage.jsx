@@ -11,6 +11,7 @@ import { jobIdFromResponse, waitForJob } from '@/lib/api/jobs'
 import {
   createManualBoqVersion,
   deleteBoqDocument,
+  deleteConversationMessage,
   fetchBoqDocuments,
   generateBoq,
   uploadBoqDocument,
@@ -27,7 +28,10 @@ import {
   withAddedRow,
   withDeletedRow,
 } from '@/lib/dashboard/workflow/step-3/boqAdapters'
-import { BOQ_ASSISTANT_COPY } from '@/lib/dashboard/workflow/step-3/boqAssistantConfig'
+import {
+  BOQ_ASSISTANT_COPY,
+  slotDocumentTitle,
+} from '@/lib/dashboard/workflow/step-3/boqAssistantConfig'
 import {
   useBoqAssistant,
   useDesignAssistant,
@@ -38,6 +42,7 @@ import {
   useStep3Data,
 } from '@/lib/dashboard/projects/projectsContext'
 import { approvedResult } from '@/lib/dashboard/workflow/step-2/designAssistantSelectors'
+import { CACHE_KEYS } from '@/lib/dashboard/projects/projectShape'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
@@ -77,7 +82,7 @@ export default function BoQAssistantPage() {
   const step3 = useStep3Data(projectId)
   const reloadStep3 = step3.reload
 
-  const { approveBoq } = useProjects()
+  const { approveBoq, invalidateStep, refreshProject } = useProjects()
   const [state, dispatch] = useBoqAssistant(projectId)
   const source = useFloorPlanSource(projectId)
   const [designAssistant] = useDesignAssistant(projectId)
@@ -86,6 +91,7 @@ export default function BoQAssistantPage() {
 
   const [prompt, setPrompt] = useState('')
   const [approving, setApproving] = useState(false)
+  const [deletingTurnId, setDeletingTurnId] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [editingTable, setEditingTable] = useState(false)
 
@@ -161,6 +167,49 @@ export default function BoQAssistantPage() {
     runGeneration({ text })
   }, [prompt, runGeneration])
 
+  /**
+   * Deleting one whole turn.
+   *
+   * `DELETE /projects/{id}/conversations/messages/{messageId}/` removes the
+   * user message AND the version, job and files it produced — the backend
+   * deletes the block, so nothing here deletes an image separately. The id is
+   * the prompt's own `serverMessageId`, which only a hydrated (server-backed)
+   * message carries; an optimistic local turn is still pending, and a pending
+   * turn offers no delete control.
+   *
+   * Afterwards the step is refetched and the project reloaded, because deleting
+   * the selected version clears that selection on the backend and the header's
+   * approval state has to follow. Step 4's bundle is invalidated for the same
+   * reason: a deliverable just stopped existing.
+   */
+  const handleDeleteTurn = useCallback(
+    async (turn) => {
+      const message = turn?.prompt
+      const messageId = message?.serverMessageId
+      if (!messageId || deletingTurnId) return
+
+      setDeletingTurnId(message.id)
+      try {
+        await deleteConversationMessage(projectId, messageId)
+        if (!activeRef.current) return
+
+        invalidateStep(CACHE_KEYS.output(projectId))
+        await Promise.all([reloadStep3(), refreshProject(projectId)])
+        if (!activeRef.current) return
+
+        showSuccessToast('Request deleted.', { id: 'boq-turn-deleted' })
+      } catch (thrown) {
+        if (!activeRef.current) return
+        showErrorToast(thrown?.message || 'That request could not be deleted.', {
+          id: 'boq-turn-delete-failed',
+        })
+      } finally {
+        if (activeRef.current) setDeletingTurnId(null)
+      }
+    },
+    [deletingTurnId, invalidateStep, projectId, refreshProject, reloadStep3],
+  )
+
   const handleRetry = useCallback(
     ({ prompt: retryPrompt, pendingText }) => {
       runGeneration({ text: retryPrompt, pendingText })
@@ -172,16 +221,26 @@ export default function BoQAssistantPage() {
      Supporting documents
      ------------------------------------------------------------------------- */
 
-  const handleAttachDocument = useCallback(
-    async (file) => {
-      if (uploading) return
+  /**
+   * One document, uploaded from the slot the user dropped it on.
+   *
+   * The slot IS the classification now — the composer's separate document-type
+   * menu is gone — so it travels with the file instead of being read from
+   * whatever the menu happened to be left on. It reaches the backend twice
+   * over: as `document_type`, which is the contract's enum, and as a tag in
+   * front of the `title`, which is what lets the panel put the file back in the
+   * slot it came from when three slots share one enum value.
+   */
+  const handleUploadDocument = useCallback(
+    async (file, slot) => {
+      if (uploading || !slot) return
 
       setUploading(true)
       try {
         await uploadBoqDocument(projectId, {
           file,
-          title: file.name,
-          documentType: documentTypeToApi(state.documentTypeId),
+          title: slotDocumentTitle(slot, file.name),
+          documentType: documentTypeToApi(slot.typeId),
         })
 
         // The list is refetched rather than appended to: the backend decides
@@ -200,7 +259,7 @@ export default function BoQAssistantPage() {
         if (activeRef.current) setUploading(false)
       }
     },
-    [dispatch, projectId, state.documentTypeId, uploading],
+    [dispatch, projectId, uploading],
   )
 
   const handleRemoveDocument = useCallback(
@@ -375,7 +434,9 @@ export default function BoQAssistantPage() {
         <BoQAssistantHeader
           backTo={projectStagePath(projectId, 'boq')}
           uploadedDocuments={state.uploadedDocuments || []}
+          onUploadDocument={handleUploadDocument}
           onRemoveDocument={handleRemoveDocument}
+          uploading={uploading}
           approved={approved}
           busy={busy}
           source={source}
@@ -392,6 +453,8 @@ export default function BoQAssistantPage() {
           onAddRow={handleAddRow}
           onDeleteRow={handleDeleteRow}
           onRetry={handleRetry}
+          onDeleteTurn={handleDeleteTurn}
+          deletingTurnId={deletingTurnId}
         />
       </div>
 
@@ -403,12 +466,6 @@ export default function BoQAssistantPage() {
           onChange={setPrompt}
           onSubmit={handleSubmit}
           busy={busy}
-          uploading={uploading}
-          onAttachDocument={handleAttachDocument}
-          documentTypeId={state.documentTypeId}
-          onDocumentTypeChange={(documentTypeId) =>
-            dispatch({ type: 'setDocumentType', documentTypeId })
-          }
         />
       </div>
     </div>

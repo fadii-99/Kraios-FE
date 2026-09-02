@@ -11,7 +11,12 @@ import FloorPlanFullscreenModal from '@/components/dashboard/projects/workflow/s
 import PageLoader from '@/components/ui/PageLoader'
 import { dataUrlToFile } from '@/lib/api/files'
 import { jobIdFromResponse, waitForJob } from '@/lib/api/jobs'
-import { editThreeD, generateThreeD, generateThreeDAngle } from '@/lib/api/projects'
+import {
+  deleteConversationMessage,
+  editThreeD,
+  generateThreeD,
+  generateThreeDAngle,
+} from '@/lib/api/projects'
 import { jobProgressText } from '@/lib/dashboard/workflow/apiShapes'
 import {
   ASSISTANT_COPY,
@@ -33,8 +38,9 @@ import {
   useStep1Data,
   useStep2Data,
 } from '@/lib/dashboard/projects/projectsContext'
+import { CACHE_KEYS } from '@/lib/dashboard/projects/projectShape'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
-import { showErrorToast, showInfoToast } from '@/lib/toast'
+import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { useResumedJob } from '@/hooks/useResumedJob'
 
@@ -63,12 +69,13 @@ export default function DesignAssistantPage() {
   const reloadStep2 = step2.reload
 
   const source = useFloorPlanSource(projectId)
-  const { approveThreeD } = useProjects()
+  const { approveThreeD, invalidateStep, refreshProject } = useProjects()
   const [state, dispatch] = useDesignAssistant(projectId)
 
   const [prompt, setPrompt] = useState('')
   const [expanded, setExpanded] = useState(null)
   const [approving, setApproving] = useState(false)
+  const [deletingTurnId, setDeletingTurnId] = useState(null)
 
   // Canvas Mode and Loader Transition states
   const [isOpeningCanvas, setIsOpeningCanvas] = useState(false)
@@ -210,6 +217,49 @@ export default function DesignAssistantPage() {
    * angle, same pending line. The notice carries them, so nothing is retyped
    * and nothing is guessed.
    */
+  /**
+   * Deleting one whole turn.
+   *
+   * `DELETE /projects/{id}/conversations/messages/{messageId}/` removes the
+   * user message AND the version, job and files it produced — the backend
+   * deletes the block, so nothing here deletes an image separately. The id is
+   * the prompt's own `serverMessageId`, which only a hydrated (server-backed)
+   * message carries; an optimistic local turn is still pending, and a pending
+   * turn offers no delete control.
+   *
+   * Afterwards the step is refetched and the project reloaded, because deleting
+   * the selected version clears that selection on the backend and the header's
+   * approval state has to follow. Step 4's bundle is invalidated for the same
+   * reason: a deliverable just stopped existing.
+   */
+  const handleDeleteTurn = useCallback(
+    async (turn) => {
+      const message = turn?.prompt
+      const messageId = message?.serverMessageId
+      if (!messageId || deletingTurnId) return
+
+      setDeletingTurnId(message.id)
+      try {
+        await deleteConversationMessage(projectId, messageId)
+        if (!activeRef.current) return
+
+        invalidateStep(CACHE_KEYS.output(projectId))
+        await Promise.all([reloadStep2(), refreshProject(projectId)])
+        if (!activeRef.current) return
+
+        showSuccessToast('Request deleted.', { id: 'design-turn-deleted' })
+      } catch (thrown) {
+        if (!activeRef.current) return
+        showErrorToast(thrown?.message || 'That request could not be deleted.', {
+          id: 'design-turn-delete-failed',
+        })
+      } finally {
+        if (activeRef.current) setDeletingTurnId(null)
+      }
+    },
+    [deletingTurnId, invalidateStep, projectId, refreshProject, reloadStep2],
+  )
+
   const handleRetry = useCallback(
     (retry) => {
       if (!retry?.prompt) return
@@ -441,6 +491,8 @@ export default function DesignAssistantPage() {
           onSelect={handleSelect}
           onApprove={handleApprove}
           onRetry={handleRetry}
+          onDeleteTurn={handleDeleteTurn}
+          deletingTurnId={deletingTurnId}
           onViewAngleChange={handleViewAngleSelect}
           baseResultId={base?.id ?? null}
         />

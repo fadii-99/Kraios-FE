@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, CircleNotch } from '@phosphor-icons/react'
 import {
@@ -6,9 +5,8 @@ import {
   projectStagePath,
   workflowIndexForPath,
 } from '@/lib/dashboard/workflow/projectWorkflow'
-import { canFinishProject } from '@/lib/dashboard/projects/projectShape'
-import { useProject, useProjects } from '@/lib/dashboard/projects/projectsContext'
-import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
+import { useFinishProject } from '@/hooks/useFinishProject'
+import { showInfoToast } from '@/lib/toast'
 import { cn } from '@/lib/cn'
 
 /**
@@ -29,9 +27,15 @@ export default function ProjectStepNavigation({
 }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { finishProject } = useProjects()
-  const project = useProject(projectId)
-  const [finishing, setFinishing] = useState(false)
+
+  // The gate, the request and where it goes afterwards belong to one hook, so
+  // this nav and the Output stage's own Finish action cannot disagree.
+  const {
+    finish,
+    finishing,
+    blockedMessage: finishBlockedMessage,
+    isFinished,
+  } = useFinishProject(projectId)
 
   // Active workflow stage index — the same derivation the stepper uses.
   const activeIndex = workflowIndexForPath(pathname)
@@ -51,38 +55,6 @@ export default function ProjectStepNavigation({
     // memory; the approved plan is a backend record, and silently unapproving
     // it because someone pressed Previous would discard real work.
     navigate(projectStagePath(projectId, prevStage.segment))
-  }
-
-  /**
-   * Finish is a real request: `POST /finish/` succeeds only when a 2D plan and
-   * a 3D render are approved and BoQ is either approved or explicitly skipped.
-   * Those are the backend's rules, so the button asks the project whether they
-   * are met and explains instead of firing a request it knows will 400.
-   */
-  const finishBlockedMessage = canFinishProject(project)
-    ? null
-    : 'Approve your 2D plan and 3D design — and approve or skip the BoQ — before finishing.'
-
-  const handleFinishClick = async () => {
-    if (finishing) return
-
-    if (finishBlockedMessage) {
-      showInfoToast(finishBlockedMessage, { id: 'workflow-finish-gate' })
-      return
-    }
-
-    setFinishing(true)
-    try {
-      await finishProject(projectId)
-      showSuccessToast('Project finished.', { id: 'project-finished' })
-      navigate('/dashboard/projects')
-    } catch (thrown) {
-      showErrorToast(thrown?.message || 'This project could not be finished yet.', {
-        id: 'project-finish-failed',
-      })
-    } finally {
-      setFinishing(false)
-    }
   }
 
   const handleNextClick = (event) => {
@@ -189,7 +161,7 @@ export default function ProjectStepNavigation({
         ) : (
           <button
             type="button"
-            onClick={handleFinishClick}
+            onClick={finish}
             aria-disabled={finishBlockedMessage ? true : undefined}
             aria-busy={finishing || undefined}
             title={finishBlockedMessage || undefined}
@@ -207,7 +179,7 @@ export default function ProjectStepNavigation({
           >
             <span className="flex items-center justify-center gap-1.5 whitespace-nowrap">
               <span className="whitespace-nowrap">
-                {project?.isFinished ? 'Finished' : 'Finish'}
+                {isFinished ? 'Finished' : 'Finish'}
               </span>
               {finishing ? (
                 <CircleNotch size={16} weight="bold" className="animate-spin" aria-hidden="true" />

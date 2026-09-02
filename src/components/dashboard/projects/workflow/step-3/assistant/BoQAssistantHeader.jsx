@@ -2,9 +2,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft } from '@phosphor-icons/react'
 
 import ApprovalStatus from '@/components/dashboard/projects/workflow/step-2/ApprovalStatus'
-import FloorPlansDropdown from '@/components/dashboard/projects/workflow/step-2/assistant/FloorPlansDropdown'
-import FloorPlans3DDropdown from '@/components/dashboard/projects/workflow/step-3/assistant/FloorPlans3DDropdown'
-import UploadedDocumentsDropdown from '@/components/dashboard/projects/workflow/step-3/assistant/UploadedDocumentsDropdown'
+import ProjectFilesPanel from '@/components/dashboard/projects/workflow/shared/ProjectFilesPanel'
 import Logo from '@/components/ui/Logo'
 import { BOQ_ASSISTANT_COPY } from '@/lib/dashboard/workflow/step-3/boqAssistantConfig'
 import { cn } from '@/lib/cn'
@@ -18,7 +16,9 @@ import { cn } from '@/lib/cn'
 export default function BoQAssistantHeader({
   backTo,
   uploadedDocuments = [],
+  onUploadDocument,
   onRemoveDocument,
+  uploading = false,
   approved,
   busy,
   source,
@@ -77,7 +77,7 @@ export default function BoQAssistantHeader({
                   className="truncate text-[0.875rem] font-black uppercase leading-tight tracking-[-0.02em] text-[var(--tone-ink)] sm:text-[0.9375rem] lg:text-[1rem]"
                   style={{ fontFamily: 'var(--font-display)' }}
                 >
-                  {BOQ_ASSISTANT_COPY.assistantTitle}
+                  {BOQ_ASSISTANT_COPY.workspaceTitle}
                 </h1>
                 <span className="hidden rounded-xs border border-[var(--color-brand-deep)]/20 bg-[var(--color-brand-deep)]/10 px-1.5 py-0.5 text-[0.5625rem] font-bold tracking-wider text-[var(--color-brand-deep)] uppercase md:inline-block">
                   BOQ Studio
@@ -90,29 +90,18 @@ export default function BoQAssistantHeader({
           </div>
         </div>
 
-        {/* Right Cluster: Uploaded Documents + 2D Plans + 3D Plans + Status */}
-        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3 lg:gap-3.5">
-          <UploadedDocumentsDropdown
+        {/* Right Cluster: the one Project Files control + Status */}
+        <div className="ml-auto flex shrink-0 items-center gap-2.5 sm:gap-3.5">
+          <ProjectFilesPanel
+            plan={source}
+            render={approvedRender}
             documents={uploadedDocuments}
-            onRemove={onRemoveDocument}
+            onUploadDocument={onUploadDocument}
+            onRemoveDocument={onRemoveDocument}
+            uploading={uploading}
             disabled={busy}
-            showLabel={false}
-            className="hidden sm:flex"
+            className="hidden sm:inline-flex"
           />
-
-          <span
-            aria-hidden="true"
-            className="hidden h-4 w-px shrink-0 bg-[var(--tone-line)] sm:block"
-          />
-
-          <FloorPlansDropdown source={source} className="hidden sm:flex" />
-
-          <span
-            aria-hidden="true"
-            className="hidden h-4 w-px shrink-0 bg-[var(--tone-line)] sm:block"
-          />
-
-          <FloorPlans3DDropdown approvedRender={approvedRender} className="hidden sm:flex" />
 
           <span
             aria-hidden="true"
@@ -123,18 +112,17 @@ export default function BoQAssistantHeader({
         </div>
       </div>
 
-      {/* Second row, below sm: dropdowns on narrow mobile viewports */}
+      {/* Second row, below sm: the same control, given its own line */}
       <div className="border-t border-[var(--tone-line)] bg-white/95 px-3.5 py-2 sm:hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          <UploadedDocumentsDropdown
-            documents={uploadedDocuments}
-            onRemove={onRemoveDocument}
-            disabled={busy}
-            showLabel={false}
-          />
-          <FloorPlansDropdown source={source} />
-          <FloorPlans3DDropdown approvedRender={approvedRender} />
-        </div>
+        <ProjectFilesPanel
+          plan={source}
+          render={approvedRender}
+          documents={uploadedDocuments}
+          onUploadDocument={onUploadDocument}
+          onRemoveDocument={onRemoveDocument}
+          uploading={uploading}
+          disabled={busy}
+        />
       </div>
     </header>
   )

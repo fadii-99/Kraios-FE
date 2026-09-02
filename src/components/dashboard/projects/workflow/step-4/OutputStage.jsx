@@ -9,6 +9,7 @@ import Output2DPlansSection from '@/components/dashboard/projects/workflow/step-
 import OutputBoQSection from '@/components/dashboard/projects/workflow/step-4/OutputBoQSection'
 import OutputDocumentsSection from '@/components/dashboard/projects/workflow/step-4/OutputDocumentsSection'
 import OutputBoQModal from '@/components/dashboard/projects/workflow/step-4/OutputBoQModal'
+import OutputFinishBar from '@/components/dashboard/projects/workflow/step-4/OutputFinishBar'
 import FloorPlanFullscreenModal from '@/components/dashboard/projects/workflow/shared/FloorPlanFullscreenModal'
 import PageLoader from '@/components/ui/PageLoader'
 
@@ -223,6 +224,11 @@ export default function OutputStage({ projectId }) {
             />
           </div>
         )}
+
+        {/* ── 4. Close of the page: finish the project ── */}
+        <div data-output-section>
+          <OutputFinishBar projectId={projectId} />
+        </div>
       </div>
 
       {/* ── Fullscreen Lightbox Preview Modal ── */}

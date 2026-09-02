@@ -93,14 +93,14 @@ export function byCreatedAt(versions = []) {
  * The pending block's line while a job runs.
  *
  * The backend's own `message` is preferred — it says what the pipeline is
- * actually doing — with the percentage appended when there is one. Nothing is
- * invented: a job with neither falls back to the stage's own copy.
+ * actually doing — and nothing is invented: a job without one falls back to the
+ * stage's own copy.
+ *
+ * The percentage is deliberately NOT shown. The pipeline's `progress` is a
+ * simulated ramp rather than measured work, so a number on screen read as a
+ * precise estimate the backend cannot make. The animated pending block already
+ * says the same thing honestly: something is running.
  */
 export function jobProgressText(job, fallback) {
-  const label = job?.message || fallback
-  const progress = Number(job?.progress)
-
-  return Number.isFinite(progress) && progress > 0
-    ? `${label} · ${Math.round(progress)}%`
-    : label
+  return job?.message || fallback
 }

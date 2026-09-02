@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft } from '@phosphor-icons/react'
 
 import ApprovalStatus from '@/components/dashboard/projects/workflow/step-2/ApprovalStatus'
-import FloorPlansDropdown from '@/components/dashboard/projects/workflow/step-2/assistant/FloorPlansDropdown'
+import ProjectFilesPanel from '@/components/dashboard/projects/workflow/shared/ProjectFilesPanel'
 import Logo from '@/components/ui/Logo'
 import { RENDERING_COPY } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
 import { cn } from '@/lib/cn'
@@ -70,7 +70,7 @@ export default function AssistantHeader({
                   className="truncate text-[0.875rem] font-black uppercase leading-tight tracking-[-0.02em] text-[var(--tone-ink)] sm:text-[0.9375rem] lg:text-[1rem]"
                   style={{ fontFamily: 'var(--font-display)' }}
                 >
-                  {RENDERING_COPY.assistantTitle}
+                  {RENDERING_COPY.workspaceTitle}
                 </h1>
                 <span className="hidden rounded-xs border border-[var(--color-brand-deep)]/20 bg-[var(--color-brand-deep)]/10 px-1.5 py-0.5 text-[0.5625rem] font-bold tracking-wider text-[var(--color-brand-deep)] uppercase md:inline-block">
                   AI Studio
@@ -83,9 +83,12 @@ export default function AssistantHeader({
           </div>
         </div>
 
-        {/* Right Cluster: 2D Floor Plans Dropdown + Divider + Status Indicator */}
+        {/* Right Cluster: Project Files + Divider + Status Indicator */}
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3 lg:gap-4">
-          <FloorPlansDropdown source={source} />
+          {/* Step 2 works from the 2D plan alone, so the panel opens in its
+              compact variant — the same control, without sections that would
+              only be empty here. */}
+          <ProjectFilesPanel plan={source} variant="compact" />
 
           <span
             aria-hidden="true"

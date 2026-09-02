@@ -4,6 +4,11 @@ import BoQAssistantEmptyState from '@/components/dashboard/projects/workflow/ste
 import BoQMessage from '@/components/dashboard/projects/workflow/step-3/assistant/BoQMessage'
 import BoQResult from '@/components/dashboard/projects/workflow/step-3/assistant/BoQResult'
 import BoQResultHeaderControls from '@/components/dashboard/projects/workflow/step-3/assistant/BoQResultHeaderControls'
+import AssistantTurnCard from '@/components/dashboard/projects/workflow/step-2/assistant/AssistantTurnCard'
+import {
+  groupIntoTurns,
+  isTurnSettled,
+} from '@/components/dashboard/projects/workflow/step-2/assistant/assistantTurns'
 import {
   ASSISTANT_GRID,
   ASSISTANT_GUTTER,
@@ -28,6 +33,8 @@ export default function BoQConversation({
   onAddRow,
   onDeleteRow,
   onRetry,
+  onDeleteTurn,
+  deletingTurnId = null,
   className,
 }) {
   const scrollRef = useRef(null)
@@ -36,6 +43,7 @@ export default function BoQConversation({
 
   const messages = state?.messages || []
   const count = messages.length
+  const turns = groupIntoTurns(messages)
 
   const scrollToBottom = useCallback((smooth = true) => {
     const el = scrollRef.current
@@ -100,41 +108,56 @@ export default function BoQConversation({
         className="h-full overflow-y-auto px-4 sm:px-6 lg:px-8 py-6"
       >
         <div className="mx-auto w-full max-w-[56rem] flex flex-col gap-6">
-          {/* Message Stream */}
-          {messages.map((message) => {
-            const result =
-              message.kind === MESSAGE_KINDS.result
-                ? state.results[message.resultId] ?? null
-                : null
+          {/* Message stream, grouped into turns — the same sheet the 2D and
+              3D assistants use, so one workspace family reads one way. */}
+          {turns.map((turn) => (
+            <AssistantTurnCard
+              key={turn.id}
+              settled={isTurnSettled(turn)}
+              onDelete={onDeleteTurn && (() => onDeleteTurn(turn))}
+              deleting={deletingTurnId === turn.prompt?.id}
+              prompt={
+                turn.prompt && (
+                  <BoQMessage message={turn.prompt} busy={busy} onRetry={onRetry} />
+                )
+              }
+            >
+              {turn.replies.map((message) => {
+                const result =
+                  message.kind === MESSAGE_KINDS.result
+                    ? (state.results[message.resultId] ?? null)
+                    : null
 
-            const approved = Boolean(result) && approvedResultId === result.id
+                const approved = Boolean(result) && approvedResultId === result.id
 
-            return (
-              <BoQMessage
-                key={message.id}
-                message={message}
-                busy={busy}
-                onRetry={onRetry}
-                headerActions={
-                  result && (
-                    <BoQResultHeaderControls
-                      approved={approved}
-                      busy={busy}
-                      onApprove={() => onApprove(result)}
-                    />
-                  )
-                }
-              >
-                {result && (
-                  <BoQResult
-                    result={result}
-                    onAddRow={onAddRow}
-                    onDeleteRow={onDeleteRow}
-                  />
-                )}
-              </BoQMessage>
-            )
-          })}
+                return (
+                  <BoQMessage
+                    key={message.id}
+                    message={message}
+                    busy={busy}
+                    onRetry={onRetry}
+                    headerActions={
+                      result && (
+                        <BoQResultHeaderControls
+                          approved={approved}
+                          busy={busy}
+                          onApprove={() => onApprove(result)}
+                        />
+                      )
+                    }
+                  >
+                    {result && (
+                      <BoQResult
+                        result={result}
+                        onAddRow={onAddRow}
+                        onDeleteRow={onDeleteRow}
+                      />
+                    )}
+                  </BoQMessage>
+                )
+              })}
+            </AssistantTurnCard>
+          ))}
 
           <div ref={endRef} className="h-2" aria-hidden="true" />
         </div>

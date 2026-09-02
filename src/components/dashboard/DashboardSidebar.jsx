@@ -56,8 +56,12 @@ export default function DashboardSidebar({ className, onNavigate }) {
         className={cn(
           'group/toggle absolute -right-3.5 top-1/2 -translate-y-1/2 z-40',
           'flex h-7 w-7 cursor-pointer items-center justify-center rounded-full',
-          'border border-slate-200/90 bg-white text-slate-500',
-          'shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)]',
+          // A full-strength hairline, not a 90%-opacity slate: the control
+          // floats on the page surface just outside the sidebar's own edge, and
+          // at 28px it was reading as part of the background rather than as a
+          // button somebody could press.
+          'border border-[var(--tone-line-strong)] bg-white text-[var(--tone-ink)]',
+          'shadow-[0_2px_10px_rgba(7,20,38,0.12),0_1px_3px_rgba(7,20,38,0.08)]',
           'transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
           'hover:border-[var(--color-brand-deep)] hover:bg-[var(--color-brand-deep)] hover:text-white',
           'hover:shadow-[0_4px_14px_rgba(11,94,215,0.28)] hover:scale-110 active:scale-95',

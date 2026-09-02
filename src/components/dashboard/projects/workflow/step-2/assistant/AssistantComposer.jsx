@@ -37,14 +37,13 @@ const AssistantComposer = forwardRef(function AssistantComposer(
     }
   }
 
+  /* The composer zone carries NO surface of its own any more. A white band with
+     a hairline and a lifted shadow read as a second footer stacked under the
+     workspace; the field is the object here, so the band steps back to the page
+     and lets the field float on it. */
   return (
-    <div
-      className={cn(
-        'shrink-0 border-t border-[var(--tone-line)] bg-white/95 shadow-[0_-4px_24px_rgba(7,20,38,0.06)] backdrop-blur-md',
-        className,
-      )}
-    >
-      <div className={cn(ASSISTANT_GUTTER, ASSISTANT_GRID, 'flex flex-col gap-2.5 py-3 sm:py-3.5')}>
+    <div className={cn('shrink-0 bg-transparent', className)}>
+      <div className={cn(ASSISTANT_GUTTER, ASSISTANT_GRID, 'flex flex-col gap-2.5 pb-4 pt-2 sm:pb-5 sm:pt-2.5')}>
         <form
           noValidate
           onSubmit={(event) => {
@@ -59,12 +58,13 @@ const AssistantComposer = forwardRef(function AssistantComposer(
 
           <div
             className={cn(
-              'flex items-center w-full rounded-md border border-[var(--tone-line-strong)] bg-slate-50/90 p-1 sm:p-1.5 gap-2 shadow-2xs transition-all duration-200',
-              'focus-within:border-[var(--color-brand-deep)] focus-within:bg-white focus-within:ring-2 focus-within:ring-[var(--color-brand-deep)]/15',
+              'flex items-center w-full rounded-[var(--radius-field)] border border-[var(--tone-line-strong)] bg-white p-1.5 sm:p-2 gap-2 transition-all duration-200',
+              'shadow-[0_2px_14px_rgba(7,20,38,0.07),0_1px_2px_rgba(7,20,38,0.04)]',
+              'focus-within:border-[var(--color-brand-deep)] focus-within:ring-2 focus-within:ring-[var(--color-brand-deep)]/15',
             )}
           >
             <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-[var(--color-brand-deep)]/20 bg-[var(--color-brand-deep)]/10 text-[var(--color-brand-deep)]"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--color-brand-deep)]/20 bg-[var(--color-brand-deep)]/10 text-[var(--color-brand-deep)]"
               aria-hidden="true"
             >
               <Sparkle size={18} weight="fill" />
@@ -104,7 +104,7 @@ const AssistantComposer = forwardRef(function AssistantComposer(
               aria-label={busy ? 'Generating' : 'Send instruction'}
               title="Send (Enter)"
               className={cn(
-                'flex h-9 w-9 sm:h-9.5 sm:w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-xs',
+                'flex h-9 w-9 sm:h-9.5 sm:w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-md',
                 'bg-[var(--color-brand-deep)] text-white shadow-2xs transition-all duration-200 ease-[var(--ease-out-expo)]',
                 'hover:bg-blue-700 active:scale-95',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',

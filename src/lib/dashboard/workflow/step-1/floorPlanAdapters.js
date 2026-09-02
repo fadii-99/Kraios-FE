@@ -93,7 +93,15 @@ export function hydrateFloorPlanState({ conversation = [], history = [], project
   conversation.forEach((message) => {
     const role = messageRole(message)
 
-    if (message.content) {
+    /* Only the USER's own turns are transcribed.
+     *
+     * The backend also stores a short assistant sentence beside each finished
+     * version ("Your 2D floor plan is ready for review."). It restated what the
+     * drawing directly under it already says, so the transcript carried a line
+     * of copy for every result and the images stopped reading as the subject of
+     * the workspace. The result block IS the assistant's answer here; failures
+     * and running jobs still speak, from the version below. */
+    if (role === 'user' && message.content) {
       messages.push({
         id: message.id,
         at: toEpoch(message.created_at),

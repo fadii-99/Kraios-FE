@@ -121,6 +121,7 @@ src/components/dashboard/DashboardPageHeader.jsx
 src/components/dashboard/DashboardPageSurface.jsx
 src/components/dashboard/TechnicalIconFrame.jsx
 src/components/dashboard/projects/workflow/shared/FloorPlanFullscreenModal.jsx
+src/components/dashboard/projects/workflow/shared/ProjectFilesPanel.jsx
 src/components/dashboard/projects/workflow/shared/FloorPlanWorkArea.jsx
 src/lib/dashboard/layout.js          # DASHBOARD_GUTTER / DASHBOARD_BODY_PADDING
 src/lib/dashboard/motion.js          # DASHBOARD_MOTION
@@ -141,7 +142,9 @@ Current direction:
 - navy / deep navy (`--color-navy` `#071426`, `--color-navy-2` `#0b1c32`)
 - KRAIOS blue (`--color-brand` `#1677ff`, `--color-brand-deep` `#0b5ed7`)
 - light application surface (`--color-light` `#f4f6f8`)
-- restrained neutral borders (`--tone-line`, `--tone-line-strong`)
+- restrained neutral borders (`--tone-line`, `--tone-line-strong`, and
+  `--tone-line-soft` — half a hairline, for surfaces that sit on the workspace
+  backdrop; the assistant turn sheets are its only current use)
 - semantic colours: `--color-success` `#0a6c48`, `--color-danger` `#b42318`,
   `--color-warning` `#b54708`
 
@@ -163,11 +166,17 @@ KRAIOS uses a restrained, lightly-rounded architectural shape language. The
 application is not zero-radius.
 
 ```
---radius-xs: 0.1875rem  (3px)  chips, tiny toggles, hairline marks
---radius-sm: 0.25rem    (4px)  buttons, inputs, icon frames, menu items
---radius-md: 0.375rem   (6px)  cards, panels, dropdown surfaces, image frames
---radius-lg: 0.5rem     (8px)  modals and the largest page surfaces — the ceiling
+--radius-xs:    0.1875rem  (3px)  chips, tiny toggles, hairline marks
+--radius-sm:    0.25rem    (4px)  buttons, inputs, icon frames, menu items
+--radius-md:    0.375rem   (6px)  cards, panels, dropdown surfaces, image frames
+--radius-lg:    0.5rem     (8px)  modals and the largest page surfaces
+--radius-field: 0.75rem   (12px)  the assistant composer field — ONLY
 ```
+
+`--radius-field` is a deliberate, product-decided exception, not an opening of
+the scale. It exists because the assistant composer is a single bar floating on
+the workspace backdrop rather than a boxed form input. Nothing else may use it,
+and `--radius-lg` remains the ceiling everywhere else.
 
 Tailwind's `xl` / `2xl` / `3xl` / `4xl` radius utilities are deliberately
 disabled (`initial`) in `src/styles/index.css`. Use the token scale; do not
@@ -745,7 +754,9 @@ Share only genuinely generic primitives. Current legitimate cross-step reuse:
   Step 1 assistant
 - `assistantGrid.js` (`ASSISTANT_GRID` / `ASSISTANT_GUTTER`) — shared by the
   Step 2 and Step 3 composers
-- `FloorPlansDropdown` (Step 2) — reused in the Step 3 assistant header
+- `ProjectFilesPanel` (shared/) — the ONE files control, in Steps 2 and 3
+- `AssistantTurnCard` and `assistantTurns.js` — Step 2 modules reused by the
+  Step 1 assistant
 - `formatFileSize` from `step-1/floorPlanSource.js`
 
 Keep feature BEHAVIOUR separate.
@@ -808,10 +819,17 @@ load a step's history to decide whether Next is allowed.
 Nothing is gated while `workflow_state` is unknown — a nav that blocks on
 missing data blocks a user who has in fact finished the stage.
 
-**Finish** is `POST /finish/` from the bottom navigation on the Output stage,
-gated by `canFinishProject(project)`: a 2D plan approved, a 3D render approved,
-and a BoQ either approved or explicitly skipped. Those are the backend's rules,
-so the button explains rather than firing a request it knows will 400.
+**Finish** is `POST /finish/`, gated by `canFinishProject(project)`: a 2D plan
+approved, a 3D render approved, and a BoQ either approved or explicitly skipped.
+Those are the backend's rules, so the button explains rather than firing a
+request it knows will 400.
+
+TWO controls offer it — the workflow's bottom navigation on the Output stage,
+and `OutputFinishBar` at the close of the Output page, because that page is long
+enough that the nav is well behind the reader by the time they reach the end.
+They are the same action: the gate, the request, the three toasts and the
+redirect all live in `src/hooks/useFinishProject.js`, and each control is only a
+button. Do not re-implement finishing in a third place.
 
 ---
 
@@ -897,10 +915,15 @@ Routes: `/upload/assistant` and `/generate/assistant` → `FloorPlanAssistantPag
 
 Workspace: `FloorPlanAssistantHeader` (Back + brand + `ApprovalStatus`
 indicator), `FloorPlanAssistantConversation` (empty state with
-`FLOOR_PLAN_QUICK_PROMPTS`, user/assistant messages, pending block, failure
-notice with Retry, result blocks), Step 2's `ResultHeaderControls` for Edit and
-Approve, `FloorPlanAssistantResult` (Full View overlay rail), and Step 2's
+`FLOOR_PLAN_QUICK_PROMPTS`, turn cards, pending block, failure notice with
+Retry, result blocks), Step 2's `ResultHeaderControls` for Edit and Approve,
+`FloorPlanAssistantResult` (Full View overlay rail), and Step 2's
 `AssistantComposer`.
+
+The header names the STAGE (`workspaceTitle` — "2D Rendering"), not the product.
+`assistantTitle` is what a gateway card says when it offers to open the
+workspace; once the user is inside one, the header says where in the project
+they are standing.
 
 State: `step-1/floorPlanAssistantState.js` (reducer) +
 `floorPlanAssistantSelectors.js`, held per project in `ProjectsProvider`.
@@ -915,6 +938,39 @@ Every turn is a real backend round trip, in three beats:
 
 Rules:
 
+- **A turn is one sheet.** `AssistantTurnCard` (Step 2's, reused by Steps 1 and
+  3) puts the instruction and everything it produced on ONE white sheet.
+  `assistantTurns.groupIntoTurns` derives the grouping on render — a user
+  message opens a turn, every assistant block that follows belongs to it — so
+  the reducers and adapters keep their flat message list and no second source of
+  truth about ordering exists.
+- **The sheet appears only when the turn SETTLED** (`isTurnSettled`: it has
+  replies, none pending, none a failure notice). A running or failed turn stays
+  on the bare backdrop. A finished-looking container around unfinished work is a
+  lie, and there is nothing to keep — or delete — until there is a result. The
+  sheet's line is `--tone-line-soft`, half a hairline; it separates turns rather
+  than boxing them.
+- **Delete belongs to the turn, and sits OUTSIDE the sheet**, in a reserved
+  column to its right that exists in every state — so the sheet does not change
+  width when a turn settles, and the control cannot push the transcript into a
+  horizontal scroll. It calls
+  `DELETE /projects/{id}/conversations/messages/{messageId}/` with the prompt's
+  `serverMessageId`; the backend deletes the whole block (message, version, job,
+  files), so nothing deletes an image separately. Afterwards the step is
+  refetched, the project reloaded (deleting the selected version clears that
+  selection) and Step 4's bundle invalidated. Never offer delete on a pending or
+  failed turn.
+- **The transcript carries the user's words and the assistant's WORK, not the
+  assistant's commentary.** Steps 1 and 2 skip the backend's own assistant text
+  messages ("Your 2D floor plan is ready for review."): the drawing directly
+  underneath already said it, and a line of copy per result stopped the images
+  reading as the subject of the workspace. Failures and running jobs still
+  speak — those come from the version, not the conversation. Step 3 is
+  different on purpose: its assistant text IS the answer, and is rendered as
+  Markdown.
+- The pending block shows the job's own `message` and NO percentage. The
+  pipeline's `progress` is a simulated ramp, so a number on screen read as an
+  estimate the backend cannot make (`jobProgressText`).
 - A result's `id` IS the backend version id, so approval points at a real
   `FloorPlanVersion` rather than at a local flag that happens to match one.
 - Approval is `POST /step-1/versions/{id}/approve/`. It sets
@@ -954,13 +1010,19 @@ Step 2 copy lives in `RENDERING_COPY` (`designAssistantConfig.js`);
 Route: `/rendering/assistant` → `DesignAssistantPage`. The dashboard sidebar
 stays; this is the full right-hand workspace, not a second shell.
 
-Workspace: `AssistantHeader` (Back, brand, `FloorPlansDropdown` of attached 2D
-plans, `ApprovalStatus`), `AssistantConversation` (`AssistantEmptyState` +
+Workspace: `AssistantHeader` (Back, brand — `workspaceTitle` "3D Rendering" —
+`ProjectFilesPanel` in its compact variant, `ApprovalStatus`), `AssistantConversation` (`AssistantEmptyState` +
 `QUICK_PROMPTS`, `AssistantMessage` with timestamps, pending/failure/retry
 blocks, `AssistantResult` blocks with `ResultHeaderControls` in the message
 header), and `AssistantComposer` (single-line input, Enter to send,
 `RenderStyleDropdown` inline, Cancel gated on
 `MODEL_GENERATION_SUPPORTS_CANCEL`).
+
+The transcript follows Step 1's rules exactly — settled-only turn sheets, the
+delete control outside the sheet, no assistant commentary, no percentage on the
+pending block (§19). Step 3's transcript uses the same sheet and the same delete
+behaviour; only its message component differs, because its assistant text IS the
+answer.
 
 Result actions split by intent, and the split must be preserved:
 
@@ -1070,21 +1132,50 @@ The route page uses `StepPlaceholder` as a shell wrapper; the content is
 Route: `/boq/assistant` → `BoQAssistantPage`, in the same dashboard shell family
 as the Design Assistant.
 
-Workspace: `BoQAssistantHeader` (Back, brand, `FloorPlansDropdown` for the 2D
-plan, `FloorPlans3DDropdown` for the approved render, `UploadedDocumentsDropdown`,
-`ApprovalStatus`), `BoQConversation` (`BoQAssistantEmptyState`, `BoQMessage`
-rendering assistant markdown through `react-markdown` + `remark-gfm`,
-pending/failure/retry blocks, `BoQResult` → `BoQTable`), and `BoQComposer`
-(input + `DocumentTypeDropdown` + send).
+Workspace: `BoQAssistantHeader` (Back, brand — `workspaceTitle` "BOQ
+Generation" — `ProjectFilesPanel`, `ApprovalStatus`), `BoQConversation`
+(`BoQAssistantEmptyState`, `BoQMessage` rendering assistant markdown through
+`react-markdown` + `remark-gfm`, pending/failure/retry blocks, `BoQResult` →
+`BoQTable`, all grouped into the shared `AssistantTurnCard` sheets with the same
+delete control — §19), and `BoQComposer` (input + send, and nothing else).
 
 `DOCUMENT_TYPES` (`boqAssistantConfig.js`) is exactly the seven values the
 backend's `document_type` enum accepts, each carrying its `apiValue`: General
 Document · Project Brief · Structural Drawing · Estimation · Material
-Specification · 3D Model · Other. It previously offered MEP Drawing, HVAC
-Drawing and Door and Window Schedule, which read well but had no counterpart in
-the document API — the classification the user chose would quietly not be the
-one saved. Labels are ours; values are the contract's, and the two are declared
-together so they cannot drift apart.
+Specification · 3D Model · Other. Labels are ours; values are the contract's,
+and the two are declared together so they cannot drift apart. Never add a
+`DOCUMENT_TYPES` entry whose `apiValue` the enum does not accept.
+
+`PROJECT_DOCUMENT_SLOTS` (same module) is what the Project Files panel OFFERS —
+General Document · MEP Drawing · HVAC Drawing · Door & Window Schedule — and it
+is a set of SLOTS, not a second enum. Three of the four have no member of their
+own in `document_type`, so each slot declares the contract value it is stored as
+beside its label: the drawing slots are `STRUCTURAL_DRAWING`, whose own
+description already covers structural, MEP, HVAC and technical drawings.
+
+Because those three share one enum value, the enum alone cannot say which slot a
+file came from — and a file that reappeared in a different slot after a refresh
+read as a bug rather than as a contract limit. So the slot is ALSO recorded in
+the document's `title`, a free-text field the backend stores and returns:
+`slotDocumentTitle` writes the tag in front of the file name on upload, and
+`slotIdFromTitle` reads it back. Nothing user-facing shows the tag — the panel
+and Step 4 both display `name`, the asset's `original_name`.
+
+`assignDocumentsToSlots` therefore fills in three passes, most specific first:
+the slot from the title tag, then the first free slot matching `document_type`
+(which is what a document uploaded before this convention gets), then the first
+free slot at all. Anything past the four slots is listed under "Additional"
+rather than dropped. This is a labelling convention, not a classification:
+`document_type` stays the contract's, and a real per-slot type is still a
+backend enum change.
+
+While a file is going up, the SLOT it was dropped on shows the wait — a brand
+tint, a spinner, "Uploading…" and the file's name — and the other slots are
+disabled. The panel owns that state (keyed by slot id, because a `typeId` cannot
+tell two drawing slots apart) and clears it only when the page's handler
+resolves, which is after the document list has been refetched. Do not replace it
+with a single panel-wide busy flag: "something is uploading" does not answer
+"which one?".
 
 Generation is `POST /step-3/generate/`, watched and refetched like every other
 step. `boqGeneration.js` — the keyword-matched fixture mock — and
@@ -1109,12 +1200,37 @@ generation records the document ids that exist when the job is submitted, so a
 file must be uploaded through the document API before it can inform a BOQ. Never
 send a file to the conversation or generation endpoints.
 
-The previously documented gap — a reducer and a header dropdown for documents
-with no way to add one — is CLOSED. `BoQComposer` has an attachment control; the
-page uploads through `POST /step-3/documents/` classified by the document-type
-dropdown beside it, deletes through `DELETE /step-3/documents/{id}/`, and
-refetches the list after either, because the backend decides the title and the
-stored asset.
+Documents are added and removed from ONE place: `ProjectFilesPanel` in the
+header. The composer's paperclip and its document-type menu are gone — attaching
+a file and saying what kind of file it is are one decision, and answering it in
+two controls at opposite ends of the field let a document be saved under
+whatever the menu was last left on. In the panel, the SLOT is the
+classification: it uploads through `POST /step-3/documents/` with the slot's own
+`typeId`, deletes through `DELETE /step-3/documents/{id}/`, and refetches the
+list after either, because the backend decides the title and the stored asset.
+
+### Project Files — the one files control
+
+`components/.../workflow/shared/ProjectFilesPanel.jsx` is the single control for
+"the files this workspace works from", in TWO variants:
+
+- `full` (Step 3) — the approved 2D plan, the approved 3D render, and the four
+  document slots, with upload and remove.
+- `compact` (Step 2) — the 2D plan alone, which is all Step 2 works from.
+
+It replaced five separate controls (`FloorPlansDropdown`, `FloorPlans3DDropdown`,
+`UploadedDocumentsDropdown`, `DocumentTypeDropdown` and the composer paperclip),
+all now deleted. Do not reintroduce a per-file-type dropdown in an assistant
+header. The panel invents nothing: a missing plan, render or document says it is
+missing rather than falling back to a fixture drawing.
+
+**The panel does not scroll.** It holds a fixed, small set — two required files
+and four document slots — so it is sized by its content and read at a glance;
+the cards stay two-up at every width, because stacking them on a phone made the
+unscrolled panel taller than the viewport and put the last slots out of reach.
+Measured: 496×648 on desktop, 352×644 at 390px, inside the viewport in both. If
+"Additional" documents ever outgrow a short viewport, cap and scroll THAT list
+alone — never the panel.
 
 ---
 
@@ -1154,9 +1270,13 @@ Output3DRendersSection    approved render + version gallery, preview + download
 Output2DPlansSection      2D plan + versions, preview + download
 OutputBoQSection          BoQ preview table, CSV export, open full modal, edit → BoQ Assistant
 OutputDocumentsSection    supporting documents grid + downloads
+OutputFinishBar           the close of the page: Finish this project
 OutputBoQModal            full-screen BoQ inspection
 FloorPlanFullscreenModal  shared lightbox for plans and renders
 ```
+
+`OutputFinishBar` is not a second finish rule — it renders `useFinishProject`,
+the same hook the bottom navigation renders (§16).
 
 Domain modules: `step-4/outputConfig.js` (copy) and `step-4/outputDownloads.js`.
 
@@ -1330,7 +1450,10 @@ handler (`if (status === 'submitting') return`) — keep both.
 Login, Signup, Forgot Password, Reset Password and the Profile modals share:
 
 - `AuthShell` / dashboard surface presentation
-- `FormInput` field semantics
+- `FormInput` field semantics, including the password REVEAL control: a
+  `type="password"` field gets the eye toggle automatically (the same one the
+  Profile Reset Password modal uses), out of the tab order and with a real
+  accessible name. Do not hand-build a second one per form.
 - `PrimaryButton loading`
 - one error toast per invalid submit, chosen by declared field order
 - no inline red error line; the message goes to a screen-reader-only node
@@ -1387,8 +1510,7 @@ the second binding rather than suppressing the second call with a flag or a
 timer.
 
 Current keyboard reality for the assistant menus — `RenderStyleDropdown`,
-`ViewAngleMenu`, `DocumentTypeDropdown`, `UploadedDocumentsDropdown`,
-`FloorPlansDropdown`, `FloorPlans3DDropdown` — stated plainly so no comment
+`ViewAngleMenu` and `ProjectFilesPanel` — stated plainly so no comment
 overstates it: the trigger is a real button (focusable, Enter/Space to open),
 Escape closes the menu and returns focus to the trigger, and choosing an option
 also returns focus there. Arrow-key roving focus over the option rows is NOT
@@ -1540,6 +1662,15 @@ components/.../step-4/OutputPlanCard.jsx
 components/.../step-4/FinalBoQSection.jsx
 components/.../step-4/FinalBoQTable.jsx
 components/.../step-4/UploadedDocumentsSection.jsx
+```
+
+Removed when `ProjectFilesPanel` replaced them, all verified unreferenced first:
+
+```
+components/.../step-2/assistant/FloorPlansDropdown.jsx
+components/.../step-3/assistant/FloorPlans3DDropdown.jsx
+components/.../step-3/assistant/UploadedDocumentsDropdown.jsx
+components/.../step-3/assistant/DocumentTypeDropdown.jsx
 ```
 
 PROGRESS.md records what remains.

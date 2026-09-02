@@ -234,15 +234,16 @@ authenticated files in `src/lib/api/files.js`.
 | `POST /step-3/versions/{id}/approve/` | BoQAssistantPage | Approve |
 | `GET /step-3/versions/{id}/download-csv/` | OutputBoQSection | Download CSV |
 | `POST /step-3/skip/` | BoQStage | Skip, after modal confirmation |
-| `POST /step-3/documents/` | BoQComposer attachment | file chosen |
-| `DELETE /step-3/documents/{id}/` | BoQAssistantHeader dropdown | remove |
+| `POST /step-3/documents/` | ProjectFilesPanel document slot | file chosen |
+| `DELETE /step-3/documents/{id}/` | ProjectFilesPanel document card | Remove |
+| `DELETE /projects/{id}/conversations/messages/{messageId}/` | all three assistants | turn sheet delete |
 | `GET /projects/jobs/{id}/` | `waitForJob` | while any job runs |
 | `GET /projects/{id}/assets/{assetId}/download/` | every download | click |
 | `POST /projects/{id}/download-all/` | OutputHeader, renders + documents sections | scoped ZIP |
 
 **Not called by any UI yet (services exist, deliberately kept):**
 `renameProject`, `postBoqMessage` (text-only BoQ message),
-`deleteConversationMessage`, `fetchProjectAssets`, `updateBoqDocument`.
+`fetchProjectAssets`, `updateBoqDocument`.
 
 **No API exists for:** billing / subscription.
 
@@ -422,15 +423,35 @@ the mode lock applied.
 
 **Backend integrated.**
 
-- Header: Back (to whichever Step 1 address the user came from), brand block,
-  `ApprovalStatus` indicator. There is no "Approve Now" button in the header —
-  approval is per result, in the result's header row.
-- Conversation: empty state with four `FLOOR_PLAN_QUICK_PROMPTS`, user/assistant
-  messages, pending block, failure notice with Retry, result blocks with
-  `ResultHeaderControls` (Edit + Approve) and a "Full View" overlay rail. The
-  whole transcript is rebuilt from `/step-1/conversation/` + `/step-1/history/`
-  by `floorPlanAdapters.hydrateFloorPlanState`.
-- Composer: Step 2's `AssistantComposer` with a 2D-specific placeholder.
+- Header: Back (to whichever Step 1 address the user came from), brand block
+  titled **"2D Rendering"** (`workspaceTitle`), `ApprovalStatus` indicator. There
+  is no "Approve Now" button in the header — approval is per result, in the
+  result's header row.
+- Conversation: empty state with four `FLOOR_PLAN_QUICK_PROMPTS`, then one
+  **turn sheet** per exchange — `AssistantTurnCard` holding the instruction and
+  what it produced, with a red delete control in a reserved column OUTSIDE the
+  sheet's right edge.
+- The sheet and the delete control appear only on a SETTLED turn
+  (`isTurnSettled` — replies exist, none pending, none a failure notice). While
+  a job runs, and after one fails, the turn stays on the bare backdrop. The
+  sheet's border is `--tone-line-soft` (half a hairline).
+- **Delete is wired**: `DELETE /projects/{id}/conversations/messages/{messageId}/`
+  with the prompt's `serverMessageId`. The backend deletes the whole block —
+  message, version, job and stored files — so the client deletes no image
+  separately; afterwards Step 1 is refetched, the project reloaded (a deleted
+  selection clears `selected_floor_plan`) and Step 4's bundle invalidated. One
+  success toast, one error toast, and the sheet dims with a spinner while it
+  runs.
+- The backend's own assistant sentences ("Your 2D floor plan is ready for
+  review.") are NOT transcribed — the drawing under them already said it.
+  Failures and running jobs still speak; those come from the version.
+- The pending block shows the job's `message` with **no percentage**
+  (`jobProgressText`), because the pipeline's progress is a simulated ramp.
+- The whole transcript is rebuilt from `/step-1/conversation/` +
+  `/step-1/history/` by `floorPlanAdapters.hydrateFloorPlanState`.
+- Composer: Step 2's `AssistantComposer` with a 2D-specific placeholder. The
+  composer zone has no surface of its own — the field is a white bar floating on
+  the workspace backdrop at `--radius-field` (12px, the one radius exception).
 - Generation: `POST /step-1/generate/` (a bare instruction refines the version
   being edited via `parent_version_id`), then the job is watched and its
   progress written onto the pending block, then Step 1 is refetched.
@@ -456,14 +477,17 @@ loads Step 1 and Step 2 and holds a loader while either is in flight.
 
 **Backend integrated.**
 
-- Header: Back to 3D Rendering, brand block, `FloorPlansDropdown` (attached 2D
-  plans, with a full-screen preview), `ApprovalStatus`.
-- Conversation: `AssistantEmptyState` + four `QUICK_PROMPTS`, timestamped
-  messages, pending / failure / retry blocks, result blocks.
+- Header: Back to 3D Rendering, brand block titled **"3D Rendering"**
+  (`workspaceTitle`), `ProjectFilesPanel` in its compact variant (the 2D plan,
+  with a full-screen preview), `ApprovalStatus`.
+- Conversation: `AssistantEmptyState` + four `QUICK_PROMPTS`, then turn sheets —
+  same settled-only sheet, same wired delete (Step 2's reload + project refresh)
+  and the same no-commentary / no-percentage rules as the 2D assistant above.
 - Result header controls: Edit, Approve (toggle, with tooltip), View Angle menu.
 - Result rail: Full View always; DWG only when the result actually carries a
   `dwgUrl` (the mock never does, so no DWG button is shown).
-- Composer: single-line input, Enter to send, `RenderStyleDropdown` inline. The
+- Composer: single-line input on a white `--radius-field` bar over a transparent
+  zone, Enter to send, `RenderStyleDropdown` inline. The
   Cancel control is gated on `THREE_D_GENERATION_SUPPORTS_CANCEL`, which is
   `false` because the contract has no cancel endpoint — so no cancel button is
   rendered.
@@ -525,9 +549,9 @@ state.
 
 **Backend integrated.**
 
-- Header: Back to BoQ, brand block, `FloorPlansDropdown` (2D),
-  `FloorPlans3DDropdown` (approved render), `UploadedDocumentsDropdown`,
-  `ApprovalStatus`. Steps 1 and 2 are loaded for the first two dropdowns.
+- Header: Back to BoQ, brand block titled **"BOQ Generation"**
+  (`workspaceTitle`), ONE `ProjectFilesPanel` control, `ApprovalStatus`. Steps 1
+  and 2 are still loaded — the panel shows the 2D plan and the approved render.
 - Conversation: empty state, user/assistant messages, assistant text rendered as
   Markdown (`react-markdown` + `remark-gfm` — the only place either is used),
   pending / failure / retry blocks, `BoQResult` → `BoQTable`. Rebuilt from
@@ -544,15 +568,38 @@ state.
   A BOQ version is immutable on the backend, so an edit is a NEW unapproved
   version — which preserves the old rule without a browser-only copy.
 - Approve: `POST /step-3/versions/{id}/approve/`, then back to `/boq`.
-- Composer: single-line input + **attachment control** + `DocumentTypeDropdown` +
-  send. The attachment uploads through `POST /step-3/documents/`, classified by
-  the dropdown beside it; the header dropdown's remove calls
-  `DELETE /step-3/documents/{id}/`. Both refetch the list afterwards.
-- Document types are the backend's seven enum values: **General Document ·
-  Project Brief · Structural Drawing · Estimation · Material Specification ·
-  3D Model · Other**. The previous four (MEP / HVAC / Door and Window Schedule)
-  had no counterpart in the API, so the chosen classification would not have
-  been the one saved.
+- Conversation: the SAME turn sheets as the two design assistants
+  (`AssistantTurnCard`), with the settled-only rule and the wired delete — the
+  BoQ assistant's own `BoQMessage` is what sits inside them, because here the
+  assistant's Markdown text is a real answer rather than commentary.
+- Composer: single-line input + send, and nothing else. The paperclip and the
+  document-type menu moved into `ProjectFilesPanel`, where the slot a file is
+  dropped on IS its classification.
+- `ProjectFilesPanel` (shared/) shows REQUIRED — the approved 2D plan and the
+  approved 3D render, each with a preview and a full-screen View — and
+  DOCUMENTS: four slots, **General Document · MEP Drawing · HVAC Drawing ·
+  Door & Window Schedule**. It does NOT scroll: the panel is its content's
+  height, cards are two-up at every width, and it was measured inside the
+  viewport at 1440×900, 1366×768, 1280×720 and 390×844. Empty slots are "+ Add document"; a filled one shows
+  the file, its type and size, View and Remove. Upload is
+  `POST /step-3/documents/`, remove is `DELETE /step-3/documents/{id}/`, both
+  refetching afterwards.
+- While a file uploads, THAT slot shows it: brand tint, spinner, "Uploading…"
+  and the file name, with the other slots disabled and a small spinner on the
+  panel's trigger. The panel holds the state keyed by slot id and clears it when
+  the page's handler resolves — which is after the document list has been
+  refetched, so there is no gap between the spinner ending and the real card.
+- `document_type` is still the backend's seven enum values. The three drawing
+  slots have no member of their own there, so they are stored as
+  `STRUCTURAL_DRAWING` (whose description covers structural, MEP, HVAC and
+  technical drawings) — declared beside the label in `PROJECT_DOCUMENT_SLOTS`.
+  Because that alone could not tell two drawing slots apart, the slot is also
+  tagged into the document's `title` (`slotDocumentTitle` / `slotIdFromTitle`),
+  so a file reopens in the slot it was dropped on. The tag is invisible: the
+  panel and Step 4 display `name` (the asset's `original_name`).
+  `assignDocumentsToSlots` fills by title tag, then by `document_type`, then by
+  first free slot; documents past the four are listed under "Additional" rather
+  than dropped. A real per-slot type is still a backend enum change.
 - Generation: `POST /step-3/generate/`, job watched, then refetch.
 
 ### Step 4 — Output / Deliverables (`/output`)
@@ -575,12 +622,16 @@ Output2DPlansSection      approved plan + the project's real plan history
 OutputBoQSection          approved BoQ preview, backend CSV export, full modal,
                           "Edit BoQ" → /boq/assistant
 OutputDocumentsSection    the project's documents, or an honest empty state
+OutputFinishBar           the close of the page: Finish this project
 OutputBoQModal            full-screen BoQ inspection
 FloorPlanFullscreenModal  shared lightbox
 ```
 
 Behaviour:
 
+- `OutputFinishBar` ends the page with the same Finish the bottom navigation
+  offers. Both render `useFinishProject` — one gate, one `POST /finish/`, one
+  set of toasts, one redirect to `/dashboard/projects`.
 - Every count comes from `summary` or from the lists themselves.
 - The readiness badge reads "NO DELIVERABLES YET" when there is nothing.
 - The "APPROVED LATEST" cards render only when something IS approved — they used
@@ -870,6 +921,37 @@ gone — both now cover real requests.
   been run against the API.
 - **Responsive verification — NOT performed.** No viewport in the
   1920 → 360 list has been visually verified recently; do not claim otherwise.
+
+### Browser verification of this UI pass — RUN, PARTIAL
+
+Driven through the Chrome DevTools Protocol against `npm run dev`. What was
+actually observed in a real browser:
+
+- **`/login` and `/reset-password`** — every password field carries the reveal
+  control. Clicking it flipped `input.type` `password` → `text` → `password`,
+  the accessible name flipped with it, the control is out of the tab order
+  (`tabIndex -1`) and measured EXACTLY centred on the field (0px delta) with a
+  14px inset. The first attempt was 6px low — the field's own `mt-3` collapses
+  out of the wrapper — and was fixed and re-measured, not assumed.
+- **The assistant workspace pieces** — turn sheets, the delete control, the
+  Project Files panel (both variants), the composer and the sidebar toggle were
+  rendered in a THROWAWAY harness entry (`uiproof.html` + `src/uiproof.jsx`,
+  both deleted afterwards; nothing in `src/` still references them) with static
+  props, at 1440, 1280, 900 and 390 CSS px. Observed: a settled turn draws the
+  white sheet with the delete control outside its right edge; a pending turn and
+  a failed turn draw NEITHER; the pending block shows no percentage; no
+  horizontal overflow at 390 (`scrollWidth === innerWidth`); the sheet border
+  computes to `rgba(11,22,36,0.07)` and the composer field to a 12px radius;
+  the sidebar toggle's border computes to `rgba(11,22,36,0.3)`.
+- **The BoQ transcript** was rendered the same way through the real
+  `BoQConversation` with a mock state, and shows the same sheet, the same
+  external delete control and the same pending behaviour.
+
+NOT verified in a browser, because both need a live session and real project
+data: the delete REQUEST itself (`DELETE /conversations/messages/{id}/` and the
+refetch that follows), the document upload/remove path through the new panel,
+and the Output stage's Finish bar against a real `canFinishProject` state. Those
+are source-verified only.
 
 ### Browser verification of auth enforcement and route integrity — RUN and PASSED
 

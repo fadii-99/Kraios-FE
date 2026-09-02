@@ -69,7 +69,7 @@ export default function FloorPlanAssistantHeader({
                   className="truncate text-[0.875rem] font-black uppercase leading-tight tracking-[-0.02em] text-[var(--tone-ink)] sm:text-[0.9375rem] lg:text-[1rem]"
                   style={{ fontFamily: 'var(--font-display)' }}
                 >
-                  {FLOOR_PLAN_ASSISTANT_COPY.assistantTitle}
+                  {FLOOR_PLAN_ASSISTANT_COPY.workspaceTitle}
                 </h1>
                 <span className="hidden rounded-xs border border-[var(--color-brand-deep)]/20 bg-[var(--color-brand-deep)]/10 px-1.5 py-0.5 text-[0.5625rem] font-bold tracking-wider text-[var(--color-brand-deep)] uppercase md:inline-block">
                   2D Studio
