@@ -293,6 +293,37 @@ GET  /auth/csrf/
 POST /auth/reset-password/
 ```
 
+`src/lib/api/booking.js` → `BOOKING_ENDPOINTS` — the public booking calendar,
+read WITHOUT a session because the visitor does not have one yet:
+
+```
+GET /auth/booking/days/?month=YYYY-MM     open dates in that month
+GET /auth/booking/slots/?date=YYYY-MM-DD  slots on one date
+```
+
+These serve the ADMIN CONSOLE'S availability — the weekly pattern and blackout
+dates set on the console's Availability screen, minus what is already booked.
+The signup form renders that answer and submits one of its `label` strings
+back; the server then refuses any slot it does not offer. Never put a fallback
+or placeholder slot list beside these: a second source drifts, and it drifts
+towards offering a visitor a time nobody can take. Times are UTC, and the form
+says so.
+
+`src/lib/api/support.js` → `SUPPORT_ENDPOINTS` — the public contact form, also
+sessionless:
+
+```
+POST /support/contact/   { name, email, firm, country, topic, subject, message }
+```
+
+It writes into the SUPPORT QUEUE the admin console triages. `CONTACT_TOPICS` is
+declared beside it and mirrors the server's `SUPPORT_TOPICS`; the server
+validates against that list and derives the request's starting priority from
+it. `status`, `priority`, `assignee` and the reference are NOT in the payload
+and are ignored if sent — a priority control on a public form is a control
+everybody sets to Urgent. The response is a reference and a message, never the
+stored record.
+
 `src/lib/api/profile.js` → `PROFILE_ENDPOINTS`:
 
 ```
@@ -451,7 +482,14 @@ API request must never fire merely because the application mounted.
   bootstrap above the router.
 - **LOGIN page** owns the login request only, and only on a valid submit:
   `GET /auth/csrf/` then `POST /auth/login/`. It does not call `/auth/me/`.
-- **SIGNUP page** owns `POST /auth/signup-request/` only, on a valid submit.
+- **SIGNUP page** owns `POST /auth/signup-request/` on a valid submit, plus the
+  two PUBLIC booking reads its pickers cannot be drawn without: `GET
+  /auth/booking/days/` per month shown and `GET /auth/booking/slots/` per date
+  chosen. Unauthenticated, `skipRefresh`, and still an empty network panel as
+  far as the SESSION is concerned — the rule above is that a public route makes
+  no AUTHENTICATED request, not that it makes none.
+- **LANDING page** fires nothing on mount. Its Contact section owns `POST
+  /support/contact/` on a valid submit of the contact form, and nothing else.
 - **FORGOT PASSWORD** calls nothing — there is no such endpoint in the contract.
 - **RESET PASSWORD** owns `POST /auth/reset-password/` on submit.
 - **AUTHENTICATED BOUNDARY** (`DashboardLayout`) owns the ONE `GET /auth/me/`.
@@ -1550,7 +1588,10 @@ Login submits through `AuthContext.login` and navigates to
 `location.state.from` (when it starts with `/dashboard`) or `/dashboard`.
 
 Signup submits `{ name, firm, email, country, date, time }` with the date
-normalized to `YYYY-MM-DD`, and opens the confirmation modal on success.
+normalized to `YYYY-MM-DD`, and opens the confirmation modal on success. `time`
+is the `label` of a slot the booking endpoints offered for that date — the
+form never invents one, and the server rejects anything the schedule does not
+currently hold open.
 
 Never reintroduce "any email works" demo copy, and never claim an
 authentication, an email or a persisted change that did not happen.

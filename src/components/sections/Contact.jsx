@@ -9,6 +9,7 @@ import AnimatedHeading from '@/components/ui/AnimatedHeading'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import Section from '@/components/ui/Section'
 import BlueprintBackdrop from '@/components/ui/BlueprintBackdrop'
+import ContactForm from '@/components/sections/ContactForm'
 import { contact } from '@/lib/content'
 import { useBackdropParallax } from '@/hooks/useBackdropParallax'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
@@ -16,12 +17,18 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 gsap.registerPlugin(ScrollTrigger)
 
 /**
- * The closing call to action, not a project enquiry.
+ * The closing band: two self-serve actions, and a way to ask a question.
  *
- * Kraios is self-serve, so this section drives account creation first and a
- * scheduled walkthrough second. It deliberately carries no form: the only form
- * the visitor should meet is the one inside the flow they chose, on /signup.
- * Both actions are real links, so they deep-link and open in a new tab.
+ * ORDER IS THE ARGUMENT. Kraios is self-serve, so signing up and booking a
+ * walkthrough come first and are real links — they deep-link, they open in a
+ * new tab, and neither costs the visitor a wait. The form is the third path,
+ * for the questions those two do not answer, and it sits beside them rather
+ * than above them so it never reads as the way in.
+ *
+ * The form is its own component because this one is a layout with a GSAP
+ * timeline over it and that one is seven fields of state; keeping them apart
+ * is what stops a re-render per keystroke reaching the animated nodes.
+ * Everything it submits lands in the support queue an administrator triages.
  */
 export default function Contact() {
   const scope = useRef(null)
@@ -86,6 +93,32 @@ export default function Contact() {
             >
               {contact.secondaryCta.label}
             </Link>
+          </div>
+        </div>
+
+        {/* A ruled break, not a second heading band: the form answers the same
+            "get started" question the two buttons do, so it stays inside this
+            section rather than becoming a section of its own with its own index
+            in the nav. */}
+        <div className="mx-auto mt-20 max-w-5xl border-t border-[var(--tone-line)] pt-16 lg:mt-24 lg:pt-20">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)] lg:gap-16">
+            <div data-reveal>
+              <span className="label-ui text-[var(--tone-accent)]">
+                {contact.form.eyebrow}
+              </span>
+
+              <h3 className="display-sm mt-5 text-[var(--tone-ink)]">
+                {contact.form.heading}
+              </h3>
+
+              <p className="mt-6 max-w-[44ch] text-[1.0625rem] leading-relaxed text-[var(--tone-muted)]">
+                {contact.form.body}
+              </p>
+            </div>
+
+            <div data-reveal>
+              <ContactForm />
+            </div>
           </div>
         </div>
       </Container>

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CalendarCheck } from '@phosphor-icons/react'
 
@@ -9,7 +9,8 @@ import PrimaryButton from '@/components/ui/PrimaryButton'
 import Modal from '@/components/ui/Modal'
 import CalendarPicker from '@/components/ui/CalendarPicker'
 import { useAuth } from '@/contexts/AuthContext'
-import { booking } from '@/lib/content'
+import { fetchBookingDays, fetchBookingSlots, toMonthKey } from '@/lib/api'
+import { toISODate } from '@/lib/date'
 import { showErrorToast } from '@/lib/toast'
 import { isEmail } from '@/lib/validate'
 import { cn } from '@/lib/cn'
@@ -22,17 +23,26 @@ const formatDisplayDate = (d) =>
     year: 'numeric',
   })
 
-const formatDateToBackend = (d) => {
-  if (!d) return ''
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+/** `YYYY-MM-DD` as a LOCAL midnight Date — `new Date('…')` would parse it UTC. */
+const fromISODate = (iso) => {
+  if (!iso) return null
+  const [year, month, day] = iso.split('-').map(Number)
+  return new Date(year, month - 1, day)
 }
 
 /**
- * Account signup + session booking in one step: firm details plus a preferred
- * date and time for the platform walkthrough.
+ * Account signup + session booking in one step: firm details plus a date and
+ * time for the platform walkthrough.
+ *
+ * THE CALENDAR IS NOT THIS PAGE'S. Both the open dates and the times on them
+ * come from `/auth/booking/…`, which is the availability an administrator set
+ * in the console — a weekly pattern plus blackout dates, minus whatever is
+ * already booked. This page renders that answer and submits one of its labels
+ * back; it never decides what is bookable, and it must never carry a fallback
+ * list of times, because a fallback is a promise of a slot nobody can take.
+ *
+ * The two requests it makes are public reads on a public route (§9): no
+ * session, no `/auth/me/`, and no refresh attempt on a 401.
  */
 export default function Signup() {
   const { signup } = useAuth()
@@ -44,6 +54,94 @@ export default function Signup() {
   const [status, setStatus] = useState('idle')
   const [open, setOpen] = useState(false)
   const formRef = useRef(null)
+
+  // --- the administrator's availability -----------------------------------
+  //
+  // Both lists are stored WITH the key they answer — `days-2026-09#0`,
+  // `slots-2026-09-07#0` — and "loading" is the key on screen not matching the
+  // key in state. That is what makes a stale answer unrenderable: a reply for
+  // last month's key can land late and it still is not the current key, so it
+  // is never shown. It also keeps every write inside a promise callback, which
+  // is the only place an effect may set state.
+  //
+  // The nonce in each key exists to re-ask for a list the visitor has not
+  // navigated away from but which is now stale: a slot rejected as taken, or
+  // the day a booking just used up. Re-setting the date or the month would not
+  // do it — they have not changed, and React bails out of an identical write.
+  const [month, setMonth] = useState(null)
+  const [daysNonce, setDaysNonce] = useState(0)
+  const [slotsNonce, setSlotsNonce] = useState(0)
+  const [daysState, setDaysState] = useState(null)
+  const [slotsState, setSlotsState] = useState(null)
+
+  const daysKey = month ? `days-${month}#${daysNonce}` : null
+  const dateKey = date ? toISODate(date) : null
+  const slotsKey = dateKey ? `slots-${dateKey}#${slotsNonce}` : null
+
+  const daysReady = Boolean(daysKey) && daysState?.key === daysKey
+  const slotsReady = Boolean(slotsKey) && slotsState?.key === slotsKey
+
+  const daysLoading = !daysReady
+  const daysFailed = daysReady && daysState.failed
+  // null until answered, which CalendarPicker reads as "unrestricted" — safe
+  // only because `loading` disables every cell for exactly as long.
+  const openDates = daysReady ? daysState.dates : null
+  const horizon = daysReady ? daysState.horizon : null
+
+  const slots = slotsReady ? slotsState.slots : []
+  const slotsLoading = Boolean(slotsKey) && !slotsReady
+  const slotsFailed = slotsReady && slotsState.failed
+
+  // Stable, because CalendarPicker reports its month from an effect and a new
+  // function identity every render would make that effect a loop.
+  const handleMonthChange = useCallback(({ year, month: monthIndex }) => {
+    setMonth(toMonthKey(year, monthIndex))
+  }, [])
+
+  useEffect(() => {
+    if (!month || !daysKey) return
+    let cancelled = false
+
+    fetchBookingDays(month)
+      .then(({ days, maxDate }) => {
+        if (cancelled) return
+        setDaysState({
+          key: daysKey,
+          dates: new Set(days),
+          horizon: fromISODate(maxDate),
+          failed: false,
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        // An empty set, not an open calendar. If availability cannot be read,
+        // offering every date would let someone book a slot the server is
+        // about to refuse — a closed calendar with a visible reason is the
+        // honest failure.
+        setDaysState({ key: daysKey, dates: new Set(), horizon: null, failed: true })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [month, daysKey])
+
+  useEffect(() => {
+    if (!dateKey || !slotsKey) return
+    let cancelled = false
+
+    fetchBookingSlots(dateKey)
+      .then((next) => {
+        if (!cancelled) setSlotsState({ key: slotsKey, slots: next, failed: false })
+      })
+      .catch(() => {
+        if (!cancelled) setSlotsState({ key: slotsKey, slots: [], failed: true })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [dateKey, slotsKey])
 
   const validate = (v = values, d = date, t = time) => {
     const next = {}
@@ -78,7 +176,7 @@ export default function Signup() {
     // console.log('[Signup Page] 📝 Signup form submit triggered')
     // console.log('[Signup Page] 📋 Form data:', {
     //   ...values,
-    //   date: date ? formatDateToBackend(date) : null,
+    //   date: date ? toISODate(date) : null,
     //   time,
     // })
 
@@ -113,7 +211,7 @@ export default function Signup() {
         firm: values.firm.trim(),
         email: values.email.trim(),
         country: values.country.trim(),
-        date: formatDateToBackend(date),
+        date: toISODate(date),
         time,
       }
 
@@ -128,6 +226,15 @@ export default function Signup() {
       //   status: err.status,
       //   data: err.data,
       // })
+      // The server rejects a slot it no longer offers — somebody took it while
+      // this form was open. Clearing the choice and re-asking is the only
+      // honest response: leaving the taken time selected invites the visitor
+      // to submit it again and be refused again.
+      if (err?.data?.time) {
+        setTime(null)
+        setSlotsNonce((n) => n + 1)
+      }
+
       showErrorToast(
         err.message || 'Unable to submit your request. Please try again.',
         { id: 'signup-error' },
@@ -147,6 +254,11 @@ export default function Signup() {
     setTime(null)
     setTouched({})
     setErrors({})
+    // Clearing the date empties the slot list through its own effect. The
+    // month's open dates are re-read for the same reason a second booking
+    // needs them: the slot just taken is one of the ones that changed, and it
+    // may have been the last one on that day.
+    setDaysNonce((n) => n + 1)
   }
 
   return (
@@ -229,12 +341,33 @@ export default function Signup() {
               >
                 <CalendarPicker
                   value={date}
+                  availableDates={openDates}
+                  loading={daysLoading}
+                  maxDate={horizon}
+                  onMonthChange={handleMonthChange}
                   onSelect={(d) => {
                     setDate(d)
+                    // A time belongs to ITS date. Carrying "10:00 AM" onto a
+                    // day whose list does not contain it would submit a slot
+                    // the visitor never saw offered.
+                    setTime(null)
                     setErrors((prev) => ({ ...prev, date: undefined }))
                   }}
                 />
               </div>
+
+              {daysFailed && (
+                <p role="status" className="mt-3 text-[0.9375rem] text-[var(--tone-muted)]">
+                  We could not load the available dates.{' '}
+                  <button
+                    type="button"
+                    onClick={() => setDaysNonce((n) => n + 1)}
+                    className="cursor-pointer text-[var(--tone-ink)] underline underline-offset-4 transition-colors hover:text-[var(--tone-accent)]"
+                  >
+                    Try again
+                  </button>
+                </p>
+              )}
 
               {/* The visible copy is the submit toast; this stays for assistive
                   tech, which the scheduling group has no border state to tell. */}
@@ -254,22 +387,33 @@ export default function Signup() {
                 </span>
               </p>
 
+              {/* Said once, plainly. The whole product schedules in UTC, so a
+                  visitor reading "09:00 AM" against their own clock would be an
+                  hour — or nine — wrong about when the call is. */}
+              <p className="mt-2 text-[0.875rem] text-[var(--tone-muted)]">
+                All times are shown in UTC.
+              </p>
+
               <div
                 role="group"
                 aria-labelledby="time-label"
                 aria-describedby={touched.time && errors.time ? 'time-error' : undefined}
+                aria-busy={slotsLoading || undefined}
                 className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-2"
               >
-                {booking.timeSlots.map((slot) => {
-                  const selected = time === slot.value
+                {slots.map((slot) => {
+                  const selected = time === slot.label
                   return (
                     <button
-                      key={slot.value}
+                      key={slot.time}
                       type="button"
-                      disabled={slot.disabled}
+                      disabled={!slot.available}
                       aria-pressed={selected}
+                      aria-label={
+                        slot.available ? slot.label : `${slot.label} — no longer available`
+                      }
                       onClick={() => {
-                        setTime(slot.value)
+                        setTime(slot.label)
                         setErrors((prev) => ({ ...prev, time: undefined }))
                       }}
                       className={cn(
@@ -279,7 +423,7 @@ export default function Signup() {
                         selected
                           ? 'border-[var(--tone-accent)] bg-[var(--tone-accent)] font-semibold text-white'
                           : 'border-[var(--tone-line-strong)] text-[var(--tone-ink)] hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]',
-                        slot.disabled &&
+                        !slot.available &&
                           'cursor-not-allowed border-[var(--tone-line)] text-[var(--tone-muted)]/45 line-through hover:border-[var(--tone-line)] hover:text-[var(--tone-muted)]/45',
                       )}
                     >
@@ -288,6 +432,35 @@ export default function Signup() {
                   )
                 })}
               </div>
+
+              {/* One line, whichever of the four states the list is in — an
+                  empty grid with no explanation reads as a broken page. */}
+              {slots.length === 0 && (
+                <p
+                  role="status"
+                  className="mt-3 text-[0.9375rem] text-[var(--tone-muted)]"
+                >
+                  {!date
+                    ? 'Choose a date to see the times available on it.'
+                    : slotsLoading
+                      ? 'Loading times…'
+                      : slotsFailed
+                        ? 'We could not load the times for that date.'
+                        : 'No times are left on that date. Please choose another.'}
+                  {slotsFailed && (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        onClick={() => setSlotsNonce((n) => n + 1)}
+                        className="cursor-pointer text-[var(--tone-ink)] underline underline-offset-4 transition-colors hover:text-[var(--tone-accent)]"
+                      >
+                        Try again
+                      </button>
+                    </>
+                  )}
+                </p>
+              )}
 
               {touched.time && errors.time && (
                 <p id="time-error" className="sr-only">

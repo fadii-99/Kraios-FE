@@ -358,22 +358,31 @@ export const contact = {
     'Create your account and start your first project today — or schedule a session with our team for a walkthrough of the platform, pricing, and how Kraios fits your workflow.',
   primaryCta: { label: 'Sign Up', to: authLinks.signup.to },
   secondaryCta: { label: 'Schedule a Session', to: authLinks.signup.to },
-}
 
-/**
- * The scheduled-session request on /signup. Placeholder slots — replace
- * `timeSlots` with whatever the scheduling API returns; `disabled` is already
- * honoured.
- */
-export const booking = {
-  timeSlots: [
-    { value: '09:00 AM', label: '09:00 AM' },
-    { value: '10:30 AM', label: '10:30 AM' },
-    { value: '12:00 PM', label: '12:00 PM' },
-    { value: '02:00 PM', label: '02:00 PM' },
-    { value: '03:30 PM', label: '03:30 PM' },
-    { value: '05:00 PM', label: '05:00 PM' },
-  ],
+  /**
+   * The contact form beside those two actions.
+   *
+   * It is a THIRD path, not a replacement for them: signing up and booking a
+   * walkthrough are self-serve and instant, and a visitor who wants either
+   * should not be routed through a message and a wait. This is for the
+   * questions those two do not answer — pricing detail, an existing account
+   * that is misbehaving, a partnership.
+   *
+   * Every message lands in the support queue an administrator triages. Nothing
+   * here promises a response time, because nothing in the product enforces one.
+   */
+  form: {
+    eyebrow: 'Contact Us',
+    heading: 'Or Send Us A Message',
+    body:
+      'Tell us what you need and it goes straight to the KRAIOS team. Pick the topic that fits best so it reaches the right people.',
+    note: 'We reply by email to the address you give us.',
+    success: {
+      title: 'Message Sent',
+      body: 'Thanks — your message is with the KRAIOS team. We will reply by email.',
+      again: 'Send another message',
+    },
+  },
 }
 
 /**

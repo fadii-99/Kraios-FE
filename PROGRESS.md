@@ -16,9 +16,9 @@ Last synchronized by full source inspection of `src/`, `api/`, `public/`,
 
 | Area | UI | Frontend mock | Real backend |
 |---|---|---|---|
-| Public site (landing, nav, sections) | ✅ complete | content from `src/lib/content.js` | n/a |
+| Public site (landing, nav, sections) | ✅ complete | content from `src/lib/content.js` | Contact section's form wired to `POST /support/contact/` |
 | Login | ✅ complete | — | `POST /auth/login/` wired **and enforced** |
-| Signup (request a session) | ✅ complete | — | `POST /auth/signup-request/` wired |
+| Signup (request a session) | ✅ complete | — | `POST /auth/signup-request/` wired; the calendar and slot list read the admin's availability via `GET /auth/booking/days|slots/` |
 | Forgot Password | ✅ complete | ⚠️ no request is made | none (no endpoint in contract) |
 | Reset Password | ✅ complete | — | `POST /auth/reset-password/` wired |
 | Session bootstrap | ✅ complete | — | `GET /auth/me/` wired **and enforced** |
@@ -193,6 +193,9 @@ normalization, network-error wrapping.
 | `GET /auth/csrf/` | `ensureCsrfToken` / `fetchCsrfToken` | client + `loginUser` | before mutating calls / before login | integrated |
 | `POST /auth/login/` | `loginUser` | Login page via `AuthContext.login` | valid submit | integrated, failure rejects |
 | `POST /auth/signup-request/` | `submitSignupRequest` | Signup page | valid submit | integrated |
+| `GET /auth/booking/days/` | `fetchBookingDays` | Signup page calendar | mount + each month paged | integrated, public (no session) |
+| `GET /auth/booking/slots/` | `fetchBookingSlots` | Signup page time list | a date is chosen | integrated, public (no session) |
+| `POST /support/contact/` | `submitContactRequest` | Landing Contact section | valid submit | integrated, public (no session) |
 | `POST /auth/logout/` | `logoutUser` | Sidebar / mobile nav Log out | click | integrated (swallows transport failure) |
 | `POST /auth/refresh/` | internal | client on 401 | automatic, once | integrated |
 | `GET /auth/me/` | `getCurrentUser` | `DashboardLayout` boundary | status `unknown` | integrated, failure → `anonymous` |

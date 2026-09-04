@@ -22,6 +22,19 @@ export {
 } from './api/auth'
 
 export {
+  SUPPORT_ENDPOINTS,
+  CONTACT_TOPICS,
+  submitContactRequest,
+} from './api/support'
+
+export {
+  BOOKING_ENDPOINTS,
+  toMonthKey,
+  fetchBookingDays,
+  fetchBookingSlots,
+} from './api/booking'
+
+export {
   PROFILE_ENDPOINTS,
   EDITABLE_PROFILE_FIELDS,
   VERIFICATION_KEYS,
