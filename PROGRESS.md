@@ -25,7 +25,7 @@ Last synchronized by full source inspection of `src/`, `api/`, `public/`,
 | Dashboard shell / navigation | ✅ complete | — | n/a |
 | Overview | ✅ complete | — | no API |
 | Projects library | ✅ complete | — | `GET`/`POST`/`DELETE /projects/` wired |
-| Subscription | ✅ complete | all data mock | ❌ no billing API |
+| Subscription | ✅ complete | — | `GET /billing/plans/` + `GET /billing/subscription/` wired; no checkout (plans are activated by an administrator) |
 | Profile | ✅ complete | ⚠️ save falls back locally | `GET`/`PATCH /profile/` + 4 OTP endpoints wired |
 | Step 1 Upload / Generate | ✅ complete | — | `POST /step-1/upload/` wired |
 | 2D Floor Plan Assistant | ✅ complete | — | generate · edit · approve wired |
@@ -228,6 +228,8 @@ normalization, network-error wrapping.
 | `GET /auth/booking/days/` | `fetchBookingDays` | Signup page calendar | mount + each month paged | integrated, public (no session) |
 | `GET /auth/booking/slots/` | `fetchBookingSlots` | Signup page time list | a date is chosen | integrated, public (no session) |
 | `POST /support/contact/` | `submitContactRequest` | Landing Contact section | valid submit | integrated, public (no session) |
+| `GET /billing/plans/` | `fetchPlans` | Subscription page | on entry | integrated |
+| `GET /billing/subscription/` | `fetchSubscription` | Subscription page | on entry | integrated |
 | `POST /auth/logout/` | `logoutUser` | Sidebar / mobile nav Log out | click | integrated (swallows transport failure) |
 | `POST /auth/refresh/` | internal | client on 401 | automatic, once | integrated |
 | `GET /auth/me/` | `getCurrentUser` | `DashboardLayout` boundary | status `unknown` | integrated, failure → `anonymous` |

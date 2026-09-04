@@ -22,6 +22,12 @@ export {
 } from './api/auth'
 
 export {
+  BILLING_ENDPOINTS,
+  fetchPlans,
+  fetchSubscription,
+} from './api/billing'
+
+export {
   SUPPORT_ENDPOINTS,
   CONTACT_TOPICS,
   submitContactRequest,

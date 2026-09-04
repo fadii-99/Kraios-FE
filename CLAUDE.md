@@ -309,6 +309,28 @@ or placeholder slot list beside these: a second source drifts, and it drifts
 towards offering a visitor a time nobody can take. Times are UTC, and the form
 says so.
 
+`src/lib/api/billing.js` → `BILLING_ENDPOINTS` — what a signed-in customer may
+read of the admin console's plan catalogue:
+
+```
+GET /billing/plans/          Active plans only, cheapest first
+GET /billing/subscription/   this account's own subscription, or null
+```
+
+BOTH ARE READS AND THAT IS THE WHOLE SURFACE. An account is put on a plan by an
+administrator for a fixed number of days; there is no gateway and no checkout,
+so nothing here starts, changes or cancels a subscription.
+
+**Never declare a plan in this app again.** `lib/dashboard/subscriptionPlans.js`
+used to hold three invented plans priced in dollars plus an invented active
+subscription shown to every account as its own; it is now the ADAPTER for these
+responses and holds no data. If a plan is not in the response it is not on sale,
+and `null` from `/billing/subscription/` means the account has no plan and must
+be told so. Prices are POUNDS, the currency the console sets them in.
+
+The server withholds a plan's `status`, its `subscribers` count and `apiLimit`,
+and omits Inactive plans entirely. Do not work around any of that.
+
 `src/lib/api/support.js` → `SUPPORT_ENDPOINTS` — the public contact form, also
 sessionless:
 
@@ -495,6 +517,8 @@ API request must never fire merely because the application mounted.
 - **AUTHENTICATED BOUNDARY** (`DashboardLayout`) owns the ONE `GET /auth/me/`.
 - **PROFILE page** owns `GET /profile/` on entry; its modals own `PATCH
   /profile/` and the four OTP endpoints on submit.
+- **SUBSCRIPTION page** owns `GET /billing/plans/` and
+  `GET /billing/subscription/`, both once on entry and in parallel.
 - **SIGN OUT** (sidebar / mobile nav) owns `POST /auth/logout/`.
 - **DASHBOARD FEATURES** own their own data requests where their data is needed.
   `/auth/me/` is the session bootstrap, not the only dashboard API.

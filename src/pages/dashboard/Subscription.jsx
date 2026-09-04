@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 
@@ -7,8 +7,9 @@ import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader'
 import PricingPlanCard from '@/components/dashboard/subscription/PricingPlanCard'
 import Modal from '@/components/ui/Modal'
 import PrimaryButton from '@/components/ui/PrimaryButton'
+import { fetchPlans, fetchSubscription } from '@/lib/api'
 import { DASHBOARD_GUTTER } from '@/lib/dashboard/layout'
-import { SUBSCRIPTION_PLANS, currentSubscription } from '@/lib/dashboard/subscriptionPlans'
+import { toCurrentPlan, toPlanCard } from '@/lib/dashboard/subscriptionPlans'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { cn } from '@/lib/cn'
@@ -17,13 +18,102 @@ import { cn } from '@/lib/cn'
  * Billing (/dashboard/subscription) — the account's plan, and what it could be
  * instead.
  *
- * Sequenced, calm architectural reveal:
- * Header → Current Plan Hero Card → Available Plans Heading → 3 Plan Cards Stagger
+ * EVERY FIGURE ON THIS PAGE COMES FROM THE SERVER. It used to come from
+ * `lib/dashboard/subscriptionPlans.js`: three invented plans in dollars, and an
+ * invented "Premium Pro" activation shown to every account as its own. An
+ * administrator could create, rename, reprice or deactivate a plan and this
+ * page would not move. It now reads `GET /billing/plans/` and
+ * `GET /billing/subscription/`, and there is no fallback — an empty catalogue
+ * says it is empty, and an account with no plan is told it has none.
+ *
+ * TWO REQUESTS ON ENTRY, in parallel, because they are independent and the
+ * page needs both before it can say which plan is the current one.
+ *
+ * Sequenced reveal: Header → Current Plan → Available Plans Heading → Cards.
+ * The timeline re-runs when the data lands, because on the first pass the
+ * cards it animates do not exist yet.
  */
+
+/**
+ * Decoration, derived rather than invented: the plate cycles by the plan's
+ * position in the price-sorted catalogue the server returns. It carries no
+ * meaning the data does not already have, and there is no per-plan `icon`
+ * field to read — the old hardcoded module made those up along with the
+ * "recommended" ribbon.
+ */
+const PLATE_ICONS = ['Blueprint', 'Cube', 'Buildings', 'Crown']
+
+/**
+ * The one panel every "there is nothing to show" state on this page uses.
+ *
+ * A notice rather than a silently empty column: an empty grid is
+ * indistinguishable from a page that has not finished loading, and this page's
+ * empty states are meaningful — no plan, no catalogue, or a read that failed.
+ */
+function BillingNotice({ title, body, actionLabel, onAction }) {
+  return (
+    <div
+      role="status"
+      className="rounded-md border border-[var(--tone-line-strong)] bg-white px-6 py-9 text-center sm:px-10 sm:py-11"
+    >
+      <h2
+        className="text-[1.25rem] font-bold uppercase tracking-[-0.02em] text-[var(--tone-ink)]"
+        style={{ fontFamily: 'var(--font-display)' }}
+      >
+        {title}
+      </h2>
+
+      <p className="mx-auto mt-3 max-w-[46ch] text-[0.875rem] leading-relaxed text-[var(--tone-muted-dark)]">
+        {body}
+      </p>
+
+      {actionLabel && (
+        <PrimaryButton
+          type="button"
+          size="compact"
+          align="center"
+          withArrow={false}
+          onClick={onAction}
+          className="mt-6 min-w-36"
+        >
+          {actionLabel}
+        </PrimaryButton>
+      )}
+    </div>
+  )
+}
+
 export default function Subscription() {
   const scope = useRef(null)
   const reduced = usePrefersReducedMotion()
   const [notice, setNotice] = useState(null)
+
+  // One state object written only from a promise callback — never
+  // synchronously inside the effect. `null` is "still loading"; `failed` is a
+  // read that came back wrong, which must not render as an empty catalogue.
+  const [billing, setBilling] = useState(null)
+  const [reloadNonce, setReloadNonce] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+
+    Promise.all([fetchPlans(), fetchSubscription()])
+      .then(([plans, subscription]) => {
+        if (!cancelled) setBilling({ plans, subscription, failed: false })
+      })
+      .catch(() => {
+        if (!cancelled) setBilling({ plans: [], subscription: null, failed: true })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [reloadNonce])
+
+  const loading = billing === null
+  const failed = Boolean(billing?.failed)
+  const plans = billing?.plans ?? []
+  const current = toCurrentPlan(billing?.subscription, plans)
 
   useGSAP(
     () => {
@@ -79,7 +169,9 @@ export default function Subscription() {
         0.32,
       )
     },
-    { scope, dependencies: [reduced] },
+    // `loading` is a dependency: on the first pass the plan cards this
+    // timeline animates have not rendered yet.
+    { scope, dependencies: [reduced, loading] },
   )
 
   return (
@@ -98,15 +190,37 @@ export default function Subscription() {
       >
         <div className="w-full">
           <div data-sub-current>
-            <CurrentPlanCard
-              subscription={currentSubscription}
-              onManage={() =>
-                setNotice({
-                  title: 'Manage Subscription',
-                  body: 'Billing is not connected yet. Plan changes, invoices and payment details will open from here once the billing service is live.',
-                })
-              }
-            />
+            {loading ? (
+              <div
+                role="status"
+                aria-label="Loading your plan"
+                className="h-44 animate-pulse rounded-md border border-[var(--tone-line)] bg-[var(--tone-line)]/25"
+              />
+            ) : failed ? (
+              <BillingNotice
+                title="Plan Unavailable"
+                body="We could not load your subscription just now."
+                actionLabel="Try again"
+                onAction={() => setReloadNonce((n) => n + 1)}
+              />
+            ) : current ? (
+              <CurrentPlanCard
+                subscription={current}
+                onManage={() =>
+                  setNotice({
+                    title: 'Manage Subscription',
+                    body: 'There is no self-serve billing yet. Your plan is set by the KRAIOS team — contact us and we will change it for you.',
+                  })
+                }
+              />
+            ) : (
+              /* No plan is a real state, not an empty slot to fill with a
+                 default. Saying so is the whole point of the rewrite. */
+              <BillingNotice
+                title="No Plan Yet"
+                body="This account is not on a subscription plan. The KRAIOS team activates a plan after your onboarding call."
+              />
+            )}
           </div>
 
           {/* ── Available Plans Section Header (Center-Aligned, Bold Display) ── */}
@@ -133,26 +247,50 @@ export default function Subscription() {
           </div>
 
           {/* Same column rhythm as the project library */}
-          <div className="mt-8 grid grid-cols-1 gap-5 sm:mt-10 sm:grid-cols-2 sm:gap-6 lg:mt-12 xl:grid-cols-3 xl:gap-7">
-            {SUBSCRIPTION_PLANS.map((plan) => (
-              <div key={plan.id} data-sub-plan-card className="flex">
-                <PricingPlanCard
-                  plan={plan}
-                  isCurrent={plan.id === currentSubscription.planId}
-                  onChoose={(chosen) =>
-                    setNotice({
-                      title: `Choose ${chosen.name}`,
-                      body: `Checkout is not connected yet. Selecting ${chosen.name} will start a plan change once the billing service is live.`,
-                    })
-                  }
+          {loading ? (
+            <div className="mt-8 grid grid-cols-1 gap-5 sm:mt-10 sm:grid-cols-2 sm:gap-6 lg:mt-12 xl:grid-cols-3 xl:gap-7">
+              {[0, 1, 2].map((slot) => (
+                <div
+                  key={slot}
+                  aria-hidden="true"
+                  className="h-96 animate-pulse rounded-md border border-[var(--tone-line)] bg-[var(--tone-line)]/25"
                 />
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-8 text-center text-[0.75rem] leading-relaxed text-[var(--tone-muted)] sm:mt-10">
-            Prices shown are placeholders while billing is being set up.
-          </p>
+              ))}
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="mt-8 sm:mt-10 lg:mt-12">
+              <BillingNotice
+                title={failed ? 'Plans Unavailable' : 'No Plans Published'}
+                body={
+                  failed
+                    ? 'We could not load the plan catalogue just now.'
+                    : 'There are no plans on sale at the moment. Contact the KRAIOS team and we will talk you through the options.'
+                }
+                actionLabel={failed ? 'Try again' : undefined}
+                onAction={failed ? () => setReloadNonce((n) => n + 1) : undefined}
+              />
+            </div>
+          ) : (
+            <div className="mt-8 grid grid-cols-1 gap-5 sm:mt-10 sm:grid-cols-2 sm:gap-6 lg:mt-12 xl:grid-cols-3 xl:gap-7">
+              {plans.map((plan, index) => (
+                <div key={plan.id} data-sub-plan-card className="flex">
+                  <PricingPlanCard
+                    plan={{
+                      ...toPlanCard(plan),
+                      icon: PLATE_ICONS[index % PLATE_ICONS.length],
+                    }}
+                    isCurrent={plan.id === current?.planId}
+                    onChoose={(chosen) =>
+                      setNotice({
+                        title: `Choose ${chosen.name}`,
+                        body: `There is no self-serve checkout. To move to ${chosen.name}, contact the KRAIOS team and we will activate it on your account.`,
+                      })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

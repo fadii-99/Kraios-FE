@@ -13,12 +13,19 @@ const ICON_MAP = {
 /**
  * One plan column on /dashboard/subscription.
  *
- * Fully redesigned to match Kraios architectural aesthetic:
- * - Technical card geometry with top setting-out accent line
- * - Distinctive TechnicalIconFrame plate for each plan tier
- * - Clear pricing isolation band between hairline rules
- * - Itemized capability checklist
- * - Reusable Kraios PrimaryButton component for CTAs
+ * Technical card geometry with a top setting-out line, a plate, a pricing band
+ * between hairline rules, the capability checklist, and one CTA.
+ *
+ * IT STATES WHICH PLAN, NOT WHETHER IT IS PAID UP. `isCurrent` marks the
+ * column the account is on and nothing more; the subscription's actual status
+ * — Active, Past Due, Cancelled — is the hero card's to report, and it has the
+ * field to report it with. This badge used to read "Active", which put a green
+ * claim beside a Past Due hero on the same screen.
+ *
+ * `plan.icon` and `plan.recommended` are OPTIONAL and both default off. The
+ * catalogue has neither field; the page passes a plate by price order as
+ * decoration, and nothing marks a plan "recommended" because nobody has said
+ * which one is.
  */
 export default function PricingPlanCard({ plan, isCurrent = false, onChoose }) {
   const Icon = ICON_MAP[plan.icon] ?? Blueprint
@@ -73,8 +80,13 @@ export default function PricingPlanCard({ plan, isCurrent = false, onChoose }) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
+            {/* "Your plan", not "Active". Whether the subscription is live is
+                the hero card's statement and it has the status to make it —
+                this badge only marks which column the account is on, and
+                saying "Active" here contradicted a Past Due hero on the same
+                screen. */}
             <span className="font-display text-[0.625rem] font-bold uppercase tracking-[0.14em]">
-              Active
+              Your Plan
             </span>
           </div>
         ) : isRecommended ? (
@@ -149,7 +161,7 @@ export default function PricingPlanCard({ plan, isCurrent = false, onChoose }) {
                   className="font-display text-[0.6875rem] font-bold uppercase tracking-[0.14em] text-emerald-800"
                   style={{ fontFamily: 'var(--font-display)' }}
                 >
-                  Current Active Plan
+                  Your Current Plan
                 </span>
               </div>
             ) : (
