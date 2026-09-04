@@ -8,6 +8,8 @@ import AuthRequiredModal from '@/components/dashboard/AuthRequiredModal'
 import PageLoader from '@/components/ui/PageLoader'
 import ProjectsProvider from '@/lib/dashboard/projects/ProjectsProvider'
 import { SESSION_STATUS, useAuth } from '@/contexts/AuthContext'
+import { DASHBOARD_SIGN_OUT } from '@/lib/dashboard/dashboardNavigation'
+import { HISTORY_FLOOR_STATE, useHistoryFloor } from '@/hooks/useHistoryFloor'
 import { useScrollToTop } from '@/hooks/useScrollToTop'
 import { cn } from '@/lib/cn'
 
@@ -45,7 +47,7 @@ function RouteReady({ onChange }) {
  * navigating away from an active project workflow.
  */
 export default function DashboardLayout() {
-  const { isAuthenticated, sessionStatus, sessionExpired, verifySession } = useAuth()
+  const { isAuthenticated, sessionStatus, sessionExpired, verifySession, logout } = useAuth()
   const [ready, setReady] = useState(false)
   const [discardModalOpen, setDiscardModalOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState(null)
@@ -84,12 +86,24 @@ export default function DashboardLayout() {
 
   const handleConfirmDiscard = useCallback(() => {
     setDiscardModalOpen(false)
-    if (pendingPath) {
-      const dest = pendingPath
-      setPendingPath(null)
-      navigate(dest)
+    if (!pendingPath) return
+
+    const dest = pendingPath
+    setPendingPath(null)
+
+    // The guard intercepts the Log out row as well — the one interception that
+    // is not a destination. Its click handler never ran (the guard answered
+    // first), so confirming here has to END the session itself and land on the
+    // floor. Without this, signing out from inside a project only navigated to
+    // /login, leaving the session alive behind it.
+    if (dest === DASHBOARD_SIGN_OUT.path) {
+      logout()
+      navigate(dest, { replace: true, state: HISTORY_FLOOR_STATE })
+      return
     }
-  }, [navigate, pendingPath])
+
+    navigate(dest)
+  }, [logout, navigate, pendingPath])
 
   const handleCancelDiscard = useCallback(() => {
     setDiscardModalOpen(false)
@@ -98,6 +112,10 @@ export default function DashboardLayout() {
 
   // Ensure route transitions land at top of view
   useScrollToTop()
+
+  // Back cannot walk off a floor entry — the dashboard address signing in
+  // lands on, and the library Finish returns to
+  useHistoryFloor()
 
   // 1. Session not yet decided — hold the surface with the shared loader.
   if (

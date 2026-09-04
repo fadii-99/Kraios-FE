@@ -25,11 +25,15 @@ export const FLOOR_PLAN_ASSISTANT_COPY = {
   approvedCta: 'Approved',
 }
 
+/**
+ * Two openers, because the empty state's list is `sm:grid-cols-2` and two fill
+ * exactly one row — a suggestion rail, not a menu the user has to read through.
+ * Both name the 2D plan the studio produces, so the first instruction sets the
+ * register the rest of the conversation is refined in.
+ */
 export const FLOOR_PLAN_QUICK_PROMPTS = [
-  'Create a 3-bedroom family house layout',
-  'Generate a compact two-bedroom apartment plan',
-  'Create an office layout with reception, meeting room, and work area',
-  'Design a modern studio apartment with open kitchen',
+  'Generate a 2D floor plan for a modern 3-bedroom family home',
+  'Draw a 2D office layout with reception, meeting room, and work area',
 ]
 
 /** The stand-in 2D floor plan asset. */

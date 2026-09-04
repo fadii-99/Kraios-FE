@@ -471,7 +471,10 @@
      clears its box at every width. */
   .display-app {
     font-family: var(--font-display);
-    font-weight: 700;
+    /* One notch above the 700 the public display tiers use, matching
+       `.display-stage`: the greeting is the Overview sheet's only headline and
+       carries the weight the stage headings carry. */
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: -0.03em;
     line-height: 0.95;

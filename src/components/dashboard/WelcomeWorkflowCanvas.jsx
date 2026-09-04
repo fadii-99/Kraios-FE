@@ -13,8 +13,13 @@ export default function WelcomeWorkflowCanvas({ onCreateProject }) {
   const { profile } = useProfile()
   const { user } = useAuth()
 
-  const displayName =
+  const fullName =
     profile?.name || user?.name || user?.full_name || user?.email?.split('@')[0] || 'Architect'
+
+  // The greeting is a salutation, not an identity record: one name reads as a
+  // person being addressed, where the full legal name reads as a record header
+  // and wrapped onto a second line on this centred composition.
+  const displayName = fullName.trim().split(/\s+/)[0] || fullName
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto overflow-x-hidden px-6 py-16 sm:px-12 sm:py-24 lg:py-28 xl:py-32">
@@ -66,7 +71,7 @@ export default function WelcomeWorkflowCanvas({ onCreateProject }) {
         {/* 3. Centered Primary Headline & Short Copy */}
         <div className="max-w-2xl">
           <h1 data-welcome-heading className="display-app text-center text-[var(--tone-ink)]">
-            Welcome,{' '}
+            Welcome{' '}
             <span className="bg-gradient-to-r from-[var(--color-brand-deep)] to-[var(--color-brand)] bg-clip-text text-transparent">
               {displayName}
             </span>

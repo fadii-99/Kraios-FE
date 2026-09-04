@@ -62,24 +62,12 @@ export default function ProjectWorkspace() {
       <div
         data-workspace-reveal
         className={cn(
-          'relative z-20 shrink-0 bg-white pt-3.5 sm:pt-4 lg:pt-4.5 pb-0 shadow-[0_2px_8px_rgba(7,20,38,0.02)]',
+          'relative z-20 shrink-0 bg-white pt-3.5 sm:pt-4 lg:pt-4.5 pb-0',
           DASHBOARD_GUTTER,
         )}
       >
         <ProjectWorkflowNav />
       </div>
-
-      {/* ─── Light Subtle White Gradient Fade Overlay below Steps Bar ─── */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none relative z-10 h-6 sm:h-7 -mb-6 sm:-mb-7 shrink-0"
-        style={{
-          background:
-            'linear-gradient(to bottom, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0.08) 80%, rgba(255, 255, 255, 0) 100%)',
-        }}
-      />
-
-
 
       {/* ─── MIDDLE: the active stage — the only scrolling zone ─── */}
       <div
