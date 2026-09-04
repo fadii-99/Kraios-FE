@@ -296,7 +296,7 @@ export default function ProfileIdentityPanel({
                   size="compact"
                   align="center"
                   withArrow={false}
-                  className="w-full h-10 min-h-10 shadow-[0_3px_14px_rgba(11,94,215,0.22)] text-[0.8125rem] font-bold uppercase tracking-wider"
+                  className="w-full h-13 min-h-13 shadow-[0_3px_14px_rgba(11,94,215,0.22)] text-[0.8125rem] font-bold uppercase tracking-wider"
                 >
                   <span className="whitespace-nowrap">Edit Profile</span>
                 </PrimaryButton>
@@ -309,7 +309,7 @@ export default function ProfileIdentityPanel({
                   size="compact"
                   align="center"
                   withArrow={false}
-                  className="w-full h-10 min-h-10 bg-white hover:border-[var(--color-brand-deep)] hover:text-[var(--color-brand-deep)] text-[0.8125rem] font-bold uppercase tracking-wider"
+                  className="w-full h-13 min-h-13 bg-white hover:border-[var(--color-brand-deep)] hover:text-[var(--color-brand-deep)] text-[0.8125rem] font-bold uppercase tracking-wider"
                 >
                   <span className="whitespace-nowrap">Reset Password</span>
                 </PrimaryButton>
@@ -322,7 +322,7 @@ export default function ProfileIdentityPanel({
                   size="compact"
                   align="center"
                   withArrow={false}
-                  className="w-full h-10 min-h-10 text-[0.8125rem] font-bold uppercase tracking-wider"
+                  className="w-full h-13 min-h-13 text-[0.8125rem] font-bold uppercase tracking-wider"
                 >
                   <span className="whitespace-nowrap">Delete Account</span>
                 </PrimaryButton>

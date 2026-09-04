@@ -4,6 +4,7 @@ import { Outlet } from 'react-router-dom'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import PageLoader from '@/components/ui/PageLoader'
+import { useHistoryFloor } from '@/hooks/useHistoryFloor'
 import { useScrollToTop } from '@/hooks/useScrollToTop'
 
 /**
@@ -36,6 +37,10 @@ export default function AppLayout() {
 
   // every route change lands at the top — see the hook for the two exceptions
   useScrollToTop()
+
+  // Back cannot walk off a floor entry — the /login this layout is handed
+  // after signing out
+  useHistoryFloor()
 
   return (
     <>

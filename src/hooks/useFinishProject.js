@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { canFinishProject } from '@/lib/dashboard/projects/projectShape'
 import { useProject, useProjects } from '@/lib/dashboard/projects/projectsContext'
+import { HISTORY_FLOOR_STATE } from '@/hooks/useHistoryFloor'
 import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
 
 /** Why Finish is refused, in the words the user sees. */
@@ -43,7 +44,9 @@ export function useFinishProject(projectId) {
     try {
       await finishProject(projectId)
       showSuccessToast('Project finished.', { id: 'project-finished' })
-      navigate('/dashboard/projects')
+      // Replace and floor: a finished project's Output stage is behind us, and
+      // Back must not walk into it or into any earlier stage of it.
+      navigate('/dashboard/projects', { replace: true, state: HISTORY_FLOOR_STATE })
     } catch (thrown) {
       showErrorToast(thrown?.message || 'This project could not be finished yet.', {
         id: 'project-finish-failed',

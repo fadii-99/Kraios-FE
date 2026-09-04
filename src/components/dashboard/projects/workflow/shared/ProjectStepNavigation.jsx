@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, CircleNotch } from '@phosphor-icons/react'
 import {
   WORKFLOW_STAGES,
@@ -81,7 +81,12 @@ export default function ProjectStepNavigation({
         className,
       )}
     >
-      {/* ─── Left Side: Previous Step / Go to Projects Action ─── */}
+      {/* ─── Left Side: Previous Step.
+             Stage 1 has no previous stage and shows NOTHING here. It used to
+             offer "Go to Projects", which left an active workflow without
+             passing the discard confirmation, and did so from only one of the
+             four stages. Leaving is the floating exit's job now, on every
+             stage and through the dialog. ─── */}
       <div className="flex-1">
         {prevStage ? (
           <button
@@ -105,28 +110,7 @@ export default function ProjectStepNavigation({
               <span className="whitespace-nowrap">{prevStage.label}</span>
             </span>
           </button>
-        ) : (
-          <Link
-            to="/dashboard/projects"
-            className={cn(
-              'group label-ui inline-flex cursor-pointer items-center justify-center box-border rounded-sm',
-              'h-11 min-h-11 max-h-11 px-5 sm:px-6 w-full sm:w-52 uppercase text-[0.75rem] sm:text-[0.8125rem] font-bold tracking-wider',
-              'border border-[var(--tone-line-strong)] bg-white text-[var(--tone-ink)] hover:border-[var(--tone-muted)] hover:bg-[var(--tone-panel)]',
-              'transition-[background-color,border-color,color,transform] duration-300 ease-[var(--ease-out-expo)]',
-              'active:translate-y-px select-none',
-              'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--tone-accent)]',
-            )}
-          >
-            <span className="flex items-center justify-center gap-1.5 whitespace-nowrap">
-              <ArrowLeft
-                size={15}
-                weight="bold"
-                className="transition-transform duration-300 ease-[var(--ease-out-expo)] group-hover:-translate-x-1 motion-reduce:transition-none"
-              />
-              <span className="whitespace-nowrap">Go to Projects</span>
-            </span>
-          </Link>
-        )}
+        ) : null}
       </div>
 
       {/* ─── Right Side: Next Step Action or Finish Project ─── */}

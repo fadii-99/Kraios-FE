@@ -178,6 +178,38 @@ Dashboard (`DashboardLayout`):
   holds the surface while it does — so refreshing ON a workspace refetches the
   project rather than landing on an empty library.
 
+### History floors — the browser Back button
+
+`src/hooks/useHistoryFloor.js`. Three transitions are terminal, and Back must
+not walk out of where they land:
+
+| transition | lands on | set by |
+|---|---|---|
+| sign in | `from` or `/dashboard` | `Login.jsx` |
+| finish a project | `/dashboard/projects` | `useFinishProject.js` |
+| sign out | `/login` | `DashboardNavItem.jsx` (the sign-out row) and `DashboardLayout`'s discard confirmation |
+
+Each navigates with `replace: true` AND `state: HISTORY_FLOOR_STATE`. The floor
+lives in the router state of that history ENTRY — not in a module flag — so it
+survives a refresh, a forward navigation and a return to it. `useHistoryFloor()`
+is called once in `AppLayout` and once in `DashboardLayout` (sibling routes, so
+only ever one blocker, which is all React Router allows): it registers a
+`useBlocker` that refuses POP while the current entry carries the flag, and
+resets the blocker to idle afterwards. The router restores the address itself on
+a blocked POP, so nothing else is needed and nothing is announced — the page not
+moving is the answer.
+
+PUSH is never blocked; the product's own links, redirects and the workflow
+stepper are unaffected. What CANNOT be blocked is Back out of the tab's first
+entry — with no router-created entry behind it React Router receives no delta,
+so a user who opened `/login` directly as the first page in a tab can still
+leave the site.
+
+Signing out from INSIDE a project workflow goes through the discard-confirmation
+guard, which intercepts the row's own click. That branch now calls `logout()`
+itself before navigating; previously it navigated to `/login` and left the
+session alive.
+
 ---
 
 ## 5. API integration status

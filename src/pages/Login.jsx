@@ -5,6 +5,7 @@ import AuthShell from '@/components/ui/AuthShell'
 import FormInput from '@/components/ui/FormInput'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import { useAuth } from '@/contexts/AuthContext'
+import { HISTORY_FLOOR_STATE } from '@/hooks/useHistoryFloor'
 import { showErrorToast } from '@/lib/toast'
 import { isEmail } from '@/lib/validate'
 
@@ -102,8 +103,9 @@ export default function Login() {
       })
 
       // Replace, so Back does not walk into the login form of a session that
-      // is now signed in.
-      navigate(from, { replace: true })
+      // is now signed in — and a FLOOR, so it does not walk out of the
+      // dashboard into the public site either.
+      navigate(from, { replace: true, state: HISTORY_FLOOR_STATE })
     } catch (err) {
       // console.error('[Login Page] ❌ Login failed with error:', {
       //   message: err.message,

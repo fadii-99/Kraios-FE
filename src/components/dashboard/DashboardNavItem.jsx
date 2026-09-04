@@ -6,6 +6,7 @@ import {
   SignOut,
   UserFocus,
 } from '@phosphor-icons/react'
+import { HISTORY_FLOOR_STATE } from '@/hooks/useHistoryFloor'
 import { cn } from '@/lib/cn'
 
 const ICON_MAP = {
@@ -96,12 +97,21 @@ export default function DashboardNavItem({ item, onClick, onNavigate, className,
     )
   }
 
-  // Log out: Distinct, clear signout action
+  // Log out: Distinct, clear signout action.
+  //
+  // `replace` drops the dashboard address the user signed out of, and the floor
+  // state stops Back walking into the ones behind it. Those addresses would
+  // only answer with the caution modal now that the session is gone, so Back
+  // could not return anybody to the dashboard — but it walked a signed-out user
+  // through their own dashboard history to say so, and this is a deliberate way
+  // out, not a rejected entry.
   if (item.variant === 'signout') {
     return (
       <NavLink
         to={item.path}
         end={item.end}
+        replace
+        state={HISTORY_FLOOR_STATE}
         onClick={handleClick}
         title={collapsed ? item.label : undefined}
         className={cn(
