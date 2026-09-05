@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import {
   Blueprint,
   CheckCircle,
@@ -5,28 +7,38 @@ import {
   Eye,
 } from '@phosphor-icons/react'
 
-import { downloadAssetUrl } from '@/lib/dashboard/workflow/step-4/outputDownloads'
+import { downloadAssetUrl, downloadProjectArchive } from '@/lib/dashboard/workflow/step-4/outputDownloads'
 import { formatProjectDate } from '@/lib/date'
-import { showErrorToast } from '@/lib/toast'
+import { showErrorToast, showSuccessToast } from '@/lib/toast'
 
 /**
  * Output2DPlansSection — the project's 2D architectural floor plans.
  *
  * The version list is the project's real `FloorPlanVersion` history rather than
  * the single hardcoded "Floor_Plan_v1, May 18 2026" card it used to show.
+ *
+ * Shares its shell with `Output3DRendersSection` — same card, header sizes,
+ * grid gaps and button metrics — because the two sit side by side in the "All"
+ * tab as equal deliverables. A change to one belongs in the other.
  */
 export default function Output2DPlansSection({
+  projectId,
+  projectName,
   plan2DSource,
   versions = [],
   onViewSource,
   compact = false,
   onViewAll,
 }) {
+  const [archiving, setArchiving] = useState(false)
+
   const approvedName = plan2DSource?.name || 'approved-floor-plan.png'
   const approvedImageUrl = plan2DSource?.previewUrl || plan2DSource?.imageUrl || null
   const approvedAt = plan2DSource?.addedAt ? formatProjectDate(plan2DSource.addedAt) : null
 
   const otherVersions = versions.filter((version) => version.id !== plan2DSource?.versionId)
+
+  const hasPlans = Boolean(plan2DSource) || otherVersions.length > 0
 
   const handlePreview = (item) => {
     onViewSource?.({
@@ -44,25 +56,61 @@ export default function Output2DPlansSection({
     }
   }
 
+  // The 2D panel had no bulk download at all while the 3D one carried an
+  // unscoped "Download All (ZIP)" — so the only way to get every plan was the
+  // header's Quick Downloads card. Each section packages its own scope now.
+  const handleDownloadAll = async () => {
+    if (archiving) return
+
+    setArchiving(true)
+    try {
+      const saved = await downloadProjectArchive({
+        projectId,
+        projectName,
+        scope: 'FLOOR_PLANS',
+      })
+
+      if (saved) showSuccessToast('2D floor plans downloaded.', { id: 'archive-FLOOR_PLANS' })
+      else showErrorToast('There are no 2D floor plans to download yet.', { id: 'archive-empty-2d' })
+    } catch (thrown) {
+      showErrorToast(thrown?.message || 'That download could not be prepared.', {
+        id: 'archive-failed-2d',
+      })
+    } finally {
+      setArchiving(false)
+    }
+  }
+
   return (
     <section className="flex flex-col justify-between rounded-lg border border-[var(--tone-line-strong)] bg-white p-4 sm:p-5 shadow-2xs h-full">
       <div>
         {/* ── Section Header ── */}
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-6.5 w-6.5 items-center justify-center rounded-xs bg-blue-100 text-[var(--color-brand-deep)] shadow-2xs">
+        <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-xs bg-blue-100 text-[var(--color-brand-deep)] shadow-2xs">
               <Blueprint size={15} weight="bold" />
             </div>
             <h2
-              className="font-display text-[0.8125rem] font-bold uppercase tracking-[0.14em] text-[var(--tone-ink)]"
+              className="truncate font-display text-[0.8125rem] font-bold uppercase tracking-[0.14em] text-[var(--tone-ink)]"
               style={{ fontFamily: 'var(--font-display)' }}
             >
               2D Floor Plans
             </h2>
           </div>
+
+          <button
+            type="button"
+            onClick={handleDownloadAll}
+            disabled={archiving || !hasPlans}
+            title="Download every 2D floor plan in this project as a ZIP"
+            className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-sm border border-[var(--color-brand-deep)] bg-blue-50/70 px-2.5 text-[0.6875rem] font-bold uppercase tracking-wider text-[var(--color-brand-deep)] shadow-2xs transition-colors hover:bg-blue-100/70 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <DownloadSimple size={13} weight="bold" className="shrink-0" />
+            <span>{archiving ? 'Preparing…' : 'Download All (ZIP)'}</span>
+          </button>
         </div>
 
-        {!plan2DSource && otherVersions.length === 0 && (
+        {!hasPlans && (
           <div className="rounded-md border border-dashed border-[var(--tone-line-strong)] bg-slate-50/60 p-6 text-center">
             <h3
               className="text-[0.75rem] font-bold uppercase tracking-[0.12em] text-[var(--tone-ink)]"

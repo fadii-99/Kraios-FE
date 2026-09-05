@@ -41,6 +41,13 @@ import RequireProject from '@/pages/dashboard/projects/RequireProject'
 // no Suspense boundary above it to resolve a lazy chunk against.
 import NotFoundPage from '@/pages/NotFoundPage'
 
+// The BIM engine's workspace. Lazy like every other page, and for a harder
+// reason than the rest: it is the entry point of a feature that will grow a
+// 3D viewer, so its chunk must never land in the bundle of a user who does not
+// open it. Part of a removable feature - see src/pages/bim/README.md.
+const BimWorkspace = lazy(() => import('@/pages/bim/BimWorkspace'))
+const BimPlanPage = lazy(() => import('@/pages/bim/BimPlanPage'))
+
 // Step 1's Generate page.
 const GenerateStep = lazy(
   () => import('@/pages/dashboard/projects/GenerateStep'),
@@ -84,6 +91,12 @@ export const router = createBrowserRouter([
       { path: 'projects', element: <Projects /> },
       { path: 'profile', element: <Profile /> },
       { path: 'subscription', element: <Subscription /> },
+
+      // The BIM engine. A separate workspace with its own uploads and its own
+      // state, but a route INSIDE `dashboard` so it inherits the authenticated
+      // boundary and the shell rather than re-implementing them.
+      { path: 'bim', element: <BimWorkspace /> },
+      { path: 'bim/:sourceId', element: <BimPlanPage /> },
 
       // Project workflow — the four stages are SIBLINGS under one project,
       // each independently addressable. Output is deliberately not nested

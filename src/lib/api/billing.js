@@ -21,6 +21,7 @@ import { apiClient } from './client'
 export const BILLING_ENDPOINTS = {
   plans: '/billing/plans/',
   subscription: '/billing/subscription/',
+  usage: '/billing/usage/',
 }
 
 /**
@@ -59,4 +60,33 @@ export async function fetchPlans() {
 export async function fetchSubscription() {
   const data = await apiClient(BILLING_ENDPOINTS.subscription, { method: 'GET' })
   return data?.subscription ?? null
+}
+
+/**
+ * What this account has used, against what its plan allows.
+ *
+ * THE OTHER HALF OF A PLAN. "30 projects" is an allowance; "11 of 30" is the
+ * thing a customer actually needs. The server counts it with the same
+ * functions the admin Usage screen uses, so there is no second tally to drift.
+ *
+ * `limit` and `percent` are `null` for an uncapped metric AND for every metric
+ * when the account has no plan. A meter drawn at 0% against a cap that does
+ * not exist reads as "nothing used" — render the count on its own instead.
+ *
+ * @returns {Promise<{
+ *   usage: Array<{ key: string, label: string, unit: string, used: number,
+ *                  limit: number|null, remaining: number|null,
+ *                  percent: number|null }>,
+ *   overallPercent: number|null,
+ *   hasPlan: boolean,
+ * }>}
+ */
+export async function fetchUsage() {
+  const data = await apiClient(BILLING_ENDPOINTS.usage, { method: 'GET' })
+
+  return {
+    usage: Array.isArray(data?.usage) ? data.usage : [],
+    overallPercent: data?.overallPercent ?? null,
+    hasPlan: Boolean(data?.hasPlan),
+  }
 }

@@ -4,10 +4,11 @@ import gsap from 'gsap'
 
 import CurrentPlanCard from '@/components/dashboard/subscription/CurrentPlanCard'
 import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader'
+import PlanUsagePanel from '@/components/dashboard/subscription/PlanUsagePanel'
 import PricingPlanCard from '@/components/dashboard/subscription/PricingPlanCard'
 import Modal from '@/components/ui/Modal'
 import PrimaryButton from '@/components/ui/PrimaryButton'
-import { fetchPlans, fetchSubscription } from '@/lib/api'
+import { fetchPlans, fetchSubscription, fetchUsage } from '@/lib/api'
 import { DASHBOARD_GUTTER } from '@/lib/dashboard/layout'
 import { toCurrentPlan, toPlanCard } from '@/lib/dashboard/subscriptionPlans'
 import { DASHBOARD_MOTION } from '@/lib/dashboard/motion'
@@ -26,8 +27,11 @@ import { cn } from '@/lib/cn'
  * `GET /billing/subscription/`, and there is no fallback — an empty catalogue
  * says it is empty, and an account with no plan is told it has none.
  *
- * TWO REQUESTS ON ENTRY, in parallel, because they are independent and the
- * page needs both before it can say which plan is the current one.
+ * THREE REQUESTS ON ENTRY, in parallel, because they are independent and the
+ * page needs the plans and the subscription together before it can say which
+ * plan is the current one. The third is usage — an allowance without a count
+ * against it is half an answer, and "11 of 30 projects" is the question
+ * somebody opens a billing page to ask.
  *
  * Sequenced reveal: Header → Current Plan → Available Plans Heading → Cards.
  * The timeline re-runs when the data lands, because on the first pass the
@@ -97,12 +101,14 @@ export default function Subscription() {
   useEffect(() => {
     let cancelled = false
 
-    Promise.all([fetchPlans(), fetchSubscription()])
-      .then(([plans, subscription]) => {
-        if (!cancelled) setBilling({ plans, subscription, failed: false })
+    Promise.all([fetchPlans(), fetchSubscription(), fetchUsage()])
+      .then(([plans, subscription, usage]) => {
+        if (!cancelled) setBilling({ plans, subscription, usage, failed: false })
       })
       .catch(() => {
-        if (!cancelled) setBilling({ plans: [], subscription: null, failed: true })
+        if (!cancelled) {
+          setBilling({ plans: [], subscription: null, usage: null, failed: true })
+        }
       })
 
     return () => {
@@ -113,6 +119,7 @@ export default function Subscription() {
   const loading = billing === null
   const failed = Boolean(billing?.failed)
   const plans = billing?.plans ?? []
+  const usage = billing?.usage ?? null
   const current = toCurrentPlan(billing?.subscription, plans)
 
   useGSAP(
@@ -222,6 +229,15 @@ export default function Subscription() {
               />
             )}
           </div>
+
+          {/* Usage sits under the plan it is measured against, not in a
+              section of its own — the allowance and the count against it are
+              one fact and reading them apart is what makes a customer guess. */}
+          {!loading && !failed && usage && usage.usage.length > 0 && (
+            <div data-sub-usage className="mt-6 sm:mt-7">
+              <PlanUsagePanel usage={usage.usage} hasPlan={usage.hasPlan} />
+            </div>
+          )}
 
           {/* ── Available Plans Section Header (Center-Aligned, Bold Display) ── */}
           <div className="mt-12 flex flex-col items-center border-t border-[var(--tone-line)] pt-10 text-center sm:mt-14 sm:pt-11 lg:mt-16 lg:pt-12">

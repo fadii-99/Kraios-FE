@@ -25,7 +25,7 @@ Last synchronized by full source inspection of `src/`, `api/`, `public/`,
 | Dashboard shell / navigation | ✅ complete | — | n/a |
 | Overview | ✅ complete | — | no API |
 | Projects library | ✅ complete | — | `GET`/`POST`/`DELETE /projects/` wired |
-| Subscription | ✅ complete | — | `GET /billing/plans/` + `GET /billing/subscription/` wired; no checkout (plans are activated by an administrator) |
+| Subscription | ✅ complete | — | `GET /billing/plans/` + `/billing/subscription/` + `/billing/usage/` wired, with live usage meters; no checkout (plans are activated by an administrator) |
 | Profile | ✅ complete | ⚠️ save falls back locally | `GET`/`PATCH /profile/` + 4 OTP endpoints wired |
 | Step 1 Upload / Generate | ✅ complete | — | `POST /step-1/upload/` wired |
 | 2D Floor Plan Assistant | ✅ complete | — | generate · edit · approve wired |
@@ -148,6 +148,8 @@ Dashboard (`DashboardLayout`):
 /dashboard/projects                               Projects
 /dashboard/profile                                Profile
 /dashboard/subscription                           Subscription
+/dashboard/bim                                    BimWorkspace   (BIM engine)
+/dashboard/bim/:sourceId                          BimPlanPage    (BIM engine)
 
 /dashboard/projects/:projectId                    RequireProject → ProjectWorkspace
   index                                           → <Navigate to="upload" replace />
@@ -230,6 +232,7 @@ normalization, network-error wrapping.
 | `POST /support/contact/` | `submitContactRequest` | Landing Contact section | valid submit | integrated, public (no session) |
 | `GET /billing/plans/` | `fetchPlans` | Subscription page | on entry | integrated |
 | `GET /billing/subscription/` | `fetchSubscription` | Subscription page | on entry | integrated |
+| `GET /billing/usage/` | `fetchUsage` | Subscription page usage meters | on entry | integrated |
 | `POST /auth/logout/` | `logoutUser` | Sidebar / mobile nav Log out | click | integrated (swallows transport failure) |
 | `POST /auth/refresh/` | internal | client on 401 | automatic, once | integrated |
 | `GET /auth/me/` | `getCurrentUser` | `DashboardLayout` boundary | status `unknown` | integrated, failure → `anonymous` |
@@ -960,6 +963,52 @@ gone — both now cover real requests.
 
 ---
 
+## 12b. BIM engine — NEW
+
+`/dashboard/bim`, backed by the new `bim` Django app. Turns an uploaded 2D floor
+plan into a validated BIM plan JSON. Deliberately removable — see
+`src/pages/bim/README.md`, `backend/bim/README.md` and CLAUDE.md §43.
+
+**Built and working:**
+
+- Upload (PNG/JPEG/WebP/BMP/TIFF/single-page PDF), validated by actually
+  decoding the file, not by its extension
+- Two-pass AI extraction — a survey pass reads scale, building type and the room
+  list; a geometry pass traces walls, openings, rooms and fixtures anchored to it
+- A deterministic grader: ~20 geometry rules, most with an automatic repair,
+  every repair disclosed
+- A visual audit comparing the result against the uploaded drawing
+- A retry loop that re-traces on a poor score and keeps the BEST attempt
+- A 2D SVG preview of the extracted model, side by side with the drawing
+- Quality, assumptions and auto-repairs shown as three separate lists
+- **A navigable 3D model**, built in the browser from the plan JSON (`three`):
+  walls with real openings cut into them, door leaves, glazing, floor slabs,
+  room finishes and fixtures; an element tree with search, level filter and
+  multi-select; click-to-select with a hover tooltip; Isolate / Hide / Show all;
+  Fit / ISO / TOP / FRONT; fullscreen
+- **Furniture**: a third extraction pass reads every desk, chair, wc, basin and
+  cabinet off the drawing, and a parametric library draws each as a recognisable
+  shape rather than a box. Fails open — no furniture never costs the building.
+
+**Layout:** the page does not scroll. Two regions divide the content area — the
+uploaded drawing and the model on top, a tabbed details panel (Summary /
+Findings / Assumed / Plan JSON) below — each scrolling internally. Expanding the
+model hides its siblings rather than going `fixed`, so it fills the content area
+without covering the sidebar. The old SVG "Read as a plan" panel is removed; the
+3D model replaced it.
+
+**NOT built:** IFC / DWG / RVT export, and editing the model. Everything is
+view-and-inspect; changing a wall height or moving a wall is the next phase.
+
+**Verified end to end against a real drawing.** A 20 x 20 m office plan was
+uploaded and extracted (grade A, 92/100): 18 walls, 23 openings, 7 rooms, 11
+fixtures, 119 meshes, bounds 20.12 x 3.0 x 20.12 m. ISO and TOP views were
+screenshotted in headless Chrome and match the drawing.
+
+**Extraction ACCURACY on other drawings is unmeasured.** One plan is one plan.
+The 103 backend tests replace the model provider with a scripted fake, so they
+cover the control flow, not the model's reading of a drawing.
+
 ## 13. Validation status
 
 - **`npm run lint` — RUN and PASSED** on the current source, after the project
@@ -969,7 +1018,13 @@ gone — both now cover real requests.
   reported.
 - **`npm run build` — RUN and PASSED.** Vite production build completes; route
   chunks still split per page.
-- **Tests — none exist** in the repository.
+- **Tests — 103 exist, for the BIM engine only** (`backend/bim/tests/`), and
+  they pass. `python -m django test bim` → 103 passed. The rest of the frontend
+  and the `projects` app still have no tests of their own.
+  Two PRE-EXISTING failures in `projects.tests` were observed
+  (`test_angle_endpoint_uses_the_isometric_generator`,
+  `test_deleting_a_three_d_block_removes_its_camera_snapshot`); both reproduce
+  with the `bim` app removed, so they are not caused by it and were left alone.
 - **The project API integration has NOT been exercised against a live backend.**
   It is verified by source inspection, lint and build only. Nothing in §5 has
   been observed returning real data, and no request/response pair has been seen

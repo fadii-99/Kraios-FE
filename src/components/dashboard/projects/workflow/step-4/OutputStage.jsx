@@ -295,6 +295,8 @@ export default function OutputStage({ projectId }) {
             {/* Row 1: Side-by-Side 2D Floor Plans and 3D Renders (Approved Cards + View All) */}
             <div data-output-section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Output2DPlansSection
+                projectId={projectId}
+                projectName={projectName}
                 plan2DSource={deliverables.source}
                 versions={deliverables.planVersions}
                 onViewSource={handleOpenPreview}
@@ -344,6 +346,8 @@ export default function OutputStage({ projectId }) {
         {activeTab === 'plans' && (
           <div data-output-section>
             <Output2DPlansSection
+              projectId={projectId}
+              projectName={projectName}
               plan2DSource={deliverables.source}
               versions={deliverables.planVersions}
               onViewSource={handleOpenPreview}

@@ -68,6 +68,8 @@ From `package.json`:
 - `react-markdown` + `remark-gfm` (used only by the BoQ Assistant transcript)
 - `react-hot-toast`
 - `@fontsource-variable/inter`
+- `three` — WebGL, used ONLY by the BIM engine's 3D viewer (§43). It is loaded
+  in that feature's lazy chunk and never reaches the main bundle.
 
 Dev tooling: ESLint 10 flat config, `@eslint/js`, `eslint-plugin-react-hooks`,
 `eslint-plugin-react-refresh`, `globals`, `@vitejs/plugin-react`.
@@ -315,6 +317,7 @@ read of the admin console's plan catalogue:
 ```
 GET /billing/plans/          Active plans only, cheapest first
 GET /billing/subscription/   this account's own subscription, or null
+GET /billing/usage/          what this account has used, against its plan
 ```
 
 BOTH ARE READS AND THAT IS THE WHOLE SURFACE. An account is put on a plan by an
@@ -330,6 +333,14 @@ be told so. Prices are POUNDS, the currency the console sets them in.
 
 The server withholds a plan's `status`, its `subscribers` count and `apiLimit`,
 and omits Inactive plans entirely. Do not work around any of that.
+
+`/billing/usage/` is the other half of a plan: an allowance with no count
+against it is half an answer. It reports the same numbers the admin Usage
+screen does, for the CALLER'S OWN account — it takes no id. `limit` and
+`percent` are `null` for an uncapped metric and for every metric when the
+account has no plan; render the count with no bar, never a bar at 0%. The
+`apiRequests` metric is absent for the same reason `apiLimit` is: nothing
+counts it.
 
 `src/lib/api/support.js` → `SUPPORT_ENDPOINTS` — the public contact form, also
 sessionless:
@@ -517,8 +528,9 @@ API request must never fire merely because the application mounted.
 - **AUTHENTICATED BOUNDARY** (`DashboardLayout`) owns the ONE `GET /auth/me/`.
 - **PROFILE page** owns `GET /profile/` on entry; its modals own `PATCH
   /profile/` and the four OTP endpoints on submit.
-- **SUBSCRIPTION page** owns `GET /billing/plans/` and
-  `GET /billing/subscription/`, both once on entry and in parallel.
+- **SUBSCRIPTION page** owns `GET /billing/plans/`,
+  `GET /billing/subscription/` and `GET /billing/usage/`, all three once on
+  entry and in parallel.
 - **SIGN OUT** (sidebar / mobile nav) owns `POST /auth/logout/`.
 - **DASHBOARD FEATURES** own their own data requests where their data is needed.
   `/auth/me/` is the session bootstrap, not the only dashboard API.
@@ -572,9 +584,12 @@ dashboard workspace, not replacing the dashboard shell.
 
 Global dashboard navigation source: `src/lib/dashboard/dashboardNavigation.js`.
 
-`DASHBOARD_NAV_ITEMS`: Overview · Projects · Subscription · Profile.
+`DASHBOARD_NAV_ITEMS`: Overview · Projects · 3D Engine · Subscription · Profile.
 `DASHBOARD_SIGN_OUT` (Log out) is exported separately — it is an action, not a
 destination, and must never be iterated into the navigation register.
+
+`3D Engine` belongs to the removable BIM feature (§43) and is the one nav item
+that may be deleted without a product decision.
 
 Project workflow stages do not belong in the global sidebar.
 
@@ -601,6 +616,9 @@ Dashboard (`DashboardLayout`):
 /dashboard/projects
 /dashboard/profile
 /dashboard/subscription
+
+/dashboard/bim                    → BimWorkspace   (BIM engine — removable, §43)
+/dashboard/bim/:sourceId          → BimPlanPage
 
 /dashboard/projects/:projectId                    → RequireProject → ProjectWorkspace
   index                                           → redirect to DEFAULT_WORKFLOW_SEGMENT ('upload')
@@ -1421,6 +1439,19 @@ the same hook the bottom navigation renders (§16).
 
 Domain modules: `step-4/outputConfig.js` (copy) and `step-4/outputDownloads.js`.
 
+`Output3DRendersSection` and `Output2DPlansSection` are the two halves of one
+row in the All tab and share ONE shell — the same white card, header sizes, grid
+gaps and card button metrics. The 3D section used to be a bare `<section>` beside
+the 2D panel's card, which read as the renders being an afterthought rather than
+an equal deliverable. A change to either belongs in both.
+
+Each of the two carries its OWN scoped archive button in its header —
+`FLOOR_PLANS` and `THREE_D`. A single unscoped "Download All (ZIP)" floating
+above the 3D section could not say whether it packaged the renders or the whole
+project; the project package is the header's Quick Downloads card and nothing
+else. Both buttons disable while their archive is being prepared and while
+their section is empty.
+
 **ONE request builds this page**: `GET /projects/{id}/output/` returns the
 project, a summary, and the floor plans, 3D renders, BOQ versions and documents
 together. Step 4 never reassembles itself from four step caches, and never
@@ -1893,3 +1924,45 @@ Most important current facts:
   progress. The API contract, persistence and job flow around them are real.
   Do not present a placeholder result as finished AI output — and do not add a
   frontend mock back to compensate for one.
+
+---
+
+## 43. BIM engine — a deliberately removable feature
+
+`/dashboard/bim` turns an uploaded 2D floor plan into a validated **BIM plan
+JSON**, and builds a navigable 3D model from it in the browser. It is
+backed by the `bim` Django app (`backend/bim/`), which shares no code with
+`projects` in either direction.
+
+It was built under an explicit product constraint: **deleting it must leave no
+trace.** That constraint outranks the usual reuse preferences here, and explains
+three departures from the conventions above:
+
+- It does **not** re-export through `src/lib/api.js`. Callers import
+  `@/lib/api/bim` directly — already the majority pattern for `projects`, `jobs`
+  and `files` — so removal touches no shared module.
+- It **polls** rather than using Channels (§13's job poller is `projects`-shaped
+  and a consumer would tie the two apps together). See
+  `lib/bim/useExtractionPolling.js`.
+- It adds **`three`**, the only new runtime dependency in the app. There is no
+  way to draw a navigable 3D model without a WebGL library, and it is confined
+  to the feature's lazy chunk.
+- Its Three.js code lives in a **plain class** (`lib/bim/ModelScene.js`), not in
+  a component. A scene, a renderer and an animation loop are long-lived mutable
+  objects; keeping them out of React is what lets the component satisfy
+  `react-hooks/immutability` instead of fighting it.
+- Its adapter (`lib/bim/bimAdapters.js`) translates the API **envelope** to
+  camelCase per §14, but passes the **plan document** through in `snake_case`.
+  The plan is a versioned schema the backend authors, the viewer renders, the
+  IFC builder consumes and a later phase will send back with edits — its field
+  names are the contract, and it is shown to the user verbatim. Only
+  `lib/bim/planGeometry.js` reads inside it.
+
+**The 3D model is built from the plan JSON directly, not from IFC.** IFC is an
+interchange format — it matters for exporting to Revit or Archicad, and nothing
+about drawing a model in a browser needs one. Routing through it would have
+meant no viewer until the IFC writer existed. `lib/bim/buildModel.js` reads the
+plan; an IFC export can be added later beside it.
+
+Files, and the removal steps, are listed in `src/pages/bim/README.md` and
+`backend/bim/README.md`. Do not spread BIM imports outside those directories.

@@ -29,6 +29,14 @@ export const DASHBOARD_NAV_ITEMS = [
     icon: 'Blueprint',
   },
   {
+    // Part of a removable feature - see src/pages/bim/README.md.
+    id: 'bim',
+    label: '3D Engine',
+    path: '/dashboard/bim',
+    end: false,
+    icon: 'Cube',
+  },
+  {
     id: 'subscription',
     label: 'Subscription',
     path: '/dashboard/subscription',

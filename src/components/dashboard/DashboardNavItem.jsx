@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   Blueprint,
   CrownSimple,
+  Cube,
   Layout,
   SignOut,
   UserFocus,
@@ -12,6 +13,7 @@ import { cn } from '@/lib/cn'
 const ICON_MAP = {
   Layout,
   Blueprint,
+  Cube,
   CrownSimple,
   UserFocus,
   SignOut,

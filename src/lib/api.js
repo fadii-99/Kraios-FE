@@ -25,6 +25,7 @@ export {
   BILLING_ENDPOINTS,
   fetchPlans,
   fetchSubscription,
+  fetchUsage,
 } from './api/billing'
 
 export {
