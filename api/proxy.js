@@ -1,4 +1,17 @@
-const BACKEND_BASE_URL = 'https://5c79-182-182-225-12.ngrok-free.app/api/'
+/**
+ * Upstream Kraios API.
+ *
+ * The origin lives in the `BACKEND_ORIGIN` environment variable so the server
+ * can move without a redeploy of code — set it in the Vercel project settings.
+ * Plain HTTP upstream is fine here and nowhere else: this fetch runs on the
+ * Vercel server, so the browser only ever talks HTTPS to this origin and never
+ * trips the mixed-content block.
+ */
+const BACKEND_ORIGIN = (
+  process.env.BACKEND_ORIGIN || 'http://18.141.164.144:8000'
+).replace(/\/+$/, '')
+
+const BACKEND_BASE_URL = `${BACKEND_ORIGIN}/api/`
 
 /**
  * Vercel's body parser is OFF for this function, deliberately.
