@@ -8,7 +8,7 @@
  * trips the mixed-content block.
  */
 const BACKEND_ORIGIN = (
-  process.env.BACKEND_ORIGIN || 'http://18.141.164.144:8082'
+  process.env.BACKEND_ORIGIN || 'http://18.140.1.140:8000'
 ).replace(/\/+$/, '')
 
 const BACKEND_BASE_URL = `${BACKEND_ORIGIN}/api/`
