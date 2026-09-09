@@ -201,6 +201,26 @@ resets the blocker to idle afterwards. The router restores the address itself on
 a blocked POP, so nothing else is needed and nothing is announced — the page not
 moving is the answer.
 
+**The project workspace is a LOCKED SCOPE, not a floor.** A floor is one entry;
+a workflow is a whole branch. `DashboardLayout` passes `isProjectWorkspacePath`
+(`lib/dashboard/workflow/projectWorkflow.js`) to the same hook, and the blocker
+then refuses any POP whose CURRENT **or** NEXT address is
+`/dashboard/projects/<id>/…`. Back and Forward therefore cannot enter the
+workspace, move between its stages and assistants, or leave it: the stepper,
+Previous / Next, an assistant's own Back and Leave Project are the ways through
+a workflow, and the browser's buttons are not. No entry point opts in — opening
+a project from the library, creating one, a direct URL and a refresh are all
+covered by the address alone.
+
+Reading BOTH ends of the step is what keeps the scope from becoming a trap.
+Leaving a project through the shell PUSHES a new entry in front of the
+workspace's, so blocking only the step OUT would let one Back press drop the
+user into the project they had just left — where the block would then hold them.
+
+`isProjectWorkspacePath` is also what the leave-the-workflow confirmation in
+`DashboardLayout` tests, replacing the regex it used to inline: one definition
+of "inside a project", so the two guards cannot drift apart.
+
 PUSH is never blocked; the product's own links, redirects and the workflow
 stepper are unaffected. What CANNOT be blocked is Back out of the tab's first
 entry — with no router-created entry behind it React Router receives no delta,

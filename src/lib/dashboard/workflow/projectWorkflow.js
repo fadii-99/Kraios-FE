@@ -115,6 +115,25 @@ export function workflowIndexForPath(pathname) {
   return index >= 0 ? index : 0
 }
 
+/**
+ * Whether an address is INSIDE a project workspace — any stage or assistant
+ * under one selected project. The library itself (/dashboard/projects) is not.
+ *
+ * Declared here, beside the other path readers, because two different guards
+ * ask exactly this question and must never disagree about the answer: the
+ * dashboard shell's leave-the-workflow confirmation, and the browser-history
+ * lock that keeps Back and Forward out of an open workspace.
+ */
+export function isProjectWorkspacePath(pathname) {
+  const segments = String(pathname || '').split('/').filter(Boolean)
+
+  return (
+    segments[0] === 'dashboard' &&
+    segments[1] === 'projects' &&
+    Boolean(segments[2])
+  )
+}
+
 /* ---------------------------------------------------------------------------
    Stage gating
    --------------------------------------------------------------------------- */

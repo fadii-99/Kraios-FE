@@ -9,6 +9,7 @@ import PageLoader from '@/components/ui/PageLoader'
 import ProjectsProvider from '@/lib/dashboard/projects/ProjectsProvider'
 import { SESSION_STATUS, useAuth } from '@/contexts/AuthContext'
 import { DASHBOARD_SIGN_OUT } from '@/lib/dashboard/dashboardNavigation'
+import { isProjectWorkspacePath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { HISTORY_FLOOR_STATE, useHistoryFloor } from '@/hooks/useHistoryFloor'
 import { useScrollToTop } from '@/hooks/useScrollToTop'
 import { cn } from '@/lib/cn'
@@ -70,7 +71,7 @@ export default function DashboardLayout() {
   // Navigation guard: intercepts sidebar/nav clicks when inside an active project workflow
   const handleNavClick = useCallback(
     (targetPath, e) => {
-      const isInside = /^\/dashboard\/projects\/[^/]+/.test(location.pathname)
+      const isInside = isProjectWorkspacePath(location.pathname)
       const isCurrentPath = location.pathname === targetPath
 
       if (isInside && !isCurrentPath) {
@@ -113,9 +114,14 @@ export default function DashboardLayout() {
   // Ensure route transitions land at top of view
   useScrollToTop()
 
-  // Back cannot walk off a floor entry — the dashboard address signing in
-  // lands on, and the library Finish returns to
-  useHistoryFloor()
+  // Two history rules, one blocker (see the hook):
+  //  - a FLOOR entry Back cannot walk off — the dashboard address signing in
+  //    lands on, and the library that Finish returns to;
+  //  - the project workspace as a LOCKED SCOPE — once a project is open, Back
+  //    and Forward do not move the user through its stages or out of it. The
+  //    stepper, Previous / Next, an assistant's Back and Leave Project are the
+  //    ways through a workflow; the browser's buttons are not.
+  useHistoryFloor(isProjectWorkspacePath)
 
   // 1. Session not yet decided — hold the surface with the shared loader.
   if (

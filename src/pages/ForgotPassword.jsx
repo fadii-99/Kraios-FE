@@ -1,15 +1,17 @@
 import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { EnvelopeSimple } from '@phosphor-icons/react'
 
 import AuthShell from '@/components/ui/AuthShell'
 import FormInput from '@/components/ui/FormInput'
 import PrimaryButton from '@/components/ui/PrimaryButton'
 import Modal from '@/components/ui/Modal'
+import { FORGOT_PASSWORD_PATHS, OTP_LENGTH, dummyDelay } from '@/lib/auth/forgotPasswordFlow'
 import { showErrorToast } from '@/lib/toast'
 import { isEmail } from '@/lib/validate'
 
 export default function ForgotPassword() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
 
   const [error, setError] = useState()
@@ -45,8 +47,10 @@ export default function ForgotPassword() {
     }
 
     setStatus('submitting')
-    // Frontend only simulation: No backend forgot-password endpoint exists in the API contract.
-    await new Promise((r) => setTimeout(r, 600))
+    // DUMMY: the API contract has no endpoint that starts a recovery, so
+    // nothing is sent. The pretending is declared in ONE place —
+    // @/lib/auth/forgotPasswordFlow.
+    await dummyDelay()
     setStatus('idle')
     setOpen(true)
   }
@@ -97,7 +101,7 @@ export default function ForgotPassword() {
         </p>
       </AuthShell>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Email Sent">
+      <Modal open={open} onClose={() => setOpen(false)} title="Code Sent">
         <div className="mt-7 flex items-start gap-5">
           <span
             aria-hidden="true"
@@ -107,15 +111,21 @@ export default function ForgotPassword() {
           </span>
 
           <p className="text-[1rem] leading-relaxed text-[var(--tone-muted)]">
-            Password recovery instructions have been sent to{' '}
-            <span className="font-semibold text-[var(--tone-ink)]">{email}</span>. The link stays
-            valid for 30 minutes.
+            A {OTP_LENGTH}-digit verification code has been sent to{' '}
+            <span className="font-semibold text-[var(--tone-ink)]">{email}</span>. The code stays
+            valid for 10 minutes.
           </p>
         </div>
 
         <div className="mt-9 flex justify-end">
-          <PrimaryButton onClick={() => setOpen(false)} withArrow={false} align="center">
-            Done
+          {/* Continues into step 2, carrying the address the code was "sent"
+              to — the verify screen has nothing to show without it. */}
+          <PrimaryButton
+            onClick={() => navigate(FORGOT_PASSWORD_PATHS.verify, { state: { email } })}
+            withArrow={false}
+            align="center"
+          >
+            Enter Code
           </PrimaryButton>
         </div>
       </Modal>

@@ -17,6 +17,12 @@ const Home = lazy(() => import('@/pages/Home'))
 const Login = lazy(() => import('@/pages/Login'))
 const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'))
 const ResetPassword = lazy(() => import('@/pages/ResetPassword'))
+
+// ADDED — steps 2 and 3 of the public forgot-password walkthrough. Both are
+// DUMMY (no endpoint exists to start a recovery); see
+// @/lib/auth/forgotPasswordFlow. Nothing else in the router was changed.
+const ForgotPasswordOtp = lazy(() => import('@/pages/ForgotPasswordOtp'))
+const ForgotPasswordReset = lazy(() => import('@/pages/ForgotPasswordReset'))
 const Signup = lazy(() => import('@/pages/Signup'))
 
 // Dashboard pages
@@ -76,6 +82,15 @@ export const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'login', element: <Login /> },
       { path: 'forgot-password', element: <ForgotPassword /> },
+
+      // ADDED — the two screens that continue the forgot-password flow:
+      // email (above) -> verify -> reset. Each is reached only from the one
+      // before it, carrying `location.state`; opened directly they redirect
+      // back to 'forgot-password'. Separate from 'reset-password' below, which
+      // is the REAL token-linked page and is untouched.
+      { path: 'forgot-password/verify', element: <ForgotPasswordOtp /> },
+      { path: 'forgot-password/reset', element: <ForgotPasswordReset /> },
+
       { path: 'reset-password', element: <ResetPassword /> },
       { path: 'signup', element: <Signup /> },
     ],
