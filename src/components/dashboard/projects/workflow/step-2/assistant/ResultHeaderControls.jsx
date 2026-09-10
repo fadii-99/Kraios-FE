@@ -1,4 +1,4 @@
-import { CheckCircle, PencilSimple } from '@phosphor-icons/react'
+import { CheckCircle, Eye, PencilSimple } from '@phosphor-icons/react'
 
 import ViewAngleMenu from '@/components/dashboard/projects/workflow/step-2/assistant/ViewAngleMenu'
 import { cn } from '@/lib/cn'
@@ -27,10 +27,36 @@ export default function ResultHeaderControls({
   previewOnly = false,
 }) {
   if (previewOnly) {
+    /* A chip, not a control: it names what this result is and explains, on
+       hover or focus, why the three actions above are absent. Held to the
+       smallest badge in the product — h-6, 9px, the display face's own narrow
+       tracking — because it sits where two 28px buttons would otherwise be and
+       a full-height, widely-tracked "PREVIEW ONLY" read as a control that had
+       been disabled rather than as a note about the render. The words survive
+       in full for a screen reader. */
     return (
-      <span className="label-ui ml-auto inline-flex h-7 shrink-0 items-center rounded-xs border border-[var(--tone-line)] bg-[var(--color-light)] px-2 text-[0.5625rem] text-[var(--tone-muted-dark)]">
-        Preview only
-      </span>
+      <div className="group/preview-tip relative ml-auto inline-flex shrink-0">
+        <span
+          className="inline-flex h-6 items-center gap-1 rounded-xs border border-[var(--tone-line)] bg-[var(--color-light)] pl-1.5 pr-2 text-[0.5625rem] font-bold uppercase text-[var(--tone-muted-dark)]"
+          style={{ fontFamily: 'var(--font-display)', letterSpacing: '0.06em' }}
+        >
+          <Eye size={11} weight="bold" aria-hidden="true" className="shrink-0" />
+          <span>Preview</span>
+          <span className="sr-only"> only — this view cannot be approved or edited</span>
+        </span>
+
+        <div
+          role="tooltip"
+          className={cn(
+            'pointer-events-none absolute right-0 top-full z-50 mt-1.5 whitespace-nowrap rounded-xs border border-slate-200/90 bg-white/95 px-2 py-0.5 text-[0.5625rem] font-semibold text-slate-700 shadow-md backdrop-blur-xs',
+            'opacity-0 -translate-y-1 transition-all duration-200 ease-out',
+            'group-hover/preview-tip:opacity-100 group-hover/preview-tip:translate-y-0 group-focus-within/preview-tip:opacity-100 group-focus-within/preview-tip:translate-y-0',
+          )}
+        >
+          View only · not approvable or editable
+          <div className="absolute -top-1 right-2.5 h-1.5 w-1.5 rotate-45 border-l border-t border-slate-200/90 bg-white" />
+        </div>
+      </div>
     )
   }
 

@@ -1,4 +1,4 @@
-import { ArrowClockwise, Info, Warning } from '@phosphor-icons/react'
+import { ArrowClockwise, CircleNotch, Info, Warning } from '@phosphor-icons/react'
 
 import Logo from '@/components/ui/Logo'
 import { ASSISTANT_COPY } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
@@ -115,55 +115,22 @@ export default function AssistantMessage({ message, busy, onRetry, headerActions
           )}
         >
           {isPending ? (
-            <div className="flex items-center gap-3.5 py-1">
-              <svg
-                width="34"
-                height="34"
-                viewBox="0 0 76 76"
-                fill="none"
-                aria-hidden="true"
-                className="shrink-0 text-[var(--color-brand-deep)]"
-              >
-                {/* outer walls */}
-                <rect
-                  x="6"
-                  y="6"
-                  width="64"
-                  height="64"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  className="plan-draw"
-                  style={{ strokeDasharray: 256, strokeDashoffset: 256 }}
+            <div className="flex items-center gap-2.5 py-0.5">
+              <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[var(--color-brand-deep)]">
+                <CircleNotch
+                  size={14}
+                  weight="bold"
+                  aria-hidden="true"
+                  className="animate-spin"
                 />
-                {/* room divider + door opening */}
-                <path
-                  d="M6 44h20M40 44h30M40 6v38"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeOpacity="0.6"
-                  className="plan-draw plan-draw--delay"
-                  style={{ strokeDasharray: 120, strokeDashoffset: 120 }}
-                />
-                {/* dimension line */}
-                <path
-                  d="M6 74h64"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeOpacity="0.4"
-                  className="plan-draw plan-draw--delay2"
-                  style={{ strokeDasharray: 64, strokeDashoffset: 64 }}
-                />
-              </svg>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[0.8125rem] font-semibold text-[var(--tone-ink)]">
-                  {message.text || ASSISTANT_COPY.generating}
-                </span>
-                <span className="relative flex h-2 w-2 shrink-0">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-brand-deep)] opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--color-brand-deep)]" />
-                </span>
-              </div>
+              </span>
+              <span className="text-[0.75rem] font-medium text-[var(--tone-ink)]">
+                {message.text || ASSISTANT_COPY.generating}
+              </span>
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--color-brand-deep)] opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--color-brand-deep)]" />
+              </span>
             </div>
           ) : (
             <>

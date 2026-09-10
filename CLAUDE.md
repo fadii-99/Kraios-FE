@@ -1087,7 +1087,12 @@ Rules:
   sets that state.
 - The pending block shows the job's own `message` and NO percentage. The
   pipeline's `progress` is a simulated ramp, so a number on screen read as an
-  estimate the backend cannot make (`jobProgressText`).
+  estimate the backend cannot make (`jobProgressText`). All three assistants
+  now draw the same compact loader — a 14px `CircleNotch`, the message, and
+  a small live dot, on one line inside the ordinary assistant block. The 34px
+  `plan-draw` animation Steps 1 and 2 used instead made a line of status text
+  the tallest thing in the transcript. `plan-draw` itself stays: it is
+  `PageLoader`'s, where a full-surface wait earns it.
 - A result's `id` IS the backend version id, so approval points at a real
   `FloorPlanVersion` rather than at a local flag that happens to match one.
 - Approval is `POST /step-1/versions/{id}/approve/`. It sets
@@ -1210,8 +1215,11 @@ A preview is SHOWN in the transcript, in full, and is a real deliverable in
 Step 4 — but it is not part of the approve/edit workflow:
 
 - no Approve, no Edit and no View Angle on it (`previewOnly` on
-  `ResultHeaderControls`, which says "Preview only" in their place, because an
-  empty header row reads as broken rather than as a preview). Approving one
+  `ResultHeaderControls`, which puts a small eye chip reading "Preview" in
+  their place — h-6, the product's smallest badge, with the full sentence in
+  its tooltip and for a screen reader — because an empty header row reads as
+  broken rather than as a preview, and a full-height widely-tracked
+  "PREVIEW ONLY" read as a control that had been disabled). Approving one
   would set `selected_three_d` to a camera angle and carry it into Step 3, the
   BOQ and the deliverables as the design itself.
 - it cannot be SELECTED as the refinement base — `AssistantResult` draws no

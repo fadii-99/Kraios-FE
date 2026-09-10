@@ -517,7 +517,10 @@ the mode lock applied.
   review.") are NOT transcribed — the drawing under them already said it.
   Failures and running jobs still speak; those come from the version.
 - The pending block shows the job's `message` with **no percentage**
-  (`jobProgressText`), because the pipeline's progress is a simulated ramp.
+  (`jobProgressText`), because the pipeline's progress is a simulated ramp. Its
+  loader is the compact one all three assistants now draw — a 14px `CircleNotch`,
+  the message and a live dot on one line (the 34px `plan-draw` animation is
+  `PageLoader`'s alone now).
 - The whole transcript is rebuilt from `/step-1/conversation/` +
   `/step-1/history/` by `floorPlanAdapters.hydrateFloorPlanState`.
 - Composer: Step 2's `AssistantComposer` with a 2D-specific placeholder. The
@@ -558,10 +561,10 @@ loads Step 1 and Step 2 and holds a loader while either is in flight.
 - Result header controls: Edit, Approve (toggle, with tooltip), View Angle menu.
 - A PREVIEW result — a version whose backend `source` is in
   `PREVIEW_RENDER_SOURCES` (`ANGLE`, i.e. the View Angle action's own output;
-  never inferred from the prompt text) — shows the render and a "Preview only"
-  label instead
-  of those three controls, is not clickable as the refinement base, and is
-  skipped by `latestResult`. It still appears in Step 4's render gallery, which
+  never inferred from the prompt text) — shows the render and a small eye
+  "Preview" chip (h-6, full wording in its tooltip and for a screen reader)
+  instead of those three controls, is not clickable as the refinement base,
+  and is skipped by `latestResult`. It still appears in Step 4's render gallery, which
   is view-and-download and offers no approval anyway.
 - Result rail: Full View always; DWG only when the result actually carries a
   `dwgUrl` (the mock never does, so no DWG button is shown).
