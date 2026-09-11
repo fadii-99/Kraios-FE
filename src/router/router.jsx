@@ -48,6 +48,18 @@ import NotFoundPage from '@/pages/NotFoundPage'
 const BimWorkspace = lazy(() => import('@/pages/bim/BimWorkspace'))
 const BimPlanPage = lazy(() => import('@/pages/bim/BimPlanPage'))
 
+// The Floor Plan 3D Lab, an isolated experiment. Lazy for the same reason the
+// BIM engine is, and more so: it carries Three.js, the GLTF exporter and
+// TransformControls, none of which may reach the bundle of a user who never
+// opens it. Part of a removable feature — see
+// src/pages/experiments/floorplan3d/README.md.
+const Floorplan3dLab = lazy(
+  () => import('@/pages/experiments/floorplan3d/Floorplan3dLab'),
+)
+const Floorplan3dWorkspace = lazy(
+  () => import('@/pages/experiments/floorplan3d/Floorplan3dWorkspace'),
+)
+
 // Step 1's Generate page.
 const GenerateStep = lazy(
   () => import('@/pages/dashboard/projects/GenerateStep'),
@@ -97,6 +109,19 @@ export const router = createBrowserRouter([
       // boundary and the shell rather than re-implementing them.
       { path: 'bim', element: <BimWorkspace /> },
       { path: 'bim/:sourceId', element: <BimPlanPage /> },
+
+      // The Floor Plan 3D Lab. Deliberately NOT in DASHBOARD_NAV_ITEMS: it is
+      // an experiment, reachable by direct URL only, and it inherits the
+      // authenticated boundary and the shell from DashboardLayout rather than
+      // re-implementing them.
+      {
+        path: 'experiments/floorplan-3d',
+        element: <Floorplan3dLab />,
+      },
+      {
+        path: 'experiments/floorplan-3d/:sourceId',
+        element: <Floorplan3dWorkspace />,
+      },
 
       // Project workflow — the four stages are SIBLINGS under one project,
       // each independently addressable. Output is deliberately not nested
