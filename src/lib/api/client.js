@@ -217,6 +217,27 @@ export function parseApiError(response, data) {
 }
 
 /**
+ * Whether a request body is raw bytes that must be sent as-is.
+ *
+ * WHY THIS EXISTS. `JSON.stringify` does not throw on a Blob — it returns
+ * `"{}"`. So without this check, sending a 560 KB file slice through this client
+ * put **two bytes** on the wire, with no error anywhere: the request succeeded,
+ * the server received `{}`, and the only symptom was a size mismatch reported
+ * much later. The FloorPlan3D chunked upload is the first caller to send a
+ * binary body; every other caller passes a plain object (→ JSON) or FormData,
+ * so this cannot change any existing behaviour.
+ *
+ * `ArrayBuffer.isView` covers every TypedArray and DataView in one test.
+ */
+function isBinaryBody(body) {
+  return (
+    (typeof Blob !== 'undefined' && body instanceof Blob) ||
+    body instanceof ArrayBuffer ||
+    ArrayBuffer.isView(body)
+  )
+}
+
+/**
  * Standard API request wrapper with HttpOnly cookie credentials, CSRF protection,
  * and automatic 401 token refresh retry.
  *
@@ -240,8 +261,14 @@ export async function apiClient(endpoint, options = {}) {
     ...(options.headers || {}),
   }
 
-  // Attach Content-Type for JSON payloads if not already set or FormData
-  if (options.body !== undefined && !(options.body instanceof FormData) && !headers['Content-Type']) {
+  // Attach Content-Type for JSON payloads if not already set or FormData.
+  // A binary body is not JSON either — see `isBinaryBody`.
+  if (
+    options.body !== undefined &&
+    !(options.body instanceof FormData) &&
+    !isBinaryBody(options.body) &&
+    !headers['Content-Type']
+  ) {
     headers['Content-Type'] = 'application/json'
   }
 
@@ -264,10 +291,11 @@ export async function apiClient(endpoint, options = {}) {
   }
 
   if (options.body !== undefined) {
-    fetchOptions.body =
-      typeof options.body === 'string' || options.body instanceof FormData
-        ? options.body
-        : JSON.stringify(options.body)
+    const passThrough =
+      typeof options.body === 'string' ||
+      options.body instanceof FormData ||
+      isBinaryBody(options.body)
+    fetchOptions.body = passThrough ? options.body : JSON.stringify(options.body)
   }
 
   let response

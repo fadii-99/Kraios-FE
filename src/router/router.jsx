@@ -54,6 +54,53 @@ import NotFoundPage from '@/pages/NotFoundPage'
 const BimWorkspace = lazy(() => import('@/pages/bim/BimWorkspace'))
 const BimPlanPage = lazy(() => import('@/pages/bim/BimPlanPage'))
 
+// The FloorPlan3D EXPERIMENT.
+//
+// WRITTEN AS AN EXACT `=== 'true'` COMPARISON ON PURPOSE. Vite replaces
+// `import.meta.env.VITE_FLOORPLAN3D_ENABLED` with a string LITERAL at build
+// time, so this whole expression folds to `false` in a build with the flag off
+// and Rollup then eliminates the branch below as dead code — chunks and all.
+// Written as `String(...).toLowerCase() === 'true'` it would be a runtime
+// comparison, the branch would survive, and a production bundle would ship a
+// 148 kB editor chunk for a feature it cannot reach. (It did, until this was
+// measured.) The cost is that the flag is case-sensitive: only `true` enables it.
+const FLOORPLAN3D_ENABLED = import.meta.env.VITE_FLOORPLAN3D_ENABLED === 'true'
+
+/**
+ * The experiment's routes, or nothing at all.
+ *
+ * The `lazy()` calls are INSIDE the flag check, not at module top level, for the
+ * reason above: a top-level `lazy(() => import(...))` is a live reference, so
+ * Rollup emits its chunk whether or not anything routes to it.
+ *
+ * With the flag off the paths fall through to the catch-all and answer "page
+ * does not exist" — the same answer the API gives, which is what "disabled by
+ * default in production" has to mean to be worth anything.
+ *
+ * The editor chunk carries a Three.js scene, a transform gizmo and a whole
+ * geometry engine, so a user who never opens the experiment pays nothing for it
+ * even when it IS enabled. Part of a removable feature; see
+ * src/pages/experiments/floorplan3d/README.md.
+ */
+function floorplan3dRoutes() {
+  if (!FLOORPLAN3D_ENABLED) return []
+
+  const ExperimentLanding = lazy(
+    () => import('@/pages/experiments/floorplan3d/Floorplan3DExperimentPage'),
+  )
+  const ExperimentEditor = lazy(
+    () => import('@/pages/experiments/floorplan3d/Floorplan3DEditorPage'),
+  )
+
+  return [
+    { path: 'experiments/floorplan-3d', element: <ExperimentLanding /> },
+    {
+      path: 'experiments/floorplan-3d/:conversionId',
+      element: <ExperimentEditor />,
+    },
+  ]
+}
+
 // Step 1's Generate page.
 const GenerateStep = lazy(
   () => import('@/pages/dashboard/projects/GenerateStep'),
@@ -112,6 +159,10 @@ export const router = createBrowserRouter([
       // boundary and the shell rather than re-implementing them.
       { path: 'bim', element: <BimWorkspace /> },
       { path: 'bim/:sourceId', element: <BimPlanPage /> },
+
+      // The FloorPlan3D experiment. Deliberately NOT in the sidebar - see
+      // src/lib/dashboard/dashboardNavigation.js, which is unchanged.
+      ...floorplan3dRoutes(),
 
       // Project workflow — the four stages are SIBLINGS under one project,
       // each independently addressable. Output is deliberately not nested
