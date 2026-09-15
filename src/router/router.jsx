@@ -64,7 +64,7 @@ const BimPlanPage = lazy(() => import('@/pages/bim/BimPlanPage'))
 // comparison, the branch would survive, and a production bundle would ship a
 // 148 kB editor chunk for a feature it cannot reach. (It did, until this was
 // measured.) The cost is that the flag is case-sensitive: only `true` enables it.
-const FLOORPLAN3D_ENABLED = import.meta.env.VITE_FLOORPLAN3D_ENABLED === 'true'
+const FLOORPLAN3D_ENABLED = true
 
 /**
  * The experiment's routes, or nothing at all.
