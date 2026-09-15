@@ -83,8 +83,7 @@ const FLOORPLAN3D_ENABLED = true
  * src/pages/experiments/floorplan3d/README.md.
  */
 function floorplan3dRoutes() {
-  if (!FLOORPLAN3D_ENABLED) return []
-
+  
   const ExperimentLanding = lazy(
     () => import('@/pages/experiments/floorplan3d/Floorplan3DExperimentPage'),
   )
