@@ -58,6 +58,18 @@ export const SELECTION_COLOR = 0x1677ff
 export const FLAGGED_COLOR = 0xdc2626
 export const HOVER_COLOR = 0x64a8ff
 
+// A proposed edit that has not been applied yet.
+//
+// GREEN, and the only green in the viewer. Selection blue and flagged red are
+// both already spoken for, and a proposal is neither of those things: it is
+// something that WOULD happen. A third hue is what lets a user look at a plan
+// with one wall selected, two elements flagged and three windows proposed and
+// read all three at once.
+export const PROPOSED_COLOR = 0x12a150
+// Something the proposal would DELETE. Read as a warning rather than as a
+// flag, so it is distinguishable from the recognition pipeline's own red.
+export const PROPOSED_REMOVAL_COLOR = 0xea8c00
+
 // The presentation's sky blue, matching `blender/scene/lighting.py:SKY_BLUE` so
 // a thumbnail and the live viewer look like the same product.
 export const BACKGROUND_COLOR = 0xb8d9f0

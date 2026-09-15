@@ -47,6 +47,13 @@ export const FLOORPLAN3D_ENDPOINTS = {
   revisions: (id) => `${conversion(id)}/revisions/`,
   revision: (id, revisionId) =>
     `${conversion(id)}/revisions/${encodeURIComponent(revisionId)}/`,
+  restoreRevision: (id, revisionId) =>
+    `${conversion(id)}/revisions/${encodeURIComponent(revisionId)}/restore/`,
+  revisionDiff: (id, revisionId) =>
+    `${conversion(id)}/revisions/${encodeURIComponent(revisionId)}/diff/`,
+  assist: (id) => `${conversion(id)}/assist/`,
+  assistEdit: (id, assistId) =>
+    `${conversion(id)}/assist/${encodeURIComponent(assistId)}/`,
   validate: (id) => `${conversion(id)}/validate/`,
   calibrateScale: (id) => `${conversion(id)}/calibrate-scale/`,
   confirmElements: (id) => `${conversion(id)}/confirm/`,
@@ -231,6 +238,91 @@ export function saveRevision(conversionId, { document, changeSummary, parentRevi
       document,
       ...(changeSummary ? { change_summary: changeSummary } : {}),
       ...(parentRevision ? { parent_revision: parentRevision } : {}),
+    },
+  })
+}
+
+/**
+ * Bring an older revision back, as a NEW revision on top of the history.
+ *
+ * Restoring r3 after ten prompts writes r14 with r3's content and r3 as its
+ * parent. Nothing between them is deleted — going back is a branch, and a user
+ * who restores, looks, and changes their mind still has everything.
+ *
+ * `artifacts_reused` is true when the restored document was byte-identical to
+ * one Blender had already built, so the downloads are already correct and no
+ * rebuild is needed.
+ */
+export function restoreRevision(conversionId, revisionId) {
+  return apiClient(FLOORPLAN3D_ENDPOINTS.restoreRevision(conversionId, revisionId), {
+    method: 'POST',
+  })
+}
+
+/**
+ * What changed between two revisions.
+ *
+ * `against` names the other side; without it the comparison is against the
+ * revision's own parent, which is what "what did this change?" means when a
+ * user clicks one row of the history.
+ */
+export function getRevisionDiff(conversionId, revisionId, { against } = {}) {
+  const query = against ? `?against=${encodeURIComponent(against)}` : ''
+  return apiClient(
+    `${FLOORPLAN3D_ENDPOINTS.revisionDiff(conversionId, revisionId)}${query}`,
+    { method: 'GET' },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Prompt editing
+// ---------------------------------------------------------------------------
+/**
+ * Ask for a plan. ANSWERS 200 AND CHANGES NOTHING.
+ *
+ * The response is a proposal: a list of operations drawn from the vocabulary in
+ * `assistCommands.js`, which the browser applies to a DRAFT document so the user
+ * can see it before deciding. Only `saveRevision` ever writes.
+ *
+ * `capabilities` is the list of operation names this bundle can actually
+ * execute, and it is what stops the two halves drifting: the server builds the
+ * planner's response schema from the intersection with its own vocabulary, so a
+ * stale tab loses an operation rather than receiving one it would have to throw
+ * away. Always send it.
+ */
+export function planAssistEdit(
+  conversionId,
+  { prompt, levelId, selectionId, capabilities },
+) {
+  return apiClient(FLOORPLAN3D_ENDPOINTS.assist(conversionId), {
+    method: 'POST',
+    body: {
+      prompt,
+      ...(levelId ? { level_id: levelId } : {}),
+      ...(selectionId ? { selection_id: selectionId } : {}),
+      ...(capabilities?.length ? { capabilities } : {}),
+    },
+  })
+}
+
+/** The editing conversation for this plan, newest first. */
+export function listAssistEdits(conversionId) {
+  return apiClient(FLOORPLAN3D_ENDPOINTS.assist(conversionId), { method: 'GET' })
+}
+
+/**
+ * Record what the user did with a proposal.
+ *
+ * Changes no geometry — the document was already saved through `saveRevision`,
+ * or was never saved at all. A discarded proposal is KEPT: it is a labelled
+ * failure, and the only thing that makes the next round of tuning evidence-led.
+ */
+export function settleAssistEdit(conversionId, assistId, { applied, resultRevision }) {
+  return apiClient(FLOORPLAN3D_ENDPOINTS.assistEdit(conversionId, assistId), {
+    method: 'PATCH',
+    body: {
+      applied,
+      ...(resultRevision ? { result_revision: resultRevision } : {}),
     },
   })
 }

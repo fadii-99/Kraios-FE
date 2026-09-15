@@ -62,6 +62,8 @@ export default function SceneViewport({
   document: semanticDocument,
   catalog,
   selectedId,
+  proposedElementIds,
+  proposedRemovalIds,
   hiddenElementIds,
   hiddenCategories,
   isolatedLevelId,
@@ -152,6 +154,10 @@ export default function SceneViewport({
   useEffect(() => {
     sceneRef.current?.select(selectedId ?? null)
   }, [selectedId])
+
+  useEffect(() => {
+    sceneRef.current?.setProposedElements(proposedElementIds, proposedRemovalIds)
+  }, [proposedElementIds, proposedRemovalIds])
 
   useEffect(() => {
     sceneRef.current?.setHiddenElements(hiddenElementIds)

@@ -7,6 +7,8 @@ import {
   FLAGGED_COLOR,
   HOVER_COLOR,
   MM_TO_M,
+  PROPOSED_COLOR,
+  PROPOSED_REMOVAL_COLOR,
   SELECTION_COLOR,
   buildModel,
   disposeModel,
@@ -111,6 +113,10 @@ export class SemanticScene {
     this.hoveredId = null
     this.hiddenIds = new Set()
     this.hiddenCategories = new Set()
+    // Elements a proposed edit would change, and ones it would remove. Empty
+    // whenever no proposal is on screen, which is almost always.
+    this.proposedIds = new Set()
+    this.proposedRemovalIds = new Set()
     this.isolatedLevelId = null
     this.lastPreset = 'iso'
     this.framedAtRealSize = false
@@ -664,7 +670,16 @@ export class SemanticScene {
       const selected = id === this.selectedId
       const hovered = id === this.hoveredId && !selected
       const flagged = Boolean(element?.flagged)
+      const proposed = this.proposedIds.has(id)
+      const proposedRemoval = this.proposedRemovalIds.has(id)
 
+      // THE ORDER IS A PRIORITY, AND A PROPOSAL OUTRANKS A FLAG. While a
+      // proposal is on screen it is the thing the user is deciding about, and
+      // an element that is both uncertain and about to change has to read as
+      // about to change - otherwise the one wall they need to look at is the
+      // one painted like the other eleven. Selection and hover still win,
+      // because those track the pointer and going dead under it reads as a
+      // broken control.
       let color = 0x000000
       let intensity = 0
       if (selected) {
@@ -673,6 +688,12 @@ export class SemanticScene {
       } else if (hovered) {
         color = HOVER_COLOR
         intensity = 0.3
+      } else if (proposedRemoval) {
+        color = PROPOSED_REMOVAL_COLOR
+        intensity = 0.5
+      } else if (proposed) {
+        color = PROPOSED_COLOR
+        intensity = 0.45
       } else if (flagged) {
         color = FLAGGED_COLOR
         intensity = 0.22
@@ -691,6 +712,25 @@ export class SemanticScene {
         }
       })
     }
+  }
+
+  /**
+   * Paint the elements a proposed edit would touch.
+   *
+   * Two sets, because they mean different things to the person looking at them:
+   * `ids` would CHANGE and `removalIds` would be GONE. Called with empty sets
+   * the moment a proposal is applied or discarded - a highlight left behind
+   * after the decision is a highlight that lies about the current document.
+   *
+   * Note that this paints elements in the CURRENT document. A proposal that
+   * adds something has nothing to paint until the draft is on screen, which is
+   * why the editor renders the draft document rather than the saved one while
+   * a proposal is open.
+   */
+  setProposedElements(ids, removalIds) {
+    this.proposedIds = new Set(ids ?? [])
+    this.proposedRemovalIds = new Set(removalIds ?? [])
+    this.applyHighlights()
   }
 
   // -- visibility ------------------------------------------------------

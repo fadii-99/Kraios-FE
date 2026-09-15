@@ -7,6 +7,7 @@ import {
   ArrowsOut,
   CaretLeft,
   CaretRight,
+  ClockCounterClockwise,
   FloppyDisk,
   Image as ImageIcon,
   SlidersHorizontal,
@@ -14,19 +15,25 @@ import {
 } from '@phosphor-icons/react'
 import toast from 'react-hot-toast'
 
+import AssistPanel from '@/components/floorplan3d/AssistPanel'
 import DownloadMenu from '@/components/floorplan3d/DownloadMenu'
 import PlanOverlay from '@/components/floorplan3d/PlanOverlay'
 import PropertyInspector from '@/components/floorplan3d/PropertyInspector'
 import ReviewPanel from '@/components/floorplan3d/ReviewPanel'
 import ScaleCalibrationModal from '@/components/floorplan3d/ScaleCalibrationModal'
 import SceneViewport from '@/components/floorplan3d/SceneViewport'
+import VersionsDrawer from '@/components/floorplan3d/VersionsDrawer'
 import ViewportToolbar from '@/components/floorplan3d/ViewportToolbar'
 import {
   calibrateScale,
   getAssetCatalog,
   getConversion,
+  listAssistEdits,
+  planAssistEdit,
   regenerateArtifacts,
+  restoreRevision,
   saveRevision,
+  settleAssistEdit,
 } from '@/lib/api/floorplan3d'
 import { conversionToView, formatMetres, reviewToView } from '@/lib/floorplan3d/adapters'
 import * as commands from '@/lib/floorplan3d/editCommands'
@@ -38,10 +45,16 @@ import {
   redo,
   undo,
 } from '@/lib/floorplan3d/editCommands'
+import {
+  ASSIST_CAPABILITIES,
+  applyPlan,
+} from '@/lib/floorplan3d/assistCommands'
 import { indexCatalog } from '@/lib/floorplan3d/furniture'
 import {
   assumedElementIds,
   documentBounds,
+  elementLabel,
+  findElement,
   levels as documentLevels,
 } from '@/lib/floorplan3d/semanticModel'
 import { useConversionPolling } from '@/lib/floorplan3d/useConversionPolling'
@@ -77,7 +90,21 @@ import { cn } from '@/lib/cn'
  * the same deterministic repair the pipeline runs, so the response can differ
  * slightly from what was sent. The returned document is adopted, and the
  * warnings are shown — otherwise the editor and the database diverge silently.
+ *
+ * A PROMPT EDIT IS A DRAFT UNTIL IT IS KEPT. The Assist tab asks the server for
+ * a PLAN — a list of operations, no document — and this page runs it through
+ * `assistCommands` against a copy. While that draft exists the viewport renders
+ * IT rather than `history.present`, with the changed elements painted, and the
+ * saved state is untouched. Keeping it pushes the draft onto the same command
+ * history a typed edit uses, so undo works on it identically; discarding drops
+ * the object and costs nothing. Only `Save revision` ever reaches the database,
+ * exactly as before.
  */
+
+// The synthetic command a kept prompt edit is pushed through. It carries the
+// user's own sentence as its label, so the undo stack and the saved change
+// summary both read as what was asked for rather than as what was run.
+const ASSIST_APPLY_ID = 'assist-apply'
 
 const COMMAND_MAP = {
   moveFurniture: commands.moveFurniture,
@@ -129,6 +156,20 @@ export default function Floorplan3DEditorPage() {
   const [rightTab, setRightTab] = useState('review')
   const [planMode, setPlanMode] = useState('off')
 
+  // Prompt editing. `assistPreview` holds the DRAFT: the document the plan
+  // produced, what it did, and which elements moved. Null whenever there is no
+  // open proposal, which is the normal state.
+  const [assistEdits, setAssistEdits] = useState([])
+  const [assistBusy, setAssistBusy] = useState(false)
+  const [assistPreview, setAssistPreview] = useState(null)
+  const [showVersions, setShowVersions] = useState(false)
+  const [versionsToken, setVersionsToken] = useState(0)
+  // Prompts applied but not yet saved. They become the revision's change
+  // summary — a history row reading "Widen the south windows to 1200" is what
+  // somebody scanning the versions in six weeks needs, and the command labels
+  // would give them "Edit opening (3)".
+  const [pendingPrompts, setPendingPrompts] = useState([])
+
   const sceneRef = useRef(null)
 
   /**
@@ -140,8 +181,16 @@ export default function Floorplan3DEditorPage() {
    */
   const load = useCallback(
     () =>
-      Promise.all([getConversion(conversionId), getAssetCatalog()])
-        .then(([row, catalogPayload]) => {
+      Promise.all([
+        getConversion(conversionId),
+        getAssetCatalog(),
+        // The editing conversation is loaded with everything else and FAILS
+        // OPEN. Prompt editing is an addition to an editor that worked without
+        // it, so a conversation that cannot be read must cost the user their
+        // chat history and nothing else — never the model they came here for.
+        listAssistEdits(conversionId).catch(() => []),
+      ])
+        .then(([row, catalogPayload, edits]) => {
           const view = conversionToView(row)
           setConversion(view)
           setCatalog({ payload: catalogPayload, index: indexCatalog(catalogPayload) })
@@ -150,6 +199,7 @@ export default function Floorplan3DEditorPage() {
               ? createHistory(view.currentRevision.document)
               : null,
           )
+          setAssistEdits(edits ?? [])
           setLoadError('')
         })
         .catch((caught) => {
@@ -227,9 +277,20 @@ export default function Floorplan3DEditorPage() {
   // ------------------------------------------------------------------
   // Commands
   // ------------------------------------------------------------------
-  const run = useCallback((name, payload) => {
-    const command = COMMAND_MAP[name]
+  /**
+   * Put a command onto the history.
+   *
+   * Takes the command OBJECT rather than a name, so a one-off command can be
+   * pushed through the same path — which is how a kept prompt edit lands on the
+   * undo stack with the user's own sentence as its label.
+   */
+  const runCommand = useCallback((command, payload) => {
     if (!command) return
+    // ANY OTHER EDIT INVALIDATES AN OPEN PROPOSAL. The draft was computed from
+    // the document as it was; a wall dragged in the Properties panel since then
+    // is not in it, and keeping the draft would throw that edit away without
+    // saying so. Dropping the proposal costs one object and one re-prompt.
+    if (command.id !== ASSIST_APPLY_ID) setAssistPreview(null)
     setHistory((current) => {
       if (!current) return current
       const result = applyCommand(current, command, payload)
@@ -237,6 +298,11 @@ export default function Floorplan3DEditorPage() {
       return result.history
     })
   }, [])
+
+  const run = useCallback(
+    (name, payload) => runCommand(COMMAND_MAP[name], payload),
+    [runCommand],
+  )
 
   const handleDelete = useCallback(
     (elementId) => {
@@ -253,8 +319,16 @@ export default function Floorplan3DEditorPage() {
     [run],
   )
 
-  const handleUndo = useCallback(() => setHistory((current) => undo(current)), [])
-  const handleRedo = useCallback(() => setHistory((current) => redo(current)), [])
+  // Undo and redo move the document as surely as an edit does, so an open
+  // proposal is dropped by both for the reason given in `runCommand`.
+  const handleUndo = useCallback(() => {
+    setAssistPreview(null)
+    setHistory((current) => undo(current))
+  }, [])
+  const handleRedo = useCallback(() => {
+    setAssistPreview(null)
+    setHistory((current) => redo(current))
+  }, [])
 
   /**
    * Keyboard shortcuts, on the window.
@@ -303,14 +377,200 @@ export default function Floorplan3DEditorPage() {
   }, [handleUndo, handleRedo, handleDelete, selectedId, canEdit])
 
   // ------------------------------------------------------------------
+  // Prompt editing
+  // ------------------------------------------------------------------
+  /**
+   * The level a prompt is about.
+   *
+   * The isolated floor when the user has isolated one, otherwise the first.
+   * A prompt names things the user can SEE, and the planner is given one level
+   * for the same reason the viewport shows one building — an instruction about
+   * "the kitchen" on a two-storey plan with two kitchens is a question, not a
+   * guess, and it can only be asked once the scope is known.
+   */
+  const activeLevelId = useMemo(
+    () => isolatedLevelId || documentLevels(document)[0]?.id || '',
+    [isolatedLevelId, document],
+  )
+
+  const activeLevelName = useMemo(
+    () => levels.find((level) => level.id === activeLevelId)?.name ?? '',
+    [levels, activeLevelId],
+  )
+
+  const selectionLabel = useMemo(() => {
+    if (!selectedId || !document) return ''
+    return elementLabel(findElement(document, selectedId))
+  }, [selectedId, document])
+
+  /**
+   * Ask for a plan, then run it against a COPY of the current document.
+   *
+   * Two round trips' worth of work in one place, and the order matters: the
+   * plan is checked by the server, executed here, and only then shown. A
+   * proposal whose every operation turned out to be impossible is reported as
+   * such rather than offered as something to keep.
+   */
+  const handleAssistSend = useCallback(
+    (prompt) => {
+      if (!document || assistBusy) return
+      setAssistBusy(true)
+      setAssistPreview(null)
+      setRightTab('assist')
+
+      planAssistEdit(conversionId, {
+        prompt,
+        levelId: activeLevelId,
+        selectionId: selectedId || '',
+        capabilities: ASSIST_CAPABILITIES,
+      })
+        .then((edit) => {
+          setAssistEdits((current) => [edit, ...current])
+          if (edit.status !== 'PROPOSED' || !(edit.operations ?? []).length) return
+
+          const outcome = applyPlan(document, edit.operations, {
+            catalog: catalog?.index,
+            levelId: activeLevelId,
+          })
+          // `base` is the document the draft was computed from. Keeping it is
+          // what lets Apply refuse to overwrite an edit made in the meantime.
+          setAssistPreview({ editId: edit.id, prompt, base: document, ...outcome })
+
+          if (!outcome.applied) {
+            toast(
+              'Nothing in that could be changed on this plan. Try naming the element.',
+              { duration: 6000 },
+            )
+          }
+        })
+        .catch((caught) => {
+          // A 409 is the feature saying it cannot run — off, unconfigured, or
+          // out of budget — and its message is written to be shown. Anything
+          // else is normalized by the API client.
+          toast.error(caught?.message || 'That change could not be worked out.')
+        })
+        .finally(() => setAssistBusy(false))
+    },
+    [conversionId, document, assistBusy, activeLevelId, selectedId, catalog],
+  )
+
+  /**
+   * Keep the draft.
+   *
+   * It goes onto the SAME command history a typed edit uses, labelled with the
+   * user's own sentence, so Ctrl+Z undoes a prompt edit exactly as it undoes a
+   * dragged wall. Nothing is saved: the header's Save revision button is still
+   * the only thing that writes.
+   */
+  const handleAssistApply = useCallback(() => {
+    const preview = assistPreview
+    if (!preview?.changed) return
+
+    // The backstop for the rule in `runCommand`. Whatever path changed the
+    // document, a draft built on a different one is not applied: it would
+    // replace the whole document and take every edit made since with it.
+    if (preview.base !== history?.present) {
+      setAssistPreview(null)
+      toast.error('The plan changed while that was being worked out. Ask again.')
+      return
+    }
+
+    runCommand(
+      {
+        id: ASSIST_APPLY_ID,
+        label: `“${preview.prompt}”`,
+        apply: (_current, payload) => payload.document,
+      },
+      { document: preview.document },
+    )
+
+    setPendingPrompts((current) => [...current, preview.prompt])
+    setAssistPreview(null)
+    setAssistEdits((current) =>
+      current.map((edit) =>
+        edit.id === preview.editId ? { ...edit, status: 'APPLIED' } : edit,
+      ),
+    )
+    // Recording the decision is bookkeeping: it must not be able to undo the
+    // edit the user just accepted, so a failure is logged and nothing else.
+    settleAssistEdit(conversionId, preview.editId, { applied: true }).catch(() => {})
+    toast.success(
+      `${preview.applied} change${preview.applied === 1 ? '' : 's'} kept. Save the revision to keep them for good.`,
+    )
+  }, [assistPreview, conversionId, runCommand, history])
+
+  const handleAssistDiscard = useCallback(() => {
+    const preview = assistPreview
+    if (!preview) return
+    setAssistPreview(null)
+    setAssistEdits((current) =>
+      current.map((edit) =>
+        edit.id === preview.editId ? { ...edit, status: 'DISCARDED' } : edit,
+      ),
+    )
+    settleAssistEdit(conversionId, preview.editId, { applied: false }).catch(() => {})
+  }, [assistPreview, conversionId])
+
+  /**
+   * Bring an older revision back.
+   *
+   * The server writes a NEW revision whose content is the old one's, so this
+   * adopts the response the way a save does. Any open proposal is dropped
+   * first: it was planned against a document that is no longer on screen, and
+   * keeping it would let a user apply an edit computed for a different building.
+   */
+  const handleRestore = useCallback(
+    (revision) =>
+      restoreRevision(conversionId, revision.id)
+        .then((result) => {
+          setAssistPreview(null)
+          setPendingPrompts([])
+          setHistory(createHistory(result.revision.document))
+          setSelectedId(null)
+          setConversion((current) =>
+            current
+              ? {
+                  ...current,
+                  currentRevision: {
+                    id: result.revision.id,
+                    number: result.revision.number,
+                    score: result.revision.score,
+                    grade: result.revision.grade,
+                    document: result.revision.document,
+                    validation: result.revision.validation,
+                    changeSummary: result.revision.change_summary,
+                  },
+                  artifactsStale: !result.artifacts_reused && current.artifactsStale,
+                }
+              : current,
+          )
+          setVersionsToken((current) => current + 1)
+          toast.success(
+            `Revision ${result.restored_from} is back, saved as revision ${result.revision.number}. Nothing in between was deleted.`,
+          )
+        })
+        .catch((caught) => {
+          toast.error(caught?.message || 'That revision could not be restored.')
+        }),
+    [conversionId],
+  )
+
+  // ------------------------------------------------------------------
   // Server round trips
   // ------------------------------------------------------------------
   const handleSave = useCallback(() => {
     if (!history?.dirty || !document) return
     setSaving(true)
+    // A prompt edit describes itself better than its command labels do, so when
+    // one is in this batch its sentence becomes the summary. Hand edits made
+    // alongside it are still counted, after it.
+    const summary = pendingPrompts.length
+      ? [...pendingPrompts, changeSummary(history)].join(' · ').slice(0, 400)
+      : changeSummary(history)
+
     saveRevision(conversionId, {
       document,
-      changeSummary: changeSummary(history),
+      changeSummary: summary,
       parentRevision: conversion?.currentRevision?.id,
     })
       .then((result) => {
@@ -335,6 +595,20 @@ export default function Floorplan3DEditorPage() {
               }
             : current,
         )
+        // Link every prompt edit in this batch to the revision it produced, so
+        // the log can answer "which version did that instruction give me?".
+        // Already-settled rows accept the link and nothing else — see
+        // `services.settle_assist_edit`.
+        for (const edit of assistEdits) {
+          if (edit.status === 'APPLIED' && !edit.result_revision) {
+            settleAssistEdit(conversionId, edit.id, {
+              applied: true,
+              resultRevision: result.revision.id,
+            }).catch(() => {})
+          }
+        }
+        setPendingPrompts([])
+        setVersionsToken((current) => current + 1)
         toast.success(`Saved as revision ${result.revision.number}.`)
         for (const warning of result.warnings ?? []) toast(warning, { duration: 6000 })
       })
@@ -347,7 +621,7 @@ export default function Floorplan3DEditorPage() {
         }
       })
       .finally(() => setSaving(false))
-  }, [history, document, conversionId, conversion])
+  }, [history, document, conversionId, conversion, pendingPrompts, assistEdits])
 
   /**
    * Rebuild the downloadable files from the revision on screen.
@@ -384,6 +658,11 @@ export default function Floorplan3DEditorPage() {
         realDistanceMm,
       })
         .then((result) => {
+          // Rescaling changes every dimension in the document, so a proposal
+          // planned against the old one is about a building that no longer
+          // exists. Dropped rather than reinterpreted.
+          setAssistPreview(null)
+          setPendingPrompts([])
           setHistory(createHistory(result.revision.document))
           setConversion((current) =>
             current
@@ -404,6 +683,7 @@ export default function Floorplan3DEditorPage() {
                 }
               : current,
           )
+          setVersionsToken((current) => current + 1)
           toast.success(
             `Rescaled by ${result.factor.toFixed(3)}× and saved as revision ${result.revision.number}.`,
           )
@@ -454,6 +734,28 @@ export default function Floorplan3DEditorPage() {
   }, [conversion])
 
   const expanded = !rightOpen
+
+  /**
+   * What the viewport draws.
+   *
+   * THE DRAFT WINS WHILE A PROPOSAL IS OPEN. Painting the changed elements of a
+   * document that does not contain the change would highlight where things
+   * ARE rather than where they would be — and an operation that adds a wall
+   * would have nothing to paint at all. Discarding restores the saved document
+   * by dropping one object.
+   */
+  const viewportDocument = assistPreview?.document ?? document
+
+  // Memoised because they are array props on the viewport: a fresh array per render
+  // would re-run the scene's highlight effect on every keystroke in the panel.
+  const proposedIds = useMemo(
+    () => [...(assistPreview?.changedIds ?? []), ...(assistPreview?.addedIds ?? [])],
+    [assistPreview],
+  )
+  const proposedRemovalIds = useMemo(
+    () => assistPreview?.removedIds ?? [],
+    [assistPreview],
+  )
 
   // ------------------------------------------------------------------
   if (loadError) {
@@ -510,6 +812,11 @@ export default function Floorplan3DEditorPage() {
             {history.dirty && (
               <span className="text-[var(--color-warning)]">· unsaved changes</span>
             )}
+            {assistPreview && (
+              <span className="text-[var(--color-brand-deep)]">
+                · {assistPreview.applied} proposed
+              </span>
+            )}
             {bounds && (
               <span>
                 · {formatMetres(bounds[2] - bounds[0], 1)} ×{' '}
@@ -555,6 +862,21 @@ export default function Floorplan3DEditorPage() {
             )}
           >
             <ArrowUUpRight size={15} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowVersions((current) => !current)}
+            title="Every saved version, and the way back to any of them"
+            className={cn(
+              'label-ui inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-sm border px-3 transition-colors',
+              showVersions
+                ? 'border-[var(--tone-accent)] text-[var(--tone-accent)]'
+                : 'border-[var(--tone-line-strong)] text-[var(--tone-ink)] hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]',
+            )}
+          >
+            <ClockCounterClockwise size={14} />
+            r{conversion.currentRevision?.number ?? '—'}
           </button>
 
           <button
@@ -619,9 +941,11 @@ export default function Floorplan3DEditorPage() {
           <div className="relative flex min-h-0 flex-1">
             <div className="relative min-w-0 flex-1">
               <SceneViewport
-                document={document}
+                document={viewportDocument}
                 catalog={catalog?.index}
                 selectedId={selectedId}
+                proposedElementIds={proposedIds}
+                proposedRemovalIds={proposedRemovalIds}
                 isolatedLevelId={isolatedLevelId}
                 projection={projection}
                 quality={quality}
@@ -666,6 +990,46 @@ export default function Floorplan3DEditorPage() {
                 Show the panel
               </button>
             )}
+
+            {/* The decision sits over the thing being decided, so it works with
+                the panel collapsed and the eye never has to leave the model. */}
+            {assistPreview && assistPreview.applied > 0 && (
+              <div className="absolute inset-x-3 bottom-3 z-20 flex flex-wrap items-center gap-2 rounded-sm border border-[var(--color-brand-deep)] bg-white/97 px-2.5 py-2 shadow-sm">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-brand-deep)]" />
+                <span className="text-[0.6875rem] font-medium text-[var(--tone-ink)]">
+                  {assistPreview.applied} change
+                  {assistPreview.applied === 1 ? '' : 's'} proposed
+                  <span className="ml-1 font-normal text-[var(--tone-ink-soft)]">
+                    — nothing saved yet
+                  </span>
+                </span>
+                <span className="ml-auto flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleAssistDiscard}
+                    className="label-ui cursor-pointer rounded-sm border border-[var(--tone-line-strong)] px-2.5 py-1 text-[var(--tone-ink)] transition-colors hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAssistApply}
+                    className="label-ui cursor-pointer rounded-sm bg-[var(--btn-bg)] px-2.5 py-1 text-[var(--btn-ink)] transition-colors hover:bg-[var(--btn-bg-hover)]"
+                  >
+                    Keep
+                  </button>
+                </span>
+              </div>
+            )}
+
+            <VersionsDrawer
+              open={showVersions}
+              conversionId={conversionId}
+              currentRevisionId={conversion.currentRevision?.id}
+              reloadToken={versionsToken}
+              onClose={() => setShowVersions(false)}
+              onRestored={handleRestore}
+            />
           </div>
         </div>
 
@@ -684,6 +1048,7 @@ export default function Floorplan3DEditorPage() {
                 {[
                   ['review', `Review${review?.needsAttention.length ? ` (${review.needsAttention.length})` : ''}`],
                   ['inspector', 'Properties'],
+                  ['assist', 'Assist'],
                 ].map(([id, label]) => (
                   <button
                     key={id}
@@ -702,7 +1067,7 @@ export default function Floorplan3DEditorPage() {
               </div>
 
               <div className="min-h-0 flex-1">
-                {rightTab === 'review' ? (
+                {rightTab === 'review' && (
                   <ReviewPanel
                     review={review}
                     canEdit={canEdit}
@@ -715,7 +1080,8 @@ export default function Floorplan3DEditorPage() {
                     onCalibrate={() => setShowCalibration(true)}
                     onSetStoreyHeight={handleSetStoreyHeight}
                   />
-                ) : (
+                )}
+                {rightTab === 'inspector' && (
                   <PropertyInspector
                     document={document}
                     catalog={catalog}
@@ -724,6 +1090,26 @@ export default function Floorplan3DEditorPage() {
                     onCommand={run}
                     onDelete={handleDelete}
                     onDuplicate={handleDuplicate}
+                    onSelect={setSelectedId}
+                  />
+                )}
+                {rightTab === 'assist' && (
+                  <AssistPanel
+                    edits={assistEdits}
+                    preview={assistPreview}
+                    openEditId={assistPreview?.editId}
+                    busy={assistBusy}
+                    disabled={!canEdit || !conversion.assistEnabled}
+                    disabledReason={
+                      conversion.assistEnabled
+                        ? 'This plan is still being processed.'
+                        : 'Prompt editing is not switched on for this installation.'
+                    }
+                    levelName={activeLevelName}
+                    selectionLabel={selectionLabel}
+                    onSend={handleAssistSend}
+                    onApply={handleAssistApply}
+                    onDiscard={handleAssistDiscard}
                     onSelect={setSelectedId}
                   />
                 )}

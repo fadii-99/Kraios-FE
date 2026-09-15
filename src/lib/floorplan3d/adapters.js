@@ -40,6 +40,9 @@ export function conversionToView(row) {
     thumbnailUrl: row.thumbnail_url || null,
     artifactsStale: Boolean(row.artifacts_stale),
     artifacts: (row.artifacts ?? []).map(artifactToView),
+    // Only the DETAIL payload carries this; a list row leaves it undefined,
+    // which is correctly falsy — nothing on the landing page offers editing.
+    assistEnabled: Boolean(row.assist_enabled),
     configuration: row.configuration ?? null,
     usage: row.usage ?? [],
     durationMs: row.duration_ms ?? 0,
