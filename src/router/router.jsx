@@ -54,16 +54,18 @@ import NotFoundPage from '@/pages/NotFoundPage'
 const BimWorkspace = lazy(() => import('@/pages/bim/BimWorkspace'))
 const BimPlanPage = lazy(() => import('@/pages/bim/BimPlanPage'))
 
-// The FloorPlan3D EXPERIMENT.
+// The FloorPlan3D EXPERIMENT — ON in every build.
 //
-// WRITTEN AS AN EXACT `=== 'true'` COMPARISON ON PURPOSE. Vite replaces
-// `import.meta.env.VITE_FLOORPLAN3D_ENABLED` with a string LITERAL at build
-// time, so this whole expression folds to `false` in a build with the flag off
-// and Rollup then eliminates the branch below as dead code — chunks and all.
-// Written as `String(...).toLowerCase() === 'true'` it would be a runtime
-// comparison, the branch would survive, and a production bundle would ship a
-// 148 kB editor chunk for a feature it cannot reach. (It did, until this was
-// measured.) The cost is that the flag is case-sensitive: only `true` enables it.
+// This was `import.meta.env.VITE_FLOORPLAN3D_ENABLED === 'true'`, so a flag-off
+// build folded the branch below away and shipped no experiment chunk at all.
+// Hardcoding it to `true` means the ~148 kB editor chunk is now emitted by every
+// build, Vercel's included; it is still lazy, so only a user who opens the
+// experiment downloads it. The sidebar entry in
+// src/lib/dashboard/dashboardNavigation.js is unconditional for the same reason
+// and must be turned off together with this, never separately.
+//
+// The BACKEND flag is untouched and still governs access: the API answers 404
+// unless FLOORPLAN3D_ENABLED=True there.
 const FLOORPLAN3D_ENABLED = true
 
 /**

@@ -585,9 +585,12 @@ dashboard workspace, not replacing the dashboard shell.
 Global dashboard navigation source: `src/lib/dashboard/dashboardNavigation.js`.
 
 `DASHBOARD_NAV_ITEMS`: Overview · Projects · 3D Engine · 3D Blender · Subscription
-· Profile. `3D Blender` is the FloorPlan3D experiment and is gated on
-`VITE_FLOORPLAN3D_ENABLED` — the SAME build-time flag the router reads, so the
-entry exists only when its routes do.
+· Profile. `3D Blender` is the FloorPlan3D experiment. It is listed
+UNCONDITIONALLY, and is only correct because `router.jsx` now mounts the
+experiment's routes unconditionally too (`FLOORPLAN3D_ENABLED = true`, no longer
+read from `VITE_FLOORPLAN3D_ENABLED`). The two are one decision: turning the
+experiment off means turning off BOTH, or the sidebar links to the not-found
+page. Access is still governed by the backend's own `FLOORPLAN3D_ENABLED`.
 `DASHBOARD_SIGN_OUT` (Log out) is exported separately — it is an action, not a
 destination, and must never be iterated into the navigation register.
 
