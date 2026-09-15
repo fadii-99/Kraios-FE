@@ -160,8 +160,9 @@ export const router = createBrowserRouter([
       { path: 'bim', element: <BimWorkspace /> },
       { path: 'bim/:sourceId', element: <BimPlanPage /> },
 
-      // The FloorPlan3D experiment. Deliberately NOT in the sidebar - see
-      // src/lib/dashboard/dashboardNavigation.js, which is unchanged.
+      // The FloorPlan3D experiment. Reached from the "3D Blender" sidebar
+      // entry, which is gated on the SAME build-time flag as these routes -
+      // see src/lib/dashboard/dashboardNavigation.js.
       ...floorplan3dRoutes(),
 
       // Project workflow — the four stages are SIBLINGS under one project,

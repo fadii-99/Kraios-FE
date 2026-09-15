@@ -1,4 +1,13 @@
 /**
+ * The FloorPlan3D experiment ships behind the same build-time flag the router
+ * reads, so the sidebar entry appears only when the routes actually exist.
+ * The comparison is written against the string literal so the bundler can drop
+ * the entry entirely when the flag is off - see
+ * src/pages/experiments/floorplan3d/README.md.
+ */
+const FLOORPLAN3D_ENABLED = import.meta.env.VITE_FLOORPLAN3D_ENABLED === 'true'
+
+/**
  * Central navigation configuration for the Kraios dashboard.
  *
  * Single source of truth for the GLOBAL sidebar: Overview and Projects as the
@@ -36,6 +45,19 @@ export const DASHBOARD_NAV_ITEMS = [
     end: false,
     icon: 'Cube',
   },
+  ...(FLOORPLAN3D_ENABLED
+    ? [
+        {
+          // Part of a removable feature - see
+          // src/pages/experiments/floorplan3d/README.md.
+          id: 'floorplan3d',
+          label: '3D Blender',
+          path: '/dashboard/experiments/floorplan-3d',
+          end: false,
+          icon: 'CubeTransparent',
+        },
+      ]
+    : []),
   {
     id: 'subscription',
     label: 'Subscription',
