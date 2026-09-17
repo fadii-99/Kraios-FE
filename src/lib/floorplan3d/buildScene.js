@@ -88,6 +88,9 @@ const LEAF_AJAR_DEGREES = 20
 
 const TREAD_THICKNESS_MM = 50
 const NOSING_MM = 25
+// The threshold plate at the head of a descending flight. Matches
+// `DOWN_HEAD_PLATE_THICKNESS_MM` in `blender/geometry/stairs.py`.
+const DOWN_HEAD_PLATE_THICKNESS_MM = 60
 const RAMP_STEPS = 12
 
 const FALLBACK_COLOR = '#C9CCCF'
@@ -648,6 +651,42 @@ function addFlight(
  * straight flight for everything, which sent a U-shaped stair straight out of
  * its own stair hall and left a spiral emergency stair with no curve in it.
  */
+/**
+ * Whether this flight goes DOWN from the level it is drawn on.
+ *
+ * Mirrors `descends()` in `backend/floorplan3d/stair_spec.py`, and reads BOTH
+ * spellings because both exist in stored revisions: `travel_direction` is the
+ * tri-state the schema gained (up / down / "the drawing did not say") and
+ * `goes_up` is the boolean every document written before it carries. An explicit
+ * `travel_direction` wins; otherwise `goes_up` decides, which makes an unmarked
+ * flight an ascending one - drawn, flagged by the server's repair pass, and
+ * correctable in the inspector.
+ */
+function stairDescends(stair) {
+  const travel = String(stair.travel_direction ?? '').trim().toLowerCase()
+  if (travel === 'down') return true
+  if (travel === 'up') return false
+  return stair.goes_up === false
+}
+
+/**
+ * +1 / -1 from an explicit `turn_direction`, or null when it is not stated.
+ *
+ * LEFT IS NEGATIVE: `place` measures its lateral offset anticlockwise from the
+ * direction of travel, and standing at the bottom of a flight looking up it,
+ * anticlockwise is to the left. Mirrors `turn_sign()` in `stair_spec.py`.
+ *
+ * Null rather than a default, so `turnSign`'s stair-hall heuristic stays in
+ * charge when the drawing did not say. A stated turn beats a guess; the absence
+ * of a statement is not a statement.
+ */
+function statedTurnSign(stair) {
+  const turn = String(stair.turn_direction ?? '').trim().toLowerCase()
+  if (turn === 'left') return -1
+  if (turn === 'right') return 1
+  return null
+}
+
 function buildStair(stair, level, materials) {
   const group = new THREE.Group()
   const start = stair.start ?? [0, 0]
@@ -657,11 +696,32 @@ function buildStair(stair, level, materials) {
   const riser = stair.riser_height ?? 175
   const steps = stair.step_count ?? 0
   const elevation = level.elevation ?? 0
-  const direction = stair.goes_up === false ? -1 : 1
+  const descends = stairDescends(stair)
+  const direction = descends ? -1 : 1
   const kind = String(stair.kind ?? 'straight').toLowerCase()
   const material = materials.resolve(stair.material_id || 'mat-stair')
 
   if (steps < 1 || tread <= 0 || riser <= 0) return group
+
+  // A DESCENDING FLIGHT NEEDS SOMETHING AT FLOOR LEVEL OR IT READS AS MISSING.
+  // Every step of a DN flight is below this level's floor and the slab is a
+  // solid plate across that floor, so from the top view and both isometric
+  // presets the flight is completely hidden - the geometry is correct and the
+  // user reports the stair as absent. This is the threshold a plan actually
+  // draws there: the tread you stand on before you start down, one tread deep
+  // and the width of the run. Mirrors `_add_down_head_plate` in
+  // `backend/floorplan3d/blender/geometry/stairs.py`; the two engines have to
+  // agree or the viewer and the downloaded .blend show different buildings.
+  if (descends) {
+    const head = box(
+      [runWidth, tread, DOWN_HEAD_PLATE_THICKNESS_MM],
+      place(start, bearing, -tread / 2, 0),
+      elevation - DOWN_HEAD_PLATE_THICKNESS_MM,
+      bearing + 90,
+      material,
+    )
+    if (head) group.add(head)
+  }
 
   if (kind === 'spiral') {
     const inner = SPIRAL_NEWEL_DIAMETER_MM / 2 + SPIRAL_INNER_CLEARANCE_MM
@@ -670,11 +730,21 @@ function buildStair(stair, level, materials) {
     const outer = Math.max(inner + 200, runWidth / 2)
     const treadLength = outer - inner
     const midRadius = (inner + outer) / 2
+    // A stated sweep wins: it is a measurement of the drawing rather than a
+    // convention about how spirals are usually built, and it is the only way a
+    // half-turn or a two-and-a-half-turn spiral comes out right. Clamped at
+    // both ends - under about 5 degrees the treads overlap into a solid disc,
+    // and over 90 they stop being a stair. Mirrors `_build_spiral`.
+    const sweep = Number(stair.total_turn_degrees) || 0
+    const degreesPerStep =
+      sweep > 0 && steps > 0
+        ? Math.max(5, Math.min(90, sweep / steps))
+        : SPIRAL_DEGREES_PER_STEP
     const treadWidth =
-      2 * midRadius * Math.sin((SPIRAL_DEGREES_PER_STEP * Math.PI) / 180 / 2)
+      2 * midRadius * Math.sin((degreesPerStep * Math.PI) / 180 / 2)
 
     for (let index = 0; index < steps; index += 1) {
-      const angle = bearing + direction * SPIRAL_DEGREES_PER_STEP * index
+      const angle = bearing + direction * degreesPerStep * index
       const stepTop = elevation + direction * (index + 1) * riser
       const mesh = box(
         [treadLength, treadWidth, TREAD_THICKNESS_MM],
@@ -700,7 +770,11 @@ function buildStair(stair, level, materials) {
 
   if (kind === 'l_shape' || kind === 'u_shape') {
     const turn = kind === 'u_shape' ? 180 : 90
-    const sign = turnSign(level, start, bearing, runWidth)
+    // A STATED TURN BEATS THE GUESS. `turn_direction` comes from the drawing;
+    // `turnSign` infers a side from the shape of the stair hall, which is right
+    // far more often than a fixed side and is still only an inference. Mirrors
+    // the same precedence in the Blender module.
+    const sign = statedTurnSign(stair) ?? turnSign(level, start, bearing, runWidth)
     const firstCount = turnIndex(stair, steps, tread)
     const secondCount = steps - firstCount
     const flightLength = firstCount * tread

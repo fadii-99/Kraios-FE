@@ -801,6 +801,126 @@ test('a straight flight is unchanged by the addition of the other kinds', () => 
   assert.ok(x < 1200, `expected one flight's width, got ${x.toFixed(0)} mm`)
 })
 
+/** The stair's vertical extent in millimetres, as [lowest, highest]. */
+function stairHeights(document) {
+  const model = buildModel(document, { outlines: false })
+  const box = new THREE.Box3()
+  let found = false
+  model.root.traverse((object) => {
+    if (!object.isMesh) return
+    if (!(object.parent?.name || '').startsWith('stair:')) return
+    box.expandByObject(object)
+    found = true
+  })
+  assert.ok(found, 'no stair geometry was built')
+  // The viewer is Y-up and in metres; the plan's height axis is that Y.
+  return [box.min.y * 1000, box.max.y * 1000]
+}
+
+test('a flight marked down descends below this floor', () => {
+  const document = documentWithStair('straight', { steps: 12 })
+  document.levels[0].stairs[0].travel_direction = 'down'
+  const [low] = stairHeights(document)
+  assert.ok(low < -500, `the flight starts at ${low.toFixed(0)} mm, so it does not descend`)
+})
+
+test('travel_direction beats a stale goes_up', () => {
+  // The contract keeps the two in step, but a hand-edited or partially
+  // restored document can carry both - and the explicit one has to win, or a
+  // flight is built the wrong way round.
+  const document = documentWithStair('straight', { steps: 12 })
+  document.levels[0].stairs[0].goes_up = true
+  document.levels[0].stairs[0].travel_direction = 'down'
+  const [low] = stairHeights(document)
+  assert.ok(low < -500, 'travel_direction was ignored in favour of goes_up')
+})
+
+test('a legacy document with only goes_up still descends', () => {
+  const document = documentWithStair('straight', { steps: 12 })
+  document.levels[0].stairs[0].goes_up = false
+  delete document.levels[0].stairs[0].travel_direction
+  const [low] = stairHeights(document)
+  assert.ok(low < -500, 'a 1.0 document lost its descending flight')
+})
+
+test('a descending flight reaches this floor so it is not hidden by the slab', () => {
+  // Every step of a DN flight is below the floor, and the slab is a solid plate
+  // across it - so without the head plate the flight is invisible from every
+  // camera preset and the model reads as having no stair at all. Mirrors
+  // `_add_down_head_plate` in the Blender module.
+  const document = documentWithStair('straight', { steps: 12 })
+  document.levels[0].stairs[0].travel_direction = 'down'
+  const [, high] = stairHeights(document)
+  assert.ok(
+    high >= -1,
+    `nothing of the flight reaches floor level (highest point ${high.toFixed(0)} mm)`,
+  )
+})
+
+test('an ascending flight gets no head plate', () => {
+  const document = documentWithStair('straight', { steps: 12 })
+  document.levels[0].stairs[0].travel_direction = 'up'
+  const [low] = stairHeights(document)
+  assert.ok(low >= -1, `an up flight dipped to ${low.toFixed(0)} mm below the floor`)
+})
+
+/** The centre of the stair's plan footprint, in millimetres, as [x, z]. */
+function stairCentre(document) {
+  const model = buildModel(document, { outlines: false })
+  const box = new THREE.Box3()
+  let found = false
+  model.root.traverse((object) => {
+    if (!object.isMesh) return
+    if (!(object.parent?.name || '').startsWith('stair:')) return
+    box.expandByObject(object)
+    found = true
+  })
+  assert.ok(found, 'no stair geometry was built')
+  const centre = box.getCenter(new THREE.Vector3())
+  return [centre.x * 1000, centre.z * 1000]
+}
+
+test('a stated turn_direction mirrors an l-shape stair', () => {
+  // POSITION, not size. A mirror image has the same bounding box DIMENSIONS -
+  // that is what mirroring means - so comparing spans passes whatever the sign
+  // does, which is how this check first came out green against code that
+  // ignored the field entirely. The centre of the footprint is what moves when
+  // the return flight goes the other way.
+  //
+  // Asserted as a DIFFERENCE rather than an absolute side, because which way
+  // the plan's +y runs through the viewer is a convention: pinning it here
+  // would make the test about the axis mapping instead of about the field
+  // being read at all.
+  const left = documentWithStair('l_shape', { steps: 16 })
+  left.levels[0].stairs[0].turn_direction = 'left'
+  const right = documentWithStair('l_shape', { steps: 16 })
+  right.levels[0].stairs[0].turn_direction = 'right'
+  const a = stairCentre(left).map(Math.round).join(',')
+  const b = stairCentre(right).map(Math.round).join(',')
+  assert.notEqual(a, b, 'turn_direction had no effect on the geometry')
+})
+
+test('a stated spiral sweep changes the footprint', () => {
+  const half = documentWithStair('spiral', { runWidth: 1600, steps: 12, tread: 250 })
+  half.levels[0].stairs[0].total_turn_degrees = 180
+  const full = documentWithStair('spiral', { runWidth: 1600, steps: 12, tread: 250 })
+  full.levels[0].stairs[0].total_turn_degrees = 360
+  const [hx, hz] = stairFootprint(half)
+  const [fx, fz] = stairFootprint(full)
+  assert.ok(
+    hx * hz < fx * fz,
+    'a 180 degree spiral covers no less ground than a 360 degree one',
+  )
+})
+
+test('an unstated spiral sweep keeps the 30-degree standard', () => {
+  const runWidth = 1500
+  const [x, z] = stairFootprint(documentWithStair('spiral', { runWidth, steps: 12, tread: 220 }))
+  for (const span of [x, z]) {
+    assert.ok(span < runWidth * 1.35, `the spiral is ${span.toFixed(0)} mm across`)
+  }
+})
+
 test('an open-to-sky room is a hole, not a floor', () => {
   const document = documentWithSlabAndWall()
   const level = document.levels[0]
