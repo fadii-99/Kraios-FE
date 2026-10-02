@@ -152,7 +152,18 @@ export default function DesignAssistantPage() {
             instruction,
             mask,
           })
+        } else if (baseResult?.id && baseResult.renderStyleId === renderStyleId) {
+          // A follow-up instruction refines the render it is aimed at. Sent as
+          // a fresh generation it would re-render from the 2D plan with only
+          // this message, dropping every earlier change (floor, colours,
+          // furniture) and re-rolling the design each turn.
+          queued = await generateThreeD(projectId, {
+            prompt: instruction,
+            originalVersionId: baseResult.id,
+          })
         } else {
+          // First render, or the style was switched — an edit keeps the
+          // parent's style, so only a fresh render can honour the new one.
           queued = await generateThreeD(projectId, {
             prompt: instruction,
             // Optional by contract; naming it makes the render's provenance

@@ -963,3 +963,15 @@ test('an open-to-sky room is a hole, not a floor', () => {
     'the slab has the same geometry with and without the void - it was not cut',
   )
 })
+
+test('measured return stair keeps its landing depth and central well gap', () => {
+  const document = documentWithStair('u_shape', { runWidth: 600, steps: 20, tread: 180 })
+  Object.assign(document.levels[0].stairs[0], {
+    direction: 0,
+    footprint: [[0, -300], [2200, -300], [2200, 1100], [0, 1100]],
+    landings: [{ along: 1800, depth: 400, return_offset: 800 }],
+  })
+  const [x, z] = stairFootprint(document)
+  assert.ok(Math.abs(x - 2200) < 50, `measured run changed: ${x}`)
+  assert.ok(Math.abs(z - 1400) < 50, `measured well changed: ${z}`)
+})

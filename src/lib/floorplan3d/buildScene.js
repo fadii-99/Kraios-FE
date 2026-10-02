@@ -13,6 +13,7 @@ import {
   openingsOnWall,
   pointAtDistanceAlong,
   wallSolidRuns,
+  wallEndExtensions,
 } from '@/lib/floorplan3d/semanticModel'
 import { buildFurnitureGroup } from '@/lib/floorplan3d/furniture'
 import { attachOutline } from '@/lib/floorplan3d/outlines'
@@ -350,7 +351,7 @@ function place(anchorMm, bearingDegrees, along, across) {
 // ---------------------------------------------------------------------------
 // Elements
 // ---------------------------------------------------------------------------
-function buildWall(wall, level, openings, materials) {
+function buildWall(wall, level, openings, materials, extensions = [0, 0]) {
   const group = new THREE.Group()
   const points = wall.polyline ?? []
   if (points.length < 2) return group
@@ -361,13 +362,22 @@ function buildWall(wall, level, openings, materials) {
   const material = materials.resolve(wall.material_id)
   const marks = cumulativeLengths(points)
 
-  for (const run of wallSolidRuns(wall, openings, height)) {
+  const last = points.length - 2
+  for (const run of wallSolidRuns(wall, openings, height, extensions)) {
     for (let index = 0; index < points.length - 1; index += 1) {
-      const start = Math.max(run.from, marks[index])
-      const end = Math.min(run.to, marks[index + 1])
+      // First and last segments are open-ended so an end extension survives.
+      const start = Math.max(run.from, index > 0 ? marks[index] : -Infinity)
+      const end = Math.min(run.to, index < last ? marks[index + 1] : Infinity)
       if (end - start <= 1e-6) continue
 
-      const centre = pointAtDistanceAlong(points, (start + end) / 2)
+      const a = points[index]
+      const b = points[index + 1]
+      const segmentLength = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+      const offset = (start + end) / 2 - marks[index]
+      const centre = [
+        a[0] + ((b[0] - a[0]) * offset) / segmentLength,
+        a[1] + ((b[1] - a[1]) * offset) / segmentLength,
+      ]
       const bearing =
         (Math.atan2(
           points[index + 1][1] - points[index][1],
@@ -797,15 +807,19 @@ function buildStair(stair, level, materials) {
     if (turn >= 180) {
       // A U turns back on itself: the landing spans both flights and the second
       // is offset sideways by one flight's width.
+      const measured = (stair.landings ?? []).find(item => item && typeof item === 'object') ?? {}
+      const landingDepth = Number(measured.depth) > 0 ? Number(measured.depth) : runWidth
+      const offset = Number(measured.return_offset)
+      const returnOffset = Number.isFinite(offset) && Math.abs(offset) >= runWidth ? offset : sign * runWidth
       const landing = box(
-        [runWidth * 2, runWidth, TREAD_THICKNESS_MM],
-        place(start, bearing, flightLength + runWidth / 2, (sign * runWidth) / 2),
+        [runWidth + Math.abs(returnOffset), landingDepth, TREAD_THICKNESS_MM],
+        place(start, bearing, flightLength + landingDepth / 2, returnOffset / 2),
         landingTop - TREAD_THICKNESS_MM,
         bearing + 90,
         material,
       )
       if (landing) group.add(landing)
-      secondAnchor = place(start, bearing, flightLength + runWidth, sign * runWidth)
+      secondAnchor = place(start, bearing, flightLength, returnOffset)
     } else {
       const landingCentre = place(start, bearing, flightLength + runWidth / 2, 0)
       const landing = box(
@@ -1050,8 +1064,9 @@ export function buildModel(
       })
     }
 
+    const extensions = wallEndExtensions(level.walls ?? [])
     for (const wall of level.walls ?? []) {
-      register(buildWall(wall, level, openingsOnWall(level, wall.id), materials), {
+      register(buildWall(wall, level, openingsOnWall(level, wall.id), materials, extensions.get(wall.id)), {
         id: wall.id,
         kind: 'wall',
         category: 'wall',

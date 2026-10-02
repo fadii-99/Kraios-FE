@@ -233,15 +233,23 @@ export async function fetchThreeDHistory(projectId, options = {}) {
  *
  * `floorPlanVersionId` is optional — omitted, the backend uses the approved or
  * latest completed plan, which is the right default for the COMPLETE workflow.
+ *
+ * `originalVersionId` turns the request into a chat edit of that completed
+ * render: the backend edits its image in place (keeping every earlier change)
+ * and reuses its floor plan and render style, so those two are then ignored.
  */
 export async function generateThreeD(
   projectId,
-  { prompt, floorPlanVersionId, renderStyle } = {},
+  { prompt, floorPlanVersionId, renderStyle, originalVersionId } = {},
   options = {},
 ) {
   const body = { prompt }
-  if (floorPlanVersionId) body.floor_plan_version_id = floorPlanVersionId
-  if (renderStyle) body.render_style = renderStyle
+  if (originalVersionId) {
+    body.original_version_id = originalVersionId
+  } else {
+    if (floorPlanVersionId) body.floor_plan_version_id = floorPlanVersionId
+    if (renderStyle) body.render_style = renderStyle
+  }
 
   return apiClient(PROJECT_ENDPOINTS.step2Generate(projectId), {
     method: 'POST',

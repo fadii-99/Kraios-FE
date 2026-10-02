@@ -387,7 +387,7 @@ export function documentBounds(document) {
  *
  * Returns `{ from, to, base, top }` in wall-local millimetres.
  */
-export function wallSolidRuns(wall, openings, wallHeight) {
+export function wallSolidRuns(wall, openings, wallHeight, extensions = [0, 0]) {
   const length = polylineLength(wall.polyline ?? [])
   if (length <= 0) return []
 
@@ -424,7 +424,58 @@ export function wallSolidRuns(wall, openings, wallHeight) {
   if (length - cursor > 1e-6) {
     runs.push({ from: cursor, to: length, base: 0, top: wallHeight })
   }
+  // Joined ends are carried on into the wall they meet (see wallEndExtensions).
+  for (const run of runs) {
+    if (extensions[0] > 0 && run.from <= 1e-6) run.from = -extensions[0]
+    if (extensions[1] > 0 && run.to >= length - 1e-6) run.to = length + extensions[1]
+  }
   return runs
+}
+
+// How close a wall end must be to another wall's centreline to count as
+// joined. Stage D lands joined ends exactly; this only absorbs float noise.
+const JOIN_TOLERANCE_MM = 2
+
+function distanceToSegment(point, a, b) {
+  const dx = b[0] - a[0]
+  const dy = b[1] - a[1]
+  const lengthSq = dx * dx + dy * dy
+  if (lengthSq <= 1e-12) return Math.hypot(point[0] - a[0], point[1] - a[1])
+  const t = Math.max(0, Math.min(1, ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / lengthSq))
+  return Math.hypot(point[0] - (a[0] + dx * t), point[1] - (a[1] + dy * t))
+}
+
+/**
+ * How far to carry each wall end past its polyline: `Map(id -> [start, end])`.
+ *
+ * MIRRORS `blender/geometry/walls.py:end_extensions`. Walls join at
+ * centrelines, so two boxes stopping at a shared corner point leave the outer
+ * quarter of the corner square empty; a joined end is carried on by half the
+ * thickness of the wall it meets, and the overlap is buried inside that wall.
+ * A free end is never extended.
+ */
+export function wallEndExtensions(walls) {
+  const result = new Map()
+  for (const wall of walls ?? []) {
+    const points = wall.polyline ?? []
+    if (points.length < 2) continue
+    const extension = [0, 0]
+    const ends = [points[0], points[points.length - 1]]
+    ends.forEach((point, endIndex) => {
+      for (const other of walls) {
+        if (other === wall) continue
+        const otherPoints = other.polyline ?? []
+        for (let i = 0; i < otherPoints.length - 1; i += 1) {
+          if (distanceToSegment(point, otherPoints[i], otherPoints[i + 1]) <= JOIN_TOLERANCE_MM) {
+            extension[endIndex] = Math.max(extension[endIndex], (other.thickness ?? 150) / 2)
+            break
+          }
+        }
+      }
+    })
+    result.set(wall.id, extension)
+  }
+  return result
 }
 
 // ---------------------------------------------------------------------------
