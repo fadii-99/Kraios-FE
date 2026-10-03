@@ -14,7 +14,9 @@
 
 import { assetSrc } from '@/lib/api/files'
 import {
+  STOPPED_VERSION_MESSAGE,
   byCreatedAt,
+  isVersionCancelled,
   isVersionCompleted,
   isVersionFailed,
   isVersionPending,
@@ -322,13 +324,19 @@ export function hydrateBoqState({
         return
       }
 
-      if (isVersionFailed(version)) {
+      if (isVersionFailed(version) || isVersionCancelled(version)) {
+        // A stopped turn reads like a failed one — same place, same Retry — but
+        // it is the user's own choice, so it is not drawn as an error.
+        const stopped = isVersionCancelled(version)
         messages.push({
-          id: `failed-${version.id}`,
+          id: `${stopped ? 'stopped' : 'failed'}-${version.id}`,
           at: toEpoch(version.created_at),
           role: 'assistant',
           kind: MESSAGE_KINDS.notice,
-          text: version.job?.error || FAILED_VERSION_MESSAGE,
+          text: stopped
+            ? STOPPED_VERSION_MESSAGE
+            : version.job?.error || FAILED_VERSION_MESSAGE,
+          stopped,
           retry: message.content ? { prompt: message.content, pendingText: null } : null,
         })
         return

@@ -1,4 +1,4 @@
-import { CheckCircle, CircleNotch, WarningCircle } from '@phosphor-icons/react'
+import { CheckCircle, CircleNotch, Info, Stop, WarningCircle } from '@phosphor-icons/react'
 
 import { CONVERSION_STAGES } from '@/lib/api/floorplan3d'
 import { cn } from '@/lib/cn'
@@ -14,24 +14,37 @@ import { cn } from '@/lib/cn'
  * `review` is a real stage, not an error state. A plan whose scale could not be
  * read is not a failed conversion; it is a conversion that needs a person, and
  * the rail says so rather than showing a red cross.
+ *
+ * With `onStop`, a running conversion offers STOP: the server terminates the
+ * worker and the conversion settles as stopped — information, not failure.
  */
-export default function ConversionProgress({ progress, stalled, error, compact }) {
+export default function ConversionProgress({
+  progress,
+  stalled,
+  error,
+  compact,
+  onStop,
+  stopping = false,
+}) {
   if (!progress) return null
 
   const currentIndex = CONVERSION_STAGES.findIndex((stage) => stage.id === progress.stage)
-  const failed = progress.isFailed || stalled
+  const cancelled = Boolean(progress.isCancelled)
+  const failed = (progress.isFailed || stalled) && !cancelled
 
   return (
     <div className={cn('rounded-md border border-[var(--tone-line)] bg-white', compact ? 'p-3' : 'p-4')}>
       <div className="mb-3 flex items-center gap-2">
         {failed ? (
           <WarningCircle size={16} className="shrink-0 text-[var(--color-danger)]" />
+        ) : cancelled ? (
+          <Info size={16} weight="fill" className="shrink-0 text-[var(--color-brand-deep)]" />
         ) : progress.isRunning ? (
           <CircleNotch size={16} className="shrink-0 animate-spin text-[var(--color-brand-deep)]" />
         ) : (
           <CheckCircle size={16} className="shrink-0 text-[var(--color-success)]" />
         )}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium text-[var(--tone-ink)]">
             {stalled
               ? 'This conversion stopped responding'
@@ -43,6 +56,26 @@ export default function ConversionProgress({ progress, stalled, error, compact }
             </p>
           )}
         </div>
+        {onStop && progress.isRunning && !stalled && (
+          <button
+            type="button"
+            onClick={onStop}
+            disabled={stopping}
+            className={cn(
+              'label-ui inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-sm border border-[var(--tone-line-strong)] bg-white px-2.5 text-[0.5625rem] text-[var(--tone-ink)]',
+              'transition-colors hover:border-[var(--color-danger)] hover:text-[var(--color-danger)]',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
+              'disabled:cursor-wait disabled:opacity-60',
+            )}
+          >
+            {stopping ? (
+              <CircleNotch size={12} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            ) : (
+              <Stop size={11} weight="fill" aria-hidden="true" />
+            )}
+            <span>{stopping ? 'Stopping…' : 'Stop'}</span>
+          </button>
+        )}
       </div>
 
       <ol className="flex flex-wrap gap-x-1 gap-y-1.5">

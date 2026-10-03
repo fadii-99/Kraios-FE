@@ -379,10 +379,20 @@ Step 4                       1  (the grouped output bundle)
 
 **Job polling.** `src/lib/api/jobs.js` runs ONE loop per job however many
 watchers, backs the interval off (1.2s → 2s → 3.5s → 5s), pauses while the tab
-is hidden, and stops on COMPLETED / FAILED or when the last watcher leaves.
-`useResumedJob` re-attaches to a version that was still QUEUED / PROCESSING when
-a workspace opened, so a refresh mid-generation resumes instead of stalling.
-There is no cancel endpoint, so no UI offers to cancel a job.
+is hidden, and stops on COMPLETED / FAILED / CANCELLED or when the last watcher
+leaves. `useResumedJob` re-attaches to a version that was still QUEUED /
+PROCESSING when a workspace opened, so a refresh mid-generation resumes instead
+of stalling.
+
+**Stopping a job.** `POST /projects/jobs/{id}/cancel/` stops a job on the
+server (the worker is terminated and any late result discarded). All three
+assistants offer it: while a turn runs, the composer's send button becomes STOP
+(`StopGenerationButton`), driven by `src/hooks/useJobStop.js`. The stopped turn
+is rebuilt from the server as an informational notice — "You stopped this
+request" — with a Retry, which reuses the message exactly like a failed turn.
+The FloorPlan3D experiment has its own `POST …/conversions/{id}/cancel/`: Stop on
+the progress card and on a running row, and Stop rebuild in the editor's
+download menu.
 
 **Persistence: the backend's.** Projects, conversations, versions, approvals and
 documents all survive a refresh. `sessionStorage` still holds only the OTP
@@ -569,10 +579,8 @@ loads Step 1 and Step 2 and holds a loader while either is in flight.
 - Result rail: Full View always; DWG only when the result actually carries a
   `dwgUrl` (the mock never does, so no DWG button is shown).
 - Composer: single-line input on a white `--radius-field` bar over a transparent
-  zone, Enter to send, `RenderStyleDropdown` inline. The
-  Cancel control is gated on `THREE_D_GENERATION_SUPPORTS_CANCEL`, which is
-  `false` because the contract has no cancel endpoint — so no cancel button is
-  rendered.
+  zone, Enter to send, `RenderStyleDropdown` inline. While a turn runs the send
+  button becomes STOP, which stops the job on the server (`useJobStop`).
 - **Render styles: SketchUp, Photo Realistic** → `SKETCHUP`, `PHOTOREALISTIC`.
 - **View angles: Isometric 45° only** → `ISOMETRIC_45`. `DEFAULT_VIEW_ANGLE_ID`
   is `null`, which maps to the backend's `ORIGINAL`. Enum translation lives in

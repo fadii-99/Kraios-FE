@@ -65,6 +65,7 @@ export const PROJECT_ENDPOINTS = {
   message: (id, messageId) =>
     `${scoped(id)}/conversations/messages/${encodeURIComponent(messageId)}/`,
   job: (jobId) => `${ROOT}/jobs/${encodeURIComponent(jobId)}/`,
+  jobCancel: (jobId) => `${ROOT}/jobs/${encodeURIComponent(jobId)}/cancel/`,
   assets: (id) => `${scoped(id)}/assets/`,
   assetDownload: (id, assetId) =>
     `${scoped(id)}/assets/${encodeURIComponent(assetId)}/download/`,
@@ -452,6 +453,18 @@ export async function deleteConversationMessage(projectId, messageId, options = 
 
 export async function fetchJob(jobId, options = {}) {
   return apiClient(PROJECT_ENDPOINTS.job(jobId), options)
+}
+
+/**
+ * Stop a queued or running job. Answers the job as it now stands: CANCELLED,
+ * or — when the stop raced the finish — whatever it actually became, so the
+ * caller simply refetches either way.
+ */
+export async function cancelJob(jobId, options = {}) {
+  return apiClient(PROJECT_ENDPOINTS.jobCancel(jobId), {
+    method: 'POST',
+    ...options,
+  })
 }
 
 export async function fetchProjectAssets(projectId, { kind } = {}, options = {}) {

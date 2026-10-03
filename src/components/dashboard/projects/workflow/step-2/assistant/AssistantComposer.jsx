@@ -1,25 +1,29 @@
 import { forwardRef } from 'react'
-import { CircleNotch, PaperPlaneRight, Sparkle, X } from '@phosphor-icons/react'
+import { CircleNotch, PaperPlaneRight, Sparkle } from '@phosphor-icons/react'
 
+import StopGenerationButton from '@/components/dashboard/projects/workflow/shared/StopGenerationButton'
 import RenderStyleDropdown from '@/components/dashboard/projects/workflow/step-2/assistant/RenderStyleDropdown'
 import {
   ASSISTANT_GRID,
   ASSISTANT_GUTTER,
 } from '@/components/dashboard/projects/workflow/step-2/assistant/assistantGrid'
 import { ASSISTANT_COPY } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
-import { THREE_D_GENERATION_SUPPORTS_CANCEL } from '@/lib/dashboard/workflow/step-2/designAssistantConfig'
 import { cn } from '@/lib/cn'
 
 /**
  * The prompt composer — single-line input bar with high contrast, elevated footer,
  * integrated style dropdown on the right side, and intuitive send triggers.
+ *
+ * While a job runs and the page passes `onStop`, the send button becomes a STOP
+ * button (`StopGenerationButton`) that stops the job on the server.
  */
 const AssistantComposer = forwardRef(function AssistantComposer(
   {
     value,
     onChange,
     onSubmit,
-    onCancel,
+    onStop,
+    stopping = false,
     busy,
     placeholder = ASSISTANT_COPY.composerPlaceholder,
     renderStyleId,
@@ -98,54 +102,41 @@ const AssistantComposer = forwardRef(function AssistantComposer(
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={!canSend}
-              aria-label={busy ? 'Generating' : 'Send instruction'}
-              title="Send (Enter)"
-              className={cn(
-                'flex h-9 w-9 sm:h-9.5 sm:w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-md',
-                'bg-[var(--color-brand-deep)] text-white shadow-2xs transition-all duration-200 ease-[var(--ease-out-expo)]',
-                'hover:bg-blue-700 active:scale-95',
-                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
-                'disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-[var(--color-brand-deep)]',
-              )}
-            >
-              {busy ? (
-                <CircleNotch
-                  size={18}
-                  weight="bold"
-                  aria-hidden="true"
-                  className="animate-spin motion-reduce:animate-none"
-                />
-              ) : (
-                <PaperPlaneRight
-                  size={16}
-                  weight="fill"
-                  aria-hidden="true"
-                  className="translate-x-px"
-                />
-              )}
-            </button>
+            {busy && onStop ? (
+              <StopGenerationButton onStop={onStop} stopping={stopping} />
+            ) : (
+              <button
+                type="submit"
+                disabled={!canSend}
+                aria-label={busy ? 'Generating' : 'Send instruction'}
+                title="Send (Enter)"
+                className={cn(
+                  'flex h-9 w-9 sm:h-9.5 sm:w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-md',
+                  'bg-[var(--color-brand-deep)] text-white shadow-2xs transition-all duration-200 ease-[var(--ease-out-expo)]',
+                  'hover:bg-blue-700 active:scale-95',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
+                  'disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-[var(--color-brand-deep)]',
+                )}
+              >
+                {busy ? (
+                  <CircleNotch
+                    size={18}
+                    weight="bold"
+                    aria-hidden="true"
+                    className="animate-spin motion-reduce:animate-none"
+                  />
+                ) : (
+                  <PaperPlaneRight
+                    size={16}
+                    weight="fill"
+                    aria-hidden="true"
+                    className="translate-x-px"
+                  />
+                )}
+              </button>
+            )}
           </div>
         </form>
-
-        {busy && THREE_D_GENERATION_SUPPORTS_CANCEL && (
-          <div className="flex justify-end px-1">
-            <button
-              type="button"
-              onClick={onCancel}
-              className={cn(
-                'label-ui inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-sm border border-[var(--tone-line-strong)] bg-white px-2.5 text-[0.625rem] font-semibold text-[var(--tone-muted-dark)] shadow-2xs',
-                'transition-colors duration-200 hover:border-[var(--color-danger)] hover:text-[var(--color-danger)]',
-                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
-              )}
-            >
-              <X size={12} weight="bold" aria-hidden="true" />
-              <span>Cancel Generation</span>
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )

@@ -3,7 +3,9 @@ import {
   ArrowClockwise,
   CaretDown,
   CheckCircle,
+  CircleNotch,
   DownloadSimple,
+  Stop,
   WarningCircle,
 } from '@phosphor-icons/react'
 
@@ -32,7 +34,8 @@ import { cn } from '@/lib/cn'
  * near the button that had been pressed. The trigger now carries the running
  * state, and the menu explains, in each of its three states, whether there is
  * anything to do: rebuilding, out of date, or matching. The page raises the
- * toast that closes the loop.
+ * toast that closes the loop. With `onStopRebuild`, the running state also
+ * offers STOP REBUILD: the server kills Blender and the model is untouched.
  *
  * SAME-ORIGIN IS LOAD-BEARING, NOT AN ASIDE. `downloadUrl` is built by
  * `artifactUrl` in `adapters.js` as a relative `/api/v1/...` path. It must not
@@ -47,6 +50,8 @@ export default function DownloadMenu({
   onRegenerate,
   regenerating,
   rebuildMessage,
+  onStopRebuild,
+  stoppingRebuild = false,
   disabled,
 }) {
   const [open, setOpen] = useState(false)
@@ -110,6 +115,21 @@ export default function DownloadMenu({
                 <p className="mt-1 pl-[1.15rem] text-[0.625rem] text-[var(--tone-ink-soft)]">
                   {rebuildMessage}
                 </p>
+              )}
+              {onStopRebuild && (
+                <button
+                  type="button"
+                  onClick={onStopRebuild}
+                  disabled={stoppingRebuild}
+                  className="label-ui mt-2 ml-[1.15rem] inline-flex cursor-pointer items-center gap-1.5 rounded-sm border border-[var(--tone-line-strong)] bg-white px-2.5 py-1.5 text-[var(--tone-ink)] transition-colors hover:border-[var(--color-danger)] hover:text-[var(--color-danger)] disabled:cursor-wait disabled:opacity-60"
+                >
+                  {stoppingRebuild ? (
+                    <CircleNotch size={12} className="animate-spin motion-reduce:animate-none" />
+                  ) : (
+                    <Stop size={11} weight="fill" />
+                  )}
+                  {stoppingRebuild ? 'Stopping…' : 'Stop rebuild'}
+                </button>
               )}
             </div>
           ) : stale ? (

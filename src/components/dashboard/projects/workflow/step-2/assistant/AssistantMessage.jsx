@@ -32,7 +32,8 @@ import { cn } from '@/lib/cn'
  * notice that can be retried is a FAILURE and takes the danger token as ink on
  * its setting-out rule (never a fill), paired with a mark and the words; one
  * that cannot — a cancelled run — is merely informational and stays on the
- * brand rule. Colour is never the only signal in either case.
+ * brand rule. A turn the user stopped keeps its Retry but reads as information,
+ * not failure. Colour is never the only signal in either case.
  *
  * A notice that carries a `retry` payload gets a RETRY action. The instruction
  * that failed is kept on the message, so re-sending it costs one click instead
@@ -48,8 +49,9 @@ export default function AssistantMessage({ message, busy, onRetry, headerActions
   const isResult = message.kind === MESSAGE_KINDS.result
   const retry = isNotice ? message.retry : null
   // Retryable means something went wrong; a notice with nothing to retry is
-  // just the assistant reporting a state.
-  const isFailure = isNotice && Boolean(retry)
+  // just the assistant reporting a state. A turn the user STOPPED is
+  // retryable too, but it is their choice, not an error.
+  const isFailure = isNotice && Boolean(retry) && !message.stopped
 
   const stamp = isPending ? '' : formatMessageTimestamp(message.at)
 

@@ -1,6 +1,7 @@
 import { forwardRef } from 'react'
 import { CircleNotch, PaperPlaneRight, Ruler } from '@phosphor-icons/react'
 
+import StopGenerationButton from '@/components/dashboard/projects/workflow/shared/StopGenerationButton'
 import {
   ASSISTANT_GRID,
   ASSISTANT_GUTTER,
@@ -20,12 +21,16 @@ import { cn } from '@/lib/cn'
  * read with. Documents remain deliberately separate from conversation
  * attachments: nothing here sends a file to the conversation or the generation
  * endpoint.
+ *
+ * While a turn runs and the page passes `onStop`, the send action becomes STOP.
  */
 const BoQComposer = forwardRef(function BoQComposer(
   {
     value,
     onChange,
     onSubmit,
+    onStop,
+    stopping = false,
     busy,
     className,
   },
@@ -90,31 +95,35 @@ const BoQComposer = forwardRef(function BoQComposer(
               )}
             />
 
-            {/* Submit Action */}
-            <button
-              type="submit"
-              disabled={!canSend}
-              aria-label={busy ? 'Analyzing' : 'Send BoQ request'}
-              title="Send (Enter)"
-              className={cn(
-                'flex h-9 w-9 sm:h-9.5 sm:w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-md',
-                'bg-[var(--color-brand-deep)] text-white shadow-2xs transition-all duration-200 ease-[var(--ease-out-expo)]',
-                'hover:bg-blue-700 active:scale-95',
-                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
-                'disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-[var(--color-brand-deep)]',
-              )}
-            >
-              {busy ? (
-                <CircleNotch
-                  size={18}
-                  weight="bold"
-                  aria-hidden="true"
-                  className="animate-spin text-white"
-                />
-              ) : (
-                <PaperPlaneRight size={16} weight="fill" className="translate-x-px" />
-              )}
-            </button>
+            {/* Submit Action — STOP while a turn is running */}
+            {busy && onStop ? (
+              <StopGenerationButton onStop={onStop} stopping={stopping} />
+            ) : (
+              <button
+                type="submit"
+                disabled={!canSend}
+                aria-label={busy ? 'Analyzing' : 'Send BoQ request'}
+                title="Send (Enter)"
+                className={cn(
+                  'flex h-9 w-9 sm:h-9.5 sm:w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-md',
+                  'bg-[var(--color-brand-deep)] text-white shadow-2xs transition-all duration-200 ease-[var(--ease-out-expo)]',
+                  'hover:bg-blue-700 active:scale-95',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-brand-deep)]',
+                  'disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-[var(--color-brand-deep)]',
+                )}
+              >
+                {busy ? (
+                  <CircleNotch
+                    size={18}
+                    weight="bold"
+                    aria-hidden="true"
+                    className="animate-spin text-white"
+                  />
+                ) : (
+                  <PaperPlaneRight size={16} weight="fill" className="translate-x-px" />
+                )}
+              </button>
+            )}
           </div>
         </form>
       </div>

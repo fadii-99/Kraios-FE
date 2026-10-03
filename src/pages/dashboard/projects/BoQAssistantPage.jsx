@@ -42,6 +42,7 @@ import { CACHE_KEYS } from '@/lib/dashboard/projects/projectShape'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { useJobStop } from '@/hooks/useJobStop'
 import { useResumedJob } from '@/hooks/useResumedJob'
 
 /**
@@ -106,6 +107,25 @@ export default function BoQAssistantPage() {
   }, [])
 
   const busy = isBoqGenerating(state)
+
+  /*
+   * A version the backend was already working on when this page opened (see
+   * `useResumedJob` below) — and the job the STOP button stops when this page
+   * did not start it itself.
+   */
+  const resumedJobId = step3.data?.hydrated?.pending?.job?.id ?? null
+
+  const {
+    stop: stopGeneration,
+    stopping,
+    attachJob,
+    releaseJob,
+  } = useJobStop({
+    resumedJobId,
+    abortRef,
+    reload: reloadStep3,
+    toastId: 'step-3-stop',
+  })
   const approved = isBoqApproved(state)
 
   /** One BoQ generation run. */
@@ -123,6 +143,7 @@ export default function BoQAssistantPage() {
       try {
         const queued = await generateBoq(projectId, { prompt: instruction })
         const jobId = jobIdFromResponse(queued)
+        attachJob(jobId)
 
         if (jobId) {
           await waitForJob(jobId, {
@@ -141,6 +162,12 @@ export default function BoQAssistantPage() {
         await reloadStep3()
       } catch (thrown) {
         if (!activeRef.current || thrown?.name === 'AbortError') return
+        if (thrown?.name === 'JobCancelledError') {
+          // Stopped — here or in another tab. Not a failure: the refetched
+          // transcript shows the stopped turn with its Retry.
+          await reloadStep3().catch(() => {})
+          return
+        }
 
         dispatch({
           type: 'generationFailed',
@@ -151,9 +178,10 @@ export default function BoQAssistantPage() {
       } finally {
         inFlightRef.current = false
         abortRef.current = null
+        releaseJob()
       }
     },
-    [dispatch, projectId, reloadStep3],
+    [attachJob, dispatch, projectId, releaseJob, reloadStep3],
   )
 
   const handleSubmit = useCallback(() => {
@@ -328,7 +356,6 @@ export default function BoQAssistantPage() {
    * the job, so the watch is simply picked back up, and the step is
    * refetched when it settles.
    */
-  const resumedJobId = step3.data?.hydrated?.pending?.job?.id ?? null
 
   useResumedJob(resumedJobId, {
     onProgress: (job) => {
@@ -418,6 +445,8 @@ export default function BoQAssistantPage() {
           onChange={setPrompt}
           onSubmit={handleSubmit}
           busy={busy}
+          onStop={stopGeneration}
+          stopping={stopping}
         />
       </div>
     </div>

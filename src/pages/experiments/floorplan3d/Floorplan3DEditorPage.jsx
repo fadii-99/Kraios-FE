@@ -26,6 +26,7 @@ import VersionsDrawer from '@/components/floorplan3d/VersionsDrawer'
 import ViewportToolbar from '@/components/floorplan3d/ViewportToolbar'
 import {
   calibrateScale,
+  cancelConversion,
   getAssetCatalog,
   getConversion,
   listAssistEdits,
@@ -36,6 +37,7 @@ import {
   settleAssistEdit,
 } from '@/lib/api/floorplan3d'
 import { conversionToView, formatMetres, reviewToView } from '@/lib/floorplan3d/adapters'
+import { showErrorToast, showInfoToast } from '@/lib/toast'
 import * as commands from '@/lib/floorplan3d/editCommands'
 import {
   applyCommand,
@@ -234,6 +236,12 @@ export default function Floorplan3DEditorPage() {
           if (!rebuildingRef.current) return
           rebuildingRef.current = false
           setRegenerating(false)
+          if (finished?.artifactsCancelled) {
+            showInfoToast('Rebuild stopped. The model on screen is unchanged.', {
+              id: `fp3d-rebuild-${conversionId}`,
+            })
+            return
+          }
           if (finished?.blenderFailed) {
             toast.error(
               finished.errorMessage ||
@@ -244,7 +252,7 @@ export default function Floorplan3DEditorPage() {
           toast.success('The downloads now match the revision you are viewing.')
         })
       },
-      [load],
+      [conversionId, load],
     ),
     onStalled: useCallback(() => {
       if (!rebuildingRef.current) return
@@ -639,7 +647,8 @@ export default function Floorplan3DEditorPage() {
     regenerateArtifacts(conversionId)
       .then(() => {
         polling.track(conversionId, {
-          isRunning: (view) => view.isBuildingArtifacts && !view.blenderFailed,
+          isRunning: (view) =>
+            view.isBuildingArtifacts && !view.blenderFailed && !view.artifactsCancelled,
         })
       })
       .catch((caught) => {
@@ -648,6 +657,26 @@ export default function Floorplan3DEditorPage() {
         toast.error(caught?.message || 'The rebuild could not be started.')
       })
   }, [conversionId, polling])
+
+  const [stoppingRebuild, setStoppingRebuild] = useState(false)
+
+  /**
+   * Stop a running Blender rebuild. The server kills Blender and stores
+   * nothing; the poll that is already watching the rebuild then sees it end
+   * and `onFinished` says so — one toast, from the one place that closes the
+   * loop.
+   */
+  const handleStopRebuild = useCallback(() => {
+    if (stoppingRebuild) return
+    setStoppingRebuild(true)
+    cancelConversion(conversionId)
+      .catch((caught) => {
+        showErrorToast(caught?.message || 'The rebuild could not be stopped.', {
+          id: `fp3d-rebuild-${conversionId}`,
+        })
+      })
+      .finally(() => setStoppingRebuild(false))
+  }, [conversionId, stoppingRebuild])
 
   const handleCalibrate = useCallback(
     ({ candidateIndex, pixelDistance, realDistanceMm }) => {
@@ -910,6 +939,8 @@ export default function Floorplan3DEditorPage() {
             onRegenerate={handleRegenerate}
             regenerating={regenerating}
             rebuildMessage={regenerating ? polling.progress?.message : ''}
+            onStopRebuild={handleStopRebuild}
+            stoppingRebuild={stoppingRebuild}
           />
         </div>
       </header>

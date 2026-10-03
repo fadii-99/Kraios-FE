@@ -59,6 +59,7 @@ export const FLOORPLAN3D_ENDPOINTS = {
   confirmElements: (id) => `${conversion(id)}/confirm/`,
   artifacts: (id) => `${conversion(id)}/artifacts/`,
   regenerate: (id) => `${conversion(id)}/regenerate/`,
+  cancel: (id) => `${conversion(id)}/cancel/`,
   artifactDownload: (artifactId) =>
     `${ROOT}/artifacts/${encodeURIComponent(artifactId)}/download/`,
   assets: `${ROOT}/assets/`,
@@ -72,8 +73,13 @@ export const CONVERSION_STATUS = {
   NEEDS_REVIEW: 'NEEDS_REVIEW',
   READY: 'READY',
   FAILED: 'FAILED',
+  // Stopped by the user before the browser model existed. Terminal.
+  CANCELLED: 'CANCELLED',
   ARCHIVED: 'ARCHIVED',
 }
+
+/** `error_code` of a Blender rebuild the user stopped (the model is untouched). */
+export const ARTIFACTS_CANCELLED_CODE = 'artifacts_cancelled'
 
 /**
  * The user-visible stages, in order, with the copy the progress rail shows.
@@ -196,6 +202,15 @@ export function getConversion(conversionId) {
 /** The poll endpoint. About 200 bytes; no document, no artifacts. */
 export function getProgress(conversionId) {
   return apiClient(FLOORPLAN3D_ENDPOINTS.progress(conversionId), { method: 'GET' })
+}
+
+/**
+ * Stop whatever is running for a conversion: the recognition pipeline, or a
+ * Blender rebuild of a finished one. Answers the progress payload plus
+ * `stopped` ("conversion", "artifacts" or null when nothing was running).
+ */
+export function cancelConversion(conversionId) {
+  return apiClient(FLOORPLAN3D_ENDPOINTS.cancel(conversionId), { method: 'POST' })
 }
 
 export function archiveConversion(conversionId) {

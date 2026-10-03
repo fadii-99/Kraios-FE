@@ -42,6 +42,7 @@ import { CACHE_KEYS } from '@/lib/dashboard/projects/projectShape'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { useJobStop } from '@/hooks/useJobStop'
 import { useResumedJob } from '@/hooks/useResumedJob'
 
 /**
@@ -101,6 +102,25 @@ export default function DesignAssistantPage() {
   }, [])
 
   const busy = isGenerating(state)
+
+  /*
+   * A version the backend was already working on when this page opened (see
+   * `useResumedJob` below) — and the job the STOP button stops when this page
+   * did not start it itself.
+   */
+  const resumedJobId = step2.data?.hydrated?.pending?.job?.id ?? null
+
+  const {
+    stop: stopGeneration,
+    stopping,
+    attachJob,
+    releaseJob,
+  } = useJobStop({
+    resumedJobId,
+    abortRef,
+    reload: reloadStep2,
+    toastId: 'step-2-stop',
+  })
 
   /**
    * The render the next instruction will change — the selected one if "Edit
@@ -174,6 +194,7 @@ export default function DesignAssistantPage() {
         }
 
         const jobId = jobIdFromResponse(queued)
+        attachJob(jobId)
 
         if (jobId) {
           await waitForJob(jobId, {
@@ -192,6 +213,12 @@ export default function DesignAssistantPage() {
         await reloadStep2()
       } catch (thrown) {
         if (!activeRef.current || thrown?.name === 'AbortError') return
+        if (thrown?.name === 'JobCancelledError') {
+          // Stopped — here or in another tab. Not a failure: the refetched
+          // transcript shows the stopped turn with its Retry.
+          await reloadStep2().catch(() => {})
+          return
+        }
 
         dispatch({
           type: 'generationFailed',
@@ -203,9 +230,10 @@ export default function DesignAssistantPage() {
       } finally {
         inFlightRef.current = false
         abortRef.current = null
+        releaseJob()
       }
     },
-    [base, dispatch, projectId, reloadStep2, source, state.renderStyleId, state.viewAngleId],
+    [attachJob, base, dispatch, projectId, releaseJob, reloadStep2, source, state.renderStyleId, state.viewAngleId],
   )
 
   const handleSubmit = useCallback(() => {
@@ -405,7 +433,6 @@ export default function DesignAssistantPage() {
    * the job, so the watch is simply picked back up, and the step is
    * refetched when it settles.
    */
-  const resumedJobId = step2.data?.hydrated?.pending?.job?.id ?? null
 
   useResumedJob(resumedJobId, {
     onProgress: (job) => {
@@ -516,6 +543,8 @@ export default function DesignAssistantPage() {
           onChange={setPrompt}
           onSubmit={handleSubmit}
           busy={busy}
+          onStop={stopGeneration}
+          stopping={stopping}
           renderStyleId={state.renderStyleId}
           onRenderStyleChange={(renderStyleId) =>
             dispatch({ type: 'setRenderStyle', renderStyleId })

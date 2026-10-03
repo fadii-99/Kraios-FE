@@ -399,6 +399,7 @@ GET PATCH DELETE        /step-3/documents/{id}/
 
 DELETE /projects/{id}/conversations/messages/{messageId}/
 GET    /projects/jobs/{jobId}/
+POST   /projects/jobs/{jobId}/cancel/
 GET    /projects/{id}/assets/            (optional ?kind=)
 GET    /projects/{id}/assets/{assetId}/download/
 POST   /projects/{id}/download-all/
@@ -418,14 +419,27 @@ Generation, edit and archive endpoints answer `202 Accepted` with a
 - one loop per job however many watchers — a second watcher subscribes, it does
   not start a second poll
 - the interval backs off (1.2s -> 2s -> 3.5s -> 5s), pauses while the tab is
-  hidden, and stops on COMPLETED / FAILED or when the last watcher leaves
+  hidden, and stops on COMPLETED / FAILED / CANCELLED or when the last watcher
+  leaves; CANCELLED rejects with `JobCancelledError`, which callers treat as
+  "refetch", never as a failure
 - `jobIdFromResponse` reads the job whether it is nested under a version or
   returned directly (the archive endpoint)
 
 Never open a second polling loop in a component. Leaving a workspace stops the
 WATCH, never the job: the version list carries the running job back, and
-`useResumedJob` re-attaches. There is no cancel endpoint, so nothing in the UI
-may offer to cancel a queued job.
+`useResumedJob` re-attaches.
+
+**Stopping a job is a server action.** `cancelJob` → `POST
+/projects/jobs/{id}/cancel/` closes the job out as CANCELLED and terminates the
+worker; the backend discards any result that lands afterwards. It is
+idempotent — a job that already settled comes back unchanged. The assistants
+offer it through ONE hook, `src/hooks/useJobStop.js` (which also remembers a
+Stop pressed before the generation endpoint has answered), and ONE control,
+`shared/StopGenerationButton.jsx`, which takes the send button's place while a
+turn runs. Never offer a "cancel" that only aborts the poll: that stops
+watching, not the work. A CANCELLED version is a stopped turn — an
+informational notice with Retry (`retry_message_id` accepts it like FAILED),
+never drawn as an error.
 
 ### Files and assets
 
@@ -1143,8 +1157,8 @@ Workspace: `AssistantHeader` (Back, brand — `workspaceTitle` "3D Rendering" �
 `QUICK_PROMPTS`, `AssistantMessage` with timestamps, pending/failure/retry
 blocks, `AssistantResult` blocks with `ResultHeaderControls` in the message
 header), and `AssistantComposer` (single-line input, Enter to send,
-`RenderStyleDropdown` inline, Cancel gated on
-`MODEL_GENERATION_SUPPORTS_CANCEL`).
+`RenderStyleDropdown` inline, and STOP in place of send while a turn runs —
+§9).
 
 The transcript follows Step 1's rules exactly — one block per turn enclosing
 its action column, delete on settled turns only, no assistant commentary, no
@@ -1168,11 +1182,8 @@ Configuration (`designAssistantConfig.js`):
 - `VIEW_ANGLES` — Isometric 45° (`DEFAULT_VIEW_ANGLE_ID` is `null`, which is the
   backend's `ORIGINAL`)
 - Both lists are the single source of truth for the control AND the request
-- `THREE_D_GENERATION_SUPPORTS_CANCEL` is `false`, and honestly so: the contract
-  has no endpoint that cancels a queued job. Leaving the workspace stops the
-  polling, not the work. The composer shows no Cancel action rather than one
-  that only stops watching. `modelGeneration.js` — the mock seam that returned a
-  fixed local SVG — is deleted; do not reintroduce it.
+- `modelGeneration.js` — the mock seam that returned a fixed local SVG — is
+  deleted; do not reintroduce it.
 
 Three endpoints, one `runGeneration` path:
 

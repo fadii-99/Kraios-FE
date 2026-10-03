@@ -1,4 +1,5 @@
 import {
+  ARTIFACTS_CANCELLED_CODE,
   CONVERSION_STAGES,
   artifactUrl,
   isConversionRunning,
@@ -53,6 +54,7 @@ export function conversionToView(row) {
     isRunning: isConversionRunning(row),
     isUsable: isConversionUsable(row),
     isFailed: row.status === 'FAILED',
+    isCancelled: row.status === 'CANCELLED',
   }
 }
 
@@ -138,6 +140,7 @@ export function progressToView(row) {
     isRunning: isConversionRunning(row),
     isUsable: isConversionUsable(row),
     isFailed: row.status === 'FAILED',
+    isCancelled: row.status === 'CANCELLED',
     // A BLENDER RUN IS NOT A CONVERSION RUN, and the two must not be read off
     // the same field. `status` never moves for an artifact rebuild — the
     // semantic model is already finished and unaffected — so a rebuild is
@@ -146,6 +149,9 @@ export function progressToView(row) {
     // a failed run is left parked at the `artifacts` stage.
     isBuildingArtifacts: row.stage === 'artifacts',
     blenderFailed: String(row.error_code || '').startsWith('blender'),
+    // A rebuild the user stopped is also parked at `artifacts`; like a failed
+    // one it is finished, and every caller checks it alongside `blenderFailed`.
+    artifactsCancelled: row.error_code === ARTIFACTS_CANCELLED_CODE,
   }
 }
 

@@ -15,7 +15,11 @@ export const VERSION_STATUS = {
   processing: 'PROCESSING',
   completed: 'COMPLETED',
   failed: 'FAILED',
+  cancelled: 'CANCELLED',
 }
+
+/** The line a stopped turn shows in place of a result. */
+export const STOPPED_VERSION_MESSAGE = 'You stopped this request. Retry it whenever you are ready.'
 
 /** ISO string to epoch ms, falling back to now rather than to NaN. */
 export function toEpoch(iso) {
@@ -37,6 +41,11 @@ export function isVersionCompleted(version) {
 
 export function isVersionFailed(version) {
   return version?.status === VERSION_STATUS.failed
+}
+
+/** Stopped by the user. Shown like a failure (with Retry), but not as an error. */
+export function isVersionCancelled(version) {
+  return version?.status === VERSION_STATUS.cancelled
 }
 
 /** The conversation role, in the spelling the transcript components expect. */

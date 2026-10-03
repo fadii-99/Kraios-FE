@@ -33,6 +33,7 @@ import { CACHE_KEYS } from '@/lib/dashboard/projects/projectShape'
 import { projectStagePath } from '@/lib/dashboard/workflow/projectWorkflow'
 import { showErrorToast, showInfoToast, showSuccessToast } from '@/lib/toast'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { useJobStop } from '@/hooks/useJobStop'
 import { useResumedJob } from '@/hooks/useResumedJob'
 
 const GENERATION_FAILED_MESSAGE =
@@ -95,6 +96,25 @@ export default function FloorPlanAssistantPage() {
   }, [])
 
   const busy = isGenerating(state)
+
+  /*
+   * A version the backend was already working on when this page opened (see
+   * `useResumedJob` below) — and the job the STOP button stops when this page
+   * did not start it itself.
+   */
+  const resumedJobId = step1.data?.hydrated?.pending?.job?.id ?? null
+
+  const {
+    stop: stopGeneration,
+    stopping,
+    attachJob,
+    releaseJob,
+  } = useJobStop({
+    resumedJobId,
+    abortRef,
+    reload: reloadStep1,
+    toastId: 'step-1-stop',
+  })
   const base = refinementBase(state)
   const activeApproved = isApproved(state)
 
@@ -140,6 +160,7 @@ export default function FloorPlanAssistantPage() {
               })
 
         const jobId = jobIdFromResponse(queued)
+        attachJob(jobId)
 
         if (jobId) {
           await waitForJob(jobId, {
@@ -161,6 +182,12 @@ export default function FloorPlanAssistantPage() {
         await reloadStep1()
       } catch (thrown) {
         if (!activeRef.current || thrown?.name === 'AbortError') return
+        if (thrown?.name === 'JobCancelledError') {
+          // Stopped — here or in another tab. Not a failure: the refetched
+          // transcript shows the stopped turn with its Retry.
+          await reloadStep1().catch(() => {})
+          return
+        }
 
         dispatch({
           type: 'generationFailed',
@@ -171,9 +198,10 @@ export default function FloorPlanAssistantPage() {
       } finally {
         inFlightRef.current = false
         abortRef.current = null
+        releaseJob()
       }
     },
-    [dispatch, projectId, reloadStep1],
+    [attachJob, dispatch, projectId, releaseJob, reloadStep1],
   )
 
   const handleSubmit = useCallback(() => {
@@ -326,7 +354,6 @@ export default function FloorPlanAssistantPage() {
    * the job, so the watch is simply picked back up, and the step is
    * refetched when it settles.
    */
-  const resumedJobId = step1.data?.hydrated?.pending?.job?.id ?? null
 
   useResumedJob(resumedJobId, {
     onProgress: (job) => {
@@ -442,6 +469,8 @@ export default function FloorPlanAssistantPage() {
           onChange={setPrompt}
           onSubmit={handleSubmit}
           busy={busy}
+          onStop={stopGeneration}
+          stopping={stopping}
           placeholder="Describe changes to the 2D floor plan..."
         />
       </div>

@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Flask, Trash, WarningCircle } from '@phosphor-icons/react'
+import { useNavigate } from 'react-router-dom'
+import { Flask, WarningCircle } from '@phosphor-icons/react'
 import toast from 'react-hot-toast'
 
 import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader'
 import DashboardPageSurface from '@/components/dashboard/DashboardPageSurface'
 import ConversionProgress from '@/components/floorplan3d/ConversionProgress'
+import ConversionRow from '@/components/floorplan3d/ConversionRow'
 import PlanUploader from '@/components/floorplan3d/PlanUploader'
-import { archiveConversion, listConversions } from '@/lib/api/floorplan3d'
-import { conversionToView, formatBytes } from '@/lib/floorplan3d/adapters'
+import { archiveConversion, cancelConversion, listConversions } from '@/lib/api/floorplan3d'
+import { conversionToView } from '@/lib/floorplan3d/adapters'
 import { useChunkedUpload } from '@/lib/floorplan3d/useChunkedUpload'
 import { useConversionPolling } from '@/lib/floorplan3d/useConversionPolling'
 import { DASHBOARD_BODY_PADDING, DASHBOARD_GUTTER } from '@/lib/dashboard/layout'
 import { cn } from '@/lib/cn'
+import { showErrorToast, showInfoToast } from '@/lib/toast'
 
 /**
  * `/dashboard/experiments/floorplan-3d` — upload a plan, and the list of what
@@ -26,14 +28,6 @@ import { cn } from '@/lib/cn'
  * It is a route INSIDE `dashboard`, so it inherits the authenticated boundary,
  * the sidebar and the page surface rather than rebuilding them.
  */
-
-const STATUS_COPY = {
-  QUEUED: { label: 'Queued', tone: 'text-[var(--tone-ink-soft)]' },
-  PROCESSING: { label: 'Converting', tone: 'text-[var(--color-brand-deep)]' },
-  NEEDS_REVIEW: { label: 'Needs review', tone: 'text-[var(--color-warning)]' },
-  READY: { label: 'Ready', tone: 'text-[var(--color-success)]' },
-  FAILED: { label: 'Failed', tone: 'text-[var(--color-danger)]' },
-}
 
 export default function Floorplan3DExperimentPage() {
   const navigate = useNavigate()
@@ -92,6 +86,9 @@ export default function Floorplan3DExperimentPage() {
     onFinished: useCallback(
       (progress) => {
         refresh()
+        // Stopped by the user: `handleStop` has already said so, and there is
+        // no model to open.
+        if (progress.isCancelled) return
         if (progress.isFailed) {
           toast.error(progress.errorMessage || 'That plan could not be converted.')
           return
@@ -131,6 +128,42 @@ export default function Floorplan3DExperimentPage() {
       upload.reset()
     },
     [upload, refresh, polling],
+  )
+
+  // Which conversion a stop request is in flight for, so its buttons can show
+  // it and refuse a second press.
+  const [stoppingId, setStoppingId] = useState(null)
+
+  /**
+   * Stop a running conversion on the server. The worker is terminated and any
+   * late result is discarded, so the row settles as "Stopped" and the plan can
+   * simply be converted again.
+   */
+  const handleStop = useCallback(
+    async (conversionId) => {
+      if (!conversionId || stoppingId) return
+      setStoppingId(conversionId)
+      try {
+        const result = await cancelConversion(conversionId)
+        if (trackedId.current === conversionId) {
+          trackedId.current = null
+          polling.reset()
+        }
+        await refresh()
+        if (result?.stopped) {
+          showInfoToast('Conversion stopped. Nothing was saved.', {
+            id: `fp3d-stop-${conversionId}`,
+          })
+        }
+      } catch (caught) {
+        showErrorToast(caught?.message || 'That conversion could not be stopped.', {
+          id: `fp3d-stop-${conversionId}`,
+        })
+      } finally {
+        setStoppingId(null)
+      }
+    },
+    [polling, refresh, stoppingId],
   )
 
   const handleArchive = useCallback(
@@ -202,6 +235,8 @@ export default function Floorplan3DExperimentPage() {
               progress={polling.progress}
               stalled={polling.stalled}
               error={polling.error}
+              onStop={() => handleStop(polling.progress.id)}
+              stopping={stoppingId === polling.progress.id}
             />
           )}
 
@@ -213,90 +248,46 @@ export default function Floorplan3DExperimentPage() {
           )}
 
           <section>
-            <h2 className="label-ui mb-2 text-[var(--tone-ink-soft)]">
+            <h2 className="label-ui mb-2 flex items-baseline gap-2 text-[var(--tone-ink-soft)]">
               Recent conversions
+              {!loading && conversions.length > 0 && (
+                <span className="font-normal tabular-nums text-[var(--tone-ink-soft)]">
+                  {conversions.length}
+                </span>
+              )}
             </h2>
 
             {loading ? (
-              <p className="text-xs text-[var(--tone-ink-soft)]">Loading…</p>
+              <ul className="space-y-2" aria-busy="true" aria-label="Loading conversions">
+                {[0, 1, 2].map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-center gap-3 rounded-md border border-[var(--tone-line)] bg-white p-3 sm:gap-4"
+                  >
+                    <div className="h-16 w-24 shrink-0 animate-pulse rounded-sm bg-[var(--color-light)] motion-reduce:animate-none sm:h-[4.5rem] sm:w-28" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-1/2 animate-pulse rounded-sm bg-[var(--color-light)] motion-reduce:animate-none" />
+                      <div className="h-2.5 w-1/3 animate-pulse rounded-sm bg-[var(--color-light)] motion-reduce:animate-none" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
             ) : conversions.length === 0 ? (
               <p className="rounded-md border border-[var(--tone-line)] bg-white p-4 text-xs text-[var(--tone-ink-soft)]">
                 Nothing converted yet. Upload a plan above.
               </p>
             ) : (
               <ul className="space-y-2">
-                {[...running, ...finished].map((conversion) => {
-                  const status = STATUS_COPY[conversion.status] ?? STATUS_COPY.QUEUED
-                  return (
-                    <li
-                      key={conversion.id}
-                      className="flex items-center gap-3 rounded-md border border-[var(--tone-line)] bg-white p-3"
-                    >
-                      <div className="h-14 w-20 shrink-0 overflow-hidden rounded-sm border border-[var(--tone-line)] bg-[var(--color-light)]">
-                        {conversion.thumbnailUrl ? (
-                          <img
-                            src={conversion.thumbnailUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : null}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-[var(--tone-ink)]">
-                          {conversion.name}
-                        </p>
-                        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[0.6875rem] text-[var(--tone-ink-soft)]">
-                          <span className={status.tone}>{status.label}</span>
-                          {conversion.isRunning && <span>· {conversion.progress}%</span>}
-                          {conversion.currentRevision && (
-                            <span>
-                              · r{conversion.currentRevision.number} ·{' '}
-                              {conversion.currentRevision.grade}{' '}
-                              {conversion.currentRevision.score}/100
-                            </span>
-                          )}
-                          {conversion.source && (
-                            <span>· {formatBytes(conversion.source.byteSize)}</span>
-                          )}
-                          {conversion.source?.pageCount > 1 && (
-                            <span>· {conversion.source.pageCount} pages</span>
-                          )}
-                        </p>
-                        {conversion.isFailed && conversion.errorMessage && (
-                          <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--color-danger)]">
-                            {conversion.errorMessage}
-                            {conversion.errorCode && (
-                              <span className="ml-1 font-mono text-[var(--tone-ink-soft)]">
-                                ({conversion.errorCode})
-                              </span>
-                            )}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-1">
-                        {conversion.isUsable && (
-                          <Link
-                            to={`/dashboard/experiments/floorplan-3d/${conversion.id}`}
-                            className="label-ui inline-flex h-9 items-center gap-1.5 rounded-sm border border-[var(--tone-line-strong)] px-3 text-[var(--tone-ink)] transition-colors hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]"
-                          >
-                            Open
-                            <ArrowRight size={13} />
-                          </Link>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleArchive(conversion)}
-                          aria-label={`Remove ${conversion.name} from the list`}
-                          className="cursor-pointer rounded-sm p-2 text-[var(--tone-ink-soft)] transition-colors hover:text-[var(--color-danger)]"
-                        >
-                          <Trash size={14} />
-                        </button>
-                      </div>
-                    </li>
-                  )
-                })}
+                {[...running, ...finished].map((conversion) => (
+                  <ConversionRow
+                    key={conversion.id}
+                    conversion={conversion}
+                    onStop={() => handleStop(conversion.id)}
+                    onArchive={() => handleArchive(conversion)}
+                    stopping={stoppingId === conversion.id}
+                    stopDisabled={Boolean(stoppingId)}
+                  />
+                ))}
               </ul>
             )}
           </section>

@@ -15,7 +15,7 @@
  *     quickly; one that has been processing for a while is polled less often,
  *     to a ceiling. A slow AI render therefore does not cost one request per
  *     1.5s for its whole life.
- *   - **It stops.** The loop ends on COMPLETED / FAILED, when the last watcher
+ *   - **It stops.** The loop ends on COMPLETED / FAILED / CANCELLED, when the last watcher
  *     unsubscribes, or when the tab is hidden long enough to make polling
  *     pointless — and resumes on return.
  *
@@ -30,13 +30,31 @@ export const JOB_STATUS = {
   processing: 'PROCESSING',
   completed: 'COMPLETED',
   failed: 'FAILED',
+  // Stopped by the user (`cancelJob`). Terminal, and retryable like a failure.
+  cancelled: 'CANCELLED',
 }
 
 export const JOB_FAILED_MESSAGE = 'Processing failed. Please try again.'
 
-/** Terminal states — the loop stops on either. */
+/** Terminal states — the loop stops on any of them. */
 export function isJobSettled(job) {
-  return job?.status === JOB_STATUS.completed || job?.status === JOB_STATUS.failed
+  return (
+    job?.status === JOB_STATUS.completed ||
+    job?.status === JOB_STATUS.failed ||
+    job?.status === JOB_STATUS.cancelled
+  )
+}
+
+/**
+ * Thrown when a watched job reports CANCELLED — stopped by this user, here or
+ * in another tab. Not a failure: callers refetch and show the stopped turn.
+ */
+export class JobCancelledError extends Error {
+  constructor(job) {
+    super('This request was stopped.')
+    this.name = 'JobCancelledError'
+    this.job = job
+  }
 }
 
 /** Thrown when a watched job reports FAILED. Carries the job for context. */
@@ -225,6 +243,7 @@ async function runJobLoop(jobId, entry) {
 
     if (job?.status === JOB_STATUS.completed) return job
     if (job?.status === JOB_STATUS.failed) throw new JobFailedError(job)
+    if (job?.status === JOB_STATUS.cancelled) throw new JobCancelledError(job)
 
     attempt += 1
     await sleep(pollDelay(attempt), signal)

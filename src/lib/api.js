@@ -93,12 +93,14 @@ export {
   deleteBoqDocument,
   deleteConversationMessage,
   fetchJob,
+  cancelJob,
   fetchProjectAssets,
   queueProjectArchive,
 } from './api/projects'
 
 export {
   JOB_STATUS,
+  JobCancelledError,
   JobFailedError,
   isJobSettled,
   jobFromResponse,

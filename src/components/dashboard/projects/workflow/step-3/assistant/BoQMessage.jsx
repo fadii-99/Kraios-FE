@@ -73,7 +73,8 @@ export default function BoQMessage({ message, busy, onRetry, headerActions, chil
   const isNotice = message.kind === MESSAGE_KINDS.notice
   const isResult = message.kind === MESSAGE_KINDS.result
   const retry = isNotice ? message.retry : null
-  const isFailure = isNotice && Boolean(retry)
+  // A turn the user stopped keeps its Retry but is not drawn as an error.
+  const isFailure = isNotice && Boolean(retry) && !message.stopped
 
   const stamp = isPending ? '' : formatMessageTimestamp(message.at)
 
