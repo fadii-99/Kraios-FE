@@ -631,6 +631,18 @@ export default function PropertyInspector({
 
         {kind === 'stair' && (
           <>
+            <Readout label="Stair type" value={humanise(element.kind)} />
+            {element.connects_to_level && (
+              <Readout label="Connects to" value={element.connects_to_level} />
+            )}
+            <SelectField
+              label="Travel from this floor"
+              value={element.goes_up === false ? 'down' : 'up'}
+              options={[{ value: 'up', label: 'Up' }, { value: 'down', label: 'Down' }]}
+              onCommit={(travel) => {
+                if (canEdit) onCommand('setStairProperties', { elementId: element.id, goesUp: travel === 'up' })
+              }}
+            />
             <NumberField
               label="Total rise"
               suffix="mm"
@@ -696,7 +708,7 @@ export default function PropertyInspector({
             />
             <p className="rounded-md border border-[var(--tone-line)] bg-[var(--color-light)] p-2.5 text-[0.6875rem] leading-relaxed text-[var(--tone-ink-soft)]">
               The riser height is derived from the total rise and the step count, so
-              the flight always lands exactly on the floor above.
+              the flight reaches the floor {element.goes_up === false ? 'below' : 'above'}.
             </p>
           </>
         )}

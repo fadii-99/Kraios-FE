@@ -101,6 +101,8 @@ export const CONVERSION_STAGES = [
 export const ARTIFACT_LABELS = {
   semantic_json: 'Semantic JSON',
   blend: 'Blender file (.blend)',
+  dxf: '3D CAD exchange (.dxf)',
+  dwg: 'AutoCAD model (.dwg)',
   glb: '3D model (.glb)',
   thumbnail_high: 'Isometric view (high)',
   thumbnail_low: 'Isometric view (low)',
@@ -350,23 +352,26 @@ export function validateDocument(conversionId, document) {
   })
 }
 
-/** Rescale the whole document from two points the user measured. */
 /**
- * Settle the document's scale, one of the two ways the endpoint accepts.
+ * Settle the document's scale from drawing evidence or user-provided size.
  *
  * Pass `candidateIndex` to adopt a scale the pipeline already proposed, or
- * `pixelDistance` + `realDistanceMm` for a distance the user measured. Never
- * both: they say different things about where the number came from, and the
- * server refuses the pair rather than picking one.
+ * `overallWidthM`/`overallHeightM` for the building footprint, or
+ * `pixelDistance` + `realDistanceMm` for an advanced measurement. Never mix
+ * methods: they say different things about where the number came from.
  */
 export function calibrateScale(
   conversionId,
-  { candidateIndex, pixelDistance, realDistanceMm },
+  { candidateIndex, pixelDistance, realDistanceMm, overallWidthM, overallHeightM },
 ) {
-  const body =
-    candidateIndex === undefined || candidateIndex === null
-      ? { pixel_distance: pixelDistance, real_distance_mm: realDistanceMm }
-      : { candidate_index: candidateIndex }
+  const body = candidateIndex !== undefined && candidateIndex !== null
+    ? { candidate_index: candidateIndex }
+    : overallWidthM !== undefined || overallHeightM !== undefined
+      ? {
+          ...(overallWidthM !== undefined ? { overall_width_m: overallWidthM } : {}),
+          ...(overallHeightM !== undefined ? { overall_height_m: overallHeightM } : {}),
+        }
+      : { pixel_distance: pixelDistance, real_distance_mm: realDistanceMm }
   return apiClient(FLOORPLAN3D_ENDPOINTS.calibrateScale(conversionId), {
     method: 'POST',
     body,

@@ -232,8 +232,14 @@ export default function SceneViewport({
   }
 
   return (
-    <div className={cn('relative h-full min-h-0 w-full', className)}>
-      <div ref={mountRef} className="h-full min-h-0 w-full [&>canvas]:block" />
+    <div className={cn('relative h-full min-h-0 w-full overflow-hidden', className)}>
+      {/* The renderer sizes only the drawing buffer (`setSize(..., false)`), so
+          the canvas's CSS box is pinned here. Left to itself it displays at
+          buffer size - width x devicePixelRatio - and spills over the panel. */}
+      <div
+        ref={mountRef}
+        className="absolute inset-0 overflow-hidden [&>canvas]:absolute [&>canvas]:inset-0 [&>canvas]:block [&>canvas]:h-full [&>canvas]:w-full"
+      />
 
       {contextLost && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/92 p-8 text-center">

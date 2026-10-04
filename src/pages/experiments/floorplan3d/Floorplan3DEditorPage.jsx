@@ -8,6 +8,7 @@ import {
   CaretLeft,
   CaretRight,
   ClockCounterClockwise,
+  DownloadSimple,
   FloppyDisk,
   Image as ImageIcon,
   SlidersHorizontal,
@@ -679,12 +680,14 @@ export default function Floorplan3DEditorPage() {
   }, [conversionId, stoppingRebuild])
 
   const handleCalibrate = useCallback(
-    ({ candidateIndex, pixelDistance, realDistanceMm }) => {
+    ({ candidateIndex, pixelDistance, realDistanceMm, overallWidthM, overallHeightM }) => {
       setCalibrating(true)
       return calibrateScale(conversionId, {
         candidateIndex,
         pixelDistance,
         realDistanceMm,
+        overallWidthM,
+        overallHeightM,
       })
         .then((result) => {
           // Rescaling changes every dimension in the document, so a proposal
@@ -933,6 +936,21 @@ export default function Floorplan3DEditorPage() {
             {saving ? 'Saving…' : 'Save revision'}
           </button>
 
+          {['blend', 'dwg'].map((type) => {
+            const file = conversion.artifacts?.find((artifact) => artifact.type === type && artifact.isCurrent)
+            const label = type === 'blend' ? 'Blender (.blend)' : 'DWG (.dwg)'
+            return file ? (
+              <a key={type} href={file.downloadUrl}
+                className="label-ui inline-flex h-9 items-center gap-1.5 rounded-sm border border-[var(--tone-line-strong)] px-3 text-[var(--tone-ink)] hover:border-[var(--tone-accent)] hover:text-[var(--tone-accent)]">
+                <DownloadSimple size={14} /> {label}
+              </a>
+            ) : (
+              <span key={type} title={type === 'dwg' ? 'DWG appears after the server converts the 3D CAD export.' : 'Blender file appears after the artifact worker finishes.'}
+                className="label-ui inline-flex h-9 items-center rounded-sm border border-[var(--tone-line)] px-3 text-[var(--tone-ink-soft)] opacity-60">
+                {label}
+              </span>
+            )
+          })}
           <DownloadMenu
             artifacts={conversion.artifacts}
             stale={conversion.artifactsStale}
@@ -946,8 +964,8 @@ export default function Floorplan3DEditorPage() {
       </header>
 
       {/* Body: viewport | panel */}
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <ViewportToolbar
             view={view}
             onView={handleView}
@@ -969,8 +987,8 @@ export default function Floorplan3DEditorPage() {
             onScreenshot={handleScreenshot}
           />
 
-          <div className="relative flex min-h-0 flex-1">
-            <div className="relative min-w-0 flex-1">
+          <div className="relative flex min-h-0 flex-1 overflow-hidden">
+            <div className="relative min-w-0 flex-1 overflow-hidden">
               <SceneViewport
                 document={viewportDocument}
                 catalog={catalog?.index}

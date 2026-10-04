@@ -6,16 +6,17 @@ import PrimaryButton from '@/components/ui/PrimaryButton'
 import { sourceFileUrl } from '@/lib/api/floorplan3d'
 import { formatMetres } from '@/lib/floorplan3d/adapters'
 import { documentBounds } from '@/lib/floorplan3d/semanticModel'
+import { drawingPointFromClick } from '@/lib/floorplan3d/calibration'
 import { cn } from '@/lib/cn'
 
 /**
- * Settling the document's scale — by RECOGNITION first, by measurement second.
+ * Settling the document's scale — drawing evidence first, overall size second.
  *
  * WHY THIS CONTROL EXISTS. A plan without a printed scale, a scale bar or a
  * parsed dimension has no scale, and the pipeline says so rather than inventing
  * one. That leaves the user with a model whose proportions are right and whose
- * dimensions are provisional — and one number is all it takes to fix every
- * dimension at once, because the document keeps `pixels_to_mm` as ONE number.
+ * dimensions are provisional. An overall width or height lets the server
+ * derive `pixels_to_mm` from the model footprint.
  *
  * ASKING FOR A MEASURED DISTANCE IS THE HARD QUESTION, NOT THE EASY ONE.
  * "Click two points whose real distance you know" is unanswerable for anyone
@@ -25,8 +26,8 @@ import { cn } from '@/lib/cn'
  * every one it considered. So the candidates come first, each shown as the
  * overall size the building becomes if it is right. "Is your building 15 m
  * across or 20?" is a question the reader can answer by looking at it, and it
- * needs no tape measure. Measuring by hand stays, underneath, for the drawing
- * that genuinely suggested nothing.
+ * needs no tape measure. Overall size is the fallback; measuring by hand stays
+ * in the advanced panel when a user knows a specific drawn distance.
  *
  * THE CLICKS ARE ON THE DRAWING, NOT THE MODEL. The scale relates the drawing's
  * pixels to millimetres, so it has to be measured in the drawing's own pixels.
@@ -45,7 +46,7 @@ const SOURCE_LABEL = {
   dimension_string: 'From dimensions printed on the drawing',
   room_area_label: 'From a room’s printed area',
   standard_opening: 'From a standard door used as a ruler',
-  manual: 'Measured by hand',
+  manual: 'From a user-provided size',
   unknown: 'From the drawing',
 }
 
@@ -59,6 +60,8 @@ export default function ScaleCalibrationModal({
 }) {
   const [points, setPoints] = useState([])
   const [distanceText, setDistanceText] = useState('')
+  const [widthText, setWidthText] = useState('')
+  const [heightText, setHeightText] = useState('')
   const [error, setError] = useState('')
   const [measuring, setMeasuring] = useState(false)
 
@@ -119,21 +122,17 @@ export default function ScaleCalibrationModal({
   const close = () => {
     setPoints([])
     setDistanceText('')
+    setWidthText('')
+    setHeightText('')
     setError('')
     setMeasuring(false)
     onClose()
   }
 
   const handleClick = (event) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    if (!rect.width || !rect.height || !pageWidth || !pageHeight) return
-
-    // Displayed pixels -> normalised page pixels. Without this the calibration
-    // would depend on the size of the user's window.
-    const x = ((event.clientX - rect.left) / rect.width) * pageWidth
-    const y = ((event.clientY - rect.top) / rect.height) * pageHeight
-
-    setPoints((current) => (current.length >= 2 ? [{ x, y }] : [...current, { x, y }]))
+    const point = drawingPointFromClick(event, pageWidth, pageHeight)
+    if (!point) return
+    setPoints((current) => (current.length >= 2 ? [point] : [...current, point]))
     setError('')
   }
 
@@ -160,6 +159,18 @@ export default function ScaleCalibrationModal({
     if (ok) close()
   }
 
+  const submitOverall = async () => {
+    const width = widthText.trim() ? Number(widthText) : undefined
+    const height = heightText.trim() ? Number(heightText) : undefined
+    if ((!width && !height) || (width !== undefined && (!Number.isFinite(width) || width <= 0)) ||
+        (height !== undefined && (!Number.isFinite(height) || height <= 0))) {
+      setError('Enter a positive overall width or height in metres.')
+      return
+    }
+    const ok = await onCalibrate({ overallWidthM: width, overallHeightM: height })
+    if (ok) close()
+  }
+
   return (
     <Modal open={open} onClose={close} title="Confirm the size" size="wide">
       <div className="space-y-4">
@@ -168,7 +179,7 @@ export default function ScaleCalibrationModal({
             <p className="text-sm leading-relaxed text-[var(--tone-ink-soft)]">
               {hasAlternative
                 ? 'The drawing suggested more than one size, and the model is using one of them. Pick the one that matches the real building — you do not need to measure anything.'
-                : 'This is the only size the drawing suggested, and the model is using it. If the building is not this size, measure it below.'}
+                : 'This is the only size the drawing suggested. If it came from an assumed door width or does not match the building, enter its overall size below.'}
             </p>
 
             <ul className="space-y-2">
@@ -217,9 +228,9 @@ export default function ScaleCalibrationModal({
           </>
         ) : (
           <p className="text-sm leading-relaxed text-[var(--tone-ink-soft)]">
-            Nothing on this drawing stated its size, so it has to be measured.
-            Click two points whose real distance you know — the two ends of a
-            printed dimension is ideal — then type that distance.
+            No reliable dimensions could be read from this drawing. Enter the
+            building’s overall width or height in metres; the model will
+            calculate the pixel scale.
           </p>
         )}
 
@@ -230,35 +241,60 @@ export default function ScaleCalibrationModal({
             className="label-ui inline-flex cursor-pointer items-center gap-1.5 border-t border-[var(--tone-line)] pt-3 text-[var(--tone-ink-soft)] transition-colors hover:text-[var(--tone-accent)]"
           >
             <Ruler size={14} />
-            None of these is right — let me measure it
+            None of these is right — enter the overall size
           </button>
         )}
 
         {(measuring || !hasAlternative) && (
           <div className="space-y-4 border-t border-[var(--tone-line)] pt-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="min-w-40 flex-1 text-xs text-[var(--tone-ink)]">
+                Overall width (m)
+                <input type="number" min="0.01" step="any" value={widthText}
+                  onChange={(event) => setWidthText(event.target.value)} placeholder="e.g. 24"
+                  className="mt-1 w-full rounded-sm border border-[var(--tone-line)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--color-brand-deep)]" />
+              </label>
+              <label className="min-w-40 flex-1 text-xs text-[var(--tone-ink)]">
+                Overall height (m)
+                <input type="number" min="0.01" step="any" value={heightText}
+                  onChange={(event) => setHeightText(event.target.value)} placeholder="e.g. 12"
+                  className="mt-1 w-full rounded-sm border border-[var(--tone-line)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--color-brand-deep)]" />
+              </label>
+              <PrimaryButton size="compact" withArrow={false} loading={saving} onClick={submitOverall}>
+                Apply size
+              </PrimaryButton>
+            </div>
+            <p className="text-xs text-[var(--tone-ink-soft)]">
+              One dimension is enough. If you enter both, they must match the drawing’s proportions.
+            </p>
+            <details className="border-t border-[var(--tone-line)] pt-3">
+              <summary className="cursor-pointer text-xs text-[var(--tone-accent)]">
+                Advanced: calibrate from a known distance on the drawing
+              </summary>
+              <div className="mt-3 space-y-3">
             {!pageWidth || !pageHeight ? (
               <p className="rounded-md border border-[var(--color-warning)] bg-[color-mix(in_oklab,var(--color-warning)_8%,transparent)] p-3 text-xs text-[var(--tone-ink)]">
                 This conversion did not record the drawing’s pixel size, so it
                 cannot be calibrated by clicking. Convert the plan again.
               </p>
             ) : (
-              <div className="relative overflow-hidden rounded-md border border-[var(--tone-line)] bg-[var(--color-light)]">
+              <div className="overflow-hidden rounded-md border border-[var(--tone-line)] bg-[var(--color-light)] text-center">
                 {imageUrl ? (
                   <button
                     type="button"
                     onClick={handleClick}
-                    className="relative block w-full cursor-crosshair"
+                    className="relative inline-block max-w-full cursor-crosshair align-top"
                     aria-label="Click two points on the drawing"
                   >
                     <img
                       src={imageUrl}
                       alt="The uploaded floor plan"
-                      className="block max-h-[52vh] w-full object-contain"
+                      className="block max-h-[52vh] max-w-full"
                       draggable={false}
                     />
                     <svg
                       viewBox={`0 0 ${pageWidth} ${pageHeight}`}
-                      preserveAspectRatio="xMidYMid meet"
+                      preserveAspectRatio="none"
                       className="pointer-events-none absolute inset-0 h-full w-full"
                       aria-hidden="true"
                     >
@@ -339,6 +375,8 @@ export default function ScaleCalibrationModal({
                 </PrimaryButton>
               </div>
             </div>
+              </div>
+            </details>
           </div>
         )}
 
