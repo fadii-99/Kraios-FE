@@ -30,7 +30,7 @@ import { cn } from '@/lib/cn'
  * TWO variants, one component, because the difference is genuinely only which
  * sections apply:
  *
- *   - `full`    (Step 3) — the 2D plan, the approved 3D render, and the four
+ *   - `full`    (Step 3) — the 2D plan, the approved 3D render, and the
  *                          document slots that can be filled here.
  *   - `compact` (Step 2) — the 2D plan alone, which is all Step 2 works from.
  *                          Narrower panel, same language.
@@ -39,7 +39,7 @@ import { cn } from '@/lib/cn'
  * the panel never stands a fixture in for a file the project does not have.
  *
  * The panel does NOT scroll. What it holds is a fixed, small set — two required
- * files and four document slots — so the whole thing is meant to be read at a
+ * files and six document slots — so the whole thing is meant to be read at a
  * glance; an inner scroller hid half the slots behind a gesture and made the
  * panel feel longer than its contents. Its height is its content's height, and
  * the cards are spaced to be read rather than packed. If a project ever grows

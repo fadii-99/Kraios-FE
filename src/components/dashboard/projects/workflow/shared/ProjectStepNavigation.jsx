@@ -1,11 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Check, CircleNotch } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, Calculator, Check, CircleNotch } from '@phosphor-icons/react'
 import {
   WORKFLOW_STAGES,
   projectStagePath,
   workflowIndexForPath,
 } from '@/lib/dashboard/workflow/projectWorkflow'
 import { useFinishProject } from '@/hooks/useFinishProject'
+import { useProject } from '@/lib/dashboard/projects/projectsContext'
 import { showInfoToast } from '@/lib/toast'
 import { cn } from '@/lib/cn'
 
@@ -39,6 +40,13 @@ export default function ProjectStepNavigation({
 
   // Active workflow stage index — the same derivation the stepper uses.
   const activeIndex = workflowIndexForPath(pathname)
+
+  // "Skip to BoQ" — offered on Upload and 3D Rendering until a 3D design is
+  // approved. It is navigation only: the BoQ routes are not gated, and Step 3
+  // works from whatever files the user uploads there.
+  const project = useProject(projectId)
+  const workflowState = project?.workflowState ?? project?.workflow_state
+  const showSkipToBoq = activeIndex < 2 && !workflowState?.step_2_complete
 
   const prevStage = activeIndex > 0 ? WORKFLOW_STAGES[activeIndex - 1] : null
   const nextStage =
@@ -114,7 +122,27 @@ export default function ProjectStepNavigation({
       </div>
 
       {/* ─── Right Side: Next Step Action or Finish Project ─── */}
-      <div className="flex flex-1 justify-end">
+      <div className="flex flex-1 flex-col-reverse items-stretch justify-end gap-3 sm:flex-row sm:items-center">
+        {showSkipToBoq && (
+          <button
+            type="button"
+            onClick={() => navigate(projectStagePath(projectId, 'boq'))}
+            className={cn(
+              'group label-ui inline-flex cursor-pointer items-center justify-center box-border rounded-sm',
+              'h-11 min-h-11 max-h-11 px-5 sm:px-6 w-full sm:w-52 uppercase text-[0.75rem] sm:text-[0.8125rem] font-bold tracking-wider',
+              'border border-[var(--tone-line-strong)] bg-white text-[var(--tone-ink)] hover:border-[var(--color-brand-deep)] hover:text-[var(--color-brand-deep)]',
+              'transition-[background-color,border-color,color,transform] duration-300 ease-[var(--ease-out-expo)]',
+              'active:translate-y-px select-none',
+              'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--tone-accent)]',
+            )}
+          >
+            <span className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+              <Calculator size={15} weight="bold" aria-hidden="true" />
+              <span className="whitespace-nowrap">Skip to BoQ</span>
+            </span>
+          </button>
+        )}
+
         {nextStage ? (
           <button
             type="button"

@@ -124,6 +124,11 @@ export const PROJECT_DOCUMENT_SLOTS = [
     typeId: 'structural-drawing',
     titleTag: 'Door & Window Schedule',
   },
+  // A project that used "Skip to BoQ" has no approved 2D plan or 3D render,
+  // so the user supplies their own here. Last, so existing documents keep the
+  // slots they already fill.
+  { id: 'own-floor-plan', label: '2D Floor Plan', typeId: 'structural-drawing', titleTag: '2D Floor Plan' },
+  { id: 'own-3d-model', label: '3D Model', typeId: 'three-d-model', titleTag: '3D Model' },
 ]
 
 /** The separator between the slot tag and the file name in a document title. */
@@ -147,7 +152,7 @@ export function slotIdFromTitle(title) {
 }
 
 /**
- * Documents laid out across the four slots.
+ * Documents laid out across the slots.
  *
  * Three passes, most specific first:
  *
@@ -158,7 +163,7 @@ export function slotIdFromTitle(title) {
  *   3. failing that, the first free slot at all, so no uploaded file is
  *      invisible.
  *
- * Anything past four is returned in `extra` rather than dropped — a panel that
+ * Anything past the slots is returned in `extra` rather than dropped — a panel that
  * silently stops showing a file the user uploaded is worse than one with a
  * fifth row.
  */
