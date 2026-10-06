@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components --
    A router module legitimately holds both the lazy page components and the
    `router` object; splitting them apart would only obscure the route tree. */
-import { lazy } from 'react'
+import lazy from '@/lib/lazyWithReload'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import AppLayout from '@/layouts/AppLayout'
